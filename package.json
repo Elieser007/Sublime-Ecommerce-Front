@@ -1,0 +1,22 @@
+{
+  "name": "sublime-ecommerce-front",
+  "type": "module",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.1.4",
+    "astro": "^7.1.3"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
