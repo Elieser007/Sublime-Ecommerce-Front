@@ -1,0 +1,97 @@
+---
+/**
+ * CategoryFilter component — Chromatic High-Contrast
+ * 
+ * Horizontal scrollable chip list for filtering products by category.
+ * Uses Chip component with alternating Cyan/Magenta variants.
+ */
+
+import Chip from './Chip.astro';
+
+interface Props {
+  categories: string[];
+  active?: string;
+}
+
+const { categories, active } = Astro.props;
+---
+
+<div class="category-filter">
+  <button
+    class:list={['filter-chip', { active: !active }]}
+    data-category="all"
+  >
+    Todos
+  </button>
+  {categories.map((cat, i) => (
+    <button
+      class:list={['filter-chip', { active: active === cat }]}
+      data-category={cat}
+    >
+      {cat}
+    </button>
+  ))}
+</div>
+
+<style>
+  .category-filter {
+    display: flex;
+    gap: var(--space-sm);
+    overflow-x: auto;
+    padding-bottom: var(--space-sm);
+    scrollbar-width: thin;
+    scrollbar-color: var(--outline-variant) transparent;
+  }
+
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-xs) var(--space-md);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--on-surface);
+    background: transparent;
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+
+  .filter-chip:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .filter-chip.active {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-primary);
+  }
+</style>
+
+<script>
+  // Client-side category filtering
+  document.querySelectorAll('[data-category]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      // Update active state
+      document.querySelectorAll('.filter-chip').forEach((c) => c.classList.remove('active'));
+      btn.classList.add('active');
+
+      const category = (btn as HTMLElement).dataset.category;
+
+      // Filter product cards
+      document.querySelectorAll('[data-product-category]').forEach((card) => {
+        const el = card as HTMLElement;
+        if (category === 'all' || el.dataset.productCategory === category) {
+          el.style.display = '';
+        } else {
+          el.style.display = 'none';
+        }
+      });
+    });
+  });
+</script>

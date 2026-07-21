@@ -1,0 +1,53 @@
+---
+/**
+ * ProductGrid component — Chromatic High-Contrast
+ * 
+ * Responsive grid for product cards.
+ * Mobile: 2 columns. Desktop: 12-col grid spanning 4 products per row.
+ */
+
+import ProductCard from './ProductCard.astro';
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  category?: string;
+}
+
+interface Props {
+  products: Product[];
+}
+
+const { products } = Astro.props;
+---
+
+<div class="product-grid grid">
+  {products.map((product) => (
+    <ProductCard
+      id={product.id}
+      name={product.name}
+      price={product.price}
+      image={product.image}
+      category={product.category}
+    />
+  ))}
+</div>
+
+<style>
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--gutter);
+  }
+
+  @media (min-width: 768px) {
+    .product-grid {
+      grid-template-columns: repeat(12, 1fr);
+    }
+
+    .product-grid > :global(*) {
+      grid-column: span 3;
+    }
+  }
+</style>

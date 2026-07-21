@@ -1,0 +1,50 @@
+---
+/**
+ * Chip component — Chromatic High-Contrast design system
+ * 
+ * Small rectangular boxes with Space Mono text.
+ * Used for categories or tags.
+ * Alternates between Cyan and Magenta backgrounds with Black text.
+ */
+
+interface Props {
+  variant?: 'primary' | 'secondary';
+  class?: string;
+}
+
+const {
+  variant = 'primary',
+  class: className = '',
+} = Astro.props;
+---
+
+<span class:list={['chip', `chip--${variant}`, className]}>
+  <slot />
+</span>
+
+<style>
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-xs) var(--space-sm);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: var(--border-radius);
+    white-space: nowrap;
+  }
+
+  /* Cyan background, Black text */
+  .chip--primary {
+    background-color: var(--primary);
+    color: var(--on-primary);
+  }
+
+  /* Magenta background, Black text */
+  .chip--secondary {
+    background-color: var(--secondary);
+    color: var(--on-secondary);
+  }
+</style>

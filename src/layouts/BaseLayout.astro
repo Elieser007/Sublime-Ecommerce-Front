@@ -1,0 +1,49 @@
+---
+/**
+ * BaseLayout — Sublime E-commerce
+ * 
+ * Main layout wrapping all pages.
+ * Includes: global CSS, Header, Footer, CMYK bar.
+ */
+
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+  cartCount?: number;
+}
+
+const {
+  title = 'Sublime E-commerce',
+  description = 'Arte & Diseño — Tu tienda de confianza',
+  cartCount = 0,
+} = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <Header cartCount={cartCount} />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>
+
+<style is:global>
+  /* Global styles already imported via CSS file */
+  main {
+    min-height: 100vh;
+  }
+</style>

@@ -1,0 +1,93 @@
+---
+/**
+ * AdminSidebar component — Chromatic High-Contrast
+ * 
+ * Navigation sidebar for admin sections.
+ * Fixed left sidebar on desktop, top nav on mobile.
+ */
+
+interface Props {
+  active?: string;
+}
+
+const { active = 'productos' } = Astro.props;
+
+const links = [
+  { id: 'productos', label: 'Productos', href: '/admin' },
+  { id: 'nuevo', label: 'Nuevo Producto', href: '/admin/nuevo' },
+  { id: 'config', label: 'Configuración', href: '/admin/config' },
+];
+---
+
+<aside class="admin-sidebar">
+  <nav class="sidebar-nav">
+    {links.map((link) => (
+      <a
+        href={link.href}
+        class:list={['sidebar-link', 'body-md', { active: active === link.id }]}
+      >
+        {link.label}
+      </a>
+    ))}
+  </nav>
+</aside>
+
+<style>
+  .admin-sidebar {
+    background-color: var(--surface-container);
+    border-right: var(--border-width) solid var(--outline-variant);
+    padding: var(--space-lg);
+    min-height: calc(100vh - 72px);
+  }
+
+  @media (max-width: 767px) {
+    .admin-sidebar {
+      border-right: none;
+      border-bottom: var(--border-width) solid var(--outline-variant);
+      min-height: auto;
+    }
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  @media (max-width: 767px) {
+    .sidebar-nav {
+      flex-direction: row;
+      overflow-x: auto;
+    }
+  }
+
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    padding: var(--space-md);
+    color: var(--on-surface-variant);
+    text-decoration: none;
+    border-radius: var(--border-radius);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .sidebar-link:hover {
+    color: var(--on-surface);
+    background-color: var(--surface-container-high);
+    text-decoration: none;
+  }
+
+  .sidebar-link.active {
+    color: var(--primary);
+    background-color: var(--surface-container-high);
+    border-left: 3px solid var(--primary);
+  }
+
+  @media (max-width: 767px) {
+    .sidebar-link.active {
+      border-left: none;
+      border-bottom: 3px solid var(--primary);
+    }
+  }
+</style>

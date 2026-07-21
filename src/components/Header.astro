@@ -1,0 +1,240 @@
+---
+/**
+ * Header component — Sublime E-commerce
+ * 
+ * Fixed top navigation with CMYK accent bar.
+ * Logo (Anton font) + nav links + cart icon.
+ * Mobile: hamburger menu.
+ */
+
+interface Props {
+  cartCount?: number;
+}
+
+const { cartCount = 0 } = Astro.props;
+---
+
+<header class="header">
+  <!-- CMYK accent bar at top -->
+  <div class="cmyk-bar">
+    <span></span><span></span><span></span>
+  </div>
+
+  <div class="header-inner container">
+    <!-- Logo -->
+    <a href="/" class="logo">
+      <span class="logo-text">SUBLIME</span>
+    </a>
+
+    <!-- Desktop Nav -->
+    <nav class="nav-desktop">
+      <a href="/" class="nav-link">Inicio</a>
+      <a href="/catalogo" class="nav-link">Catálogo</a>
+      <a href="/admin" class="nav-link nav-link--admin">Admin</a>
+    </nav>
+
+    <!-- Cart + Mobile Toggle -->
+    <div class="header-actions">
+      <a href="/carrito" class="cart-link" aria-label="Carrito de compras">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <path d="M16 10a4 4 0 01-8 0"/>
+        </svg>
+        {cartCount > 0 && (
+          <span class="cart-badge">{cartCount}</span>
+        )}
+      </a>
+
+      <button class="menu-toggle" aria-label="Abrir menú" id="menu-toggle">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Nav -->
+  <nav class="nav-mobile" id="nav-mobile">
+    <a href="/" class="nav-link">Inicio</a>
+    <a href="/catalogo" class="nav-link">Catálogo</a>
+    <a href="/admin" class="nav-link">Admin</a>
+  </nav>
+</header>
+
+<!-- Spacer for fixed header -->
+<div class="header-spacer"></div>
+
+<script>
+  // Mobile menu toggle
+  const toggle = document.getElementById('menu-toggle');
+  const nav = document.getElementById('nav-mobile');
+  
+  toggle?.addEventListener('click', () => {
+    nav?.classList.toggle('open');
+    toggle?.classList.toggle('open');
+  });
+</script>
+
+<style>
+  .header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background-color: var(--surface);
+  }
+
+  .header-spacer {
+    height: 72px; /* header height + cmyk bar */
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 68px;
+  }
+
+  /* Logo */
+  .logo {
+    text-decoration: none;
+    color: var(--on-surface);
+  }
+
+  .logo:hover {
+    text-decoration: none;
+  }
+
+  .logo-text {
+    font-family: var(--font-display);
+    font-size: 28px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* Desktop Nav */
+  .nav-desktop {
+    display: none;
+    gap: var(--space-xl);
+  }
+
+  @media (min-width: 768px) {
+    .nav-desktop {
+      display: flex;
+    }
+  }
+
+  .nav-link {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--on-surface-variant);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    transition: color 0.15s ease;
+  }
+
+  .nav-link:hover {
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  .nav-link--admin {
+    color: var(--tertiary);
+  }
+
+  /* Header Actions */
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .cart-link {
+    position: relative;
+    color: var(--on-surface);
+    display: flex;
+    align-items: center;
+  }
+
+  .cart-link:hover {
+    color: var(--primary);
+  }
+
+  .cart-badge {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    background-color: var(--secondary);
+    color: var(--on-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--border-radius);
+  }
+
+  /* Mobile Menu Toggle */
+  .menu-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--space-sm);
+  }
+
+  .menu-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background-color: var(--on-surface);
+    transition: all 0.2s ease;
+  }
+
+  .menu-toggle.open span:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+  }
+
+  .menu-toggle.open span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .menu-toggle.open span:nth-child(3) {
+    transform: rotate(-45deg) translate(5px, -5px);
+  }
+
+  @media (min-width: 768px) {
+    .menu-toggle {
+      display: none;
+    }
+  }
+
+  /* Mobile Nav */
+  .nav-mobile {
+    display: none;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-lg) var(--margin-mobile);
+    background-color: var(--surface);
+    border-top: var(--border-width) solid var(--outline-variant);
+  }
+
+  .nav-mobile.open {
+    display: flex;
+  }
+
+  @media (min-width: 768px) {
+    .nav-mobile {
+      display: none !important;
+    }
+  }
+</style>

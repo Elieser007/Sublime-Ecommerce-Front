@@ -1,0 +1,229 @@
+/* ============================================================
+   SUBMLIME E-COMMERCE — Design System
+   Chromatic High-Contrast / CMYK Palette
+   Sharp corners, 8px grid, Swiss-inspired functionalism
+   ============================================================ */
+
+/* --- Google Fonts --- */
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+/* --- CSS Custom Properties (Design Tokens) --- */
+:root {
+  /* Surface */
+  --surface: #131313;
+  --surface-dim: #131313;
+  --surface-bright: #393939;
+  --surface-container-lowest: #0e0e0e;
+  --surface-container-low: #1b1b1b;
+  --surface-container: #1f1f1f;
+  --surface-container-high: #2a2a2a;
+  --surface-container-highest: #353535;
+
+  /* On-surface */
+  --on-surface: #e2e2e2;
+  --on-surface-variant: #bdc8d1;
+
+  /* Inverse */
+  --inverse-surface: #e2e2e2;
+  --inverse-on-surface: #303030;
+
+  /* Outline */
+  --outline: #87929b;
+  --outline-variant: #3e4850;
+
+  /* Primary (Cyan) */
+  --primary: #82cfff;
+  --on-primary: #00344b;
+  --primary-container: #00aeef;
+  --on-primary-container: #003e58;
+
+  /* Secondary (Magenta) */
+  --secondary: #ffb0cc;
+  --on-secondary: #640038;
+  --secondary-container: #ff45a1;
+  --on-secondary-container: #580031;
+
+  /* Tertiary (Yellow) */
+  --tertiary: #d5ca00;
+  --on-tertiary: #353200;
+  --tertiary-container: #afa600;
+  --on-tertiary-container: #3e3a00;
+
+  /* Error */
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+
+  /* Background */
+  --background: #131313;
+  --on-background: #e2e2e2;
+
+  /* Typography */
+  --font-display: 'Anton', sans-serif;
+  --font-body: 'Hanken Grotesk', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+
+  /* Spacing (8px grid) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 128px;
+
+  /* Layout */
+  --gutter: 24px;
+  --margin-mobile: 16px;
+  --margin-desktop: 64px;
+  --section-gap: 128px;
+  --max-width: 1280px;
+
+  /* Border */
+  --border-radius: 0px;
+  --border-width: 1px;
+  --border-hard: 2px;
+}
+
+/* --- Reset & Base --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--background);
+  color: var(--on-background);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* --- Typography Scale --- */
+.display-lg {
+  font-family: var(--font-display);
+  font-size: 80px;
+  font-weight: 400;
+  line-height: 88px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.headline-lg {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 56px;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.headline-lg-mobile {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 38px;
+  text-transform: uppercase;
+}
+
+.body-lg {
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 28px;
+}
+
+.body-md {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+.label-sm {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* --- Layout Utilities --- */
+.container {
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--margin-mobile);
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: 0 var(--margin-desktop);
+  }
+}
+
+.section {
+  margin-bottom: var(--section-gap);
+}
+
+/* --- Grid (12-col desktop, 4-col mobile) --- */
+.grid {
+  display: grid;
+  gap: var(--gutter);
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(12, 1fr);
+  }
+}
+
+/* --- CMYK Progress Bar --- */
+.cmyk-bar {
+  display: flex;
+  width: 100%;
+  height: 4px;
+}
+
+.cmyk-bar span:nth-child(1) {
+  flex: 1;
+  background-color: var(--primary);
+}
+
+.cmyk-bar span:nth-child(2) {
+  flex: 1;
+  background-color: var(--secondary);
+}
+
+.cmyk-bar span:nth-child(3) {
+  flex: 1;
+  background-color: var(--tertiary);
+}

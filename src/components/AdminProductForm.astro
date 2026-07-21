@@ -1,0 +1,133 @@
+---
+/**
+ * AdminProductForm component — Chromatic High-Contrast
+ * 
+ * Product add/edit form with image upload.
+ * Uses bottom-border inputs, sharp corners, CMYK accents.
+ */
+
+import Input from './Input.astro';
+import Button from './Button.astro';
+import ImageUploader from './ImageUploader.astro';
+
+interface Props {
+  product?: {
+    id?: string;
+    name?: string;
+    price?: number;
+    category?: string;
+    description?: string;
+    image?: string;
+  };
+  mode?: 'create' | 'edit';
+}
+
+const { product, mode = 'create' } = Astro.props;
+const title = mode === 'create' ? 'Nuevo Producto' : 'Editar Producto';
+---
+
+<div class="admin-form-wrapper">
+  <h2 class="headline-lg-mobile">{title}</h2>
+
+  <form class="admin-form" id="product-form">
+    <!-- Image Upload -->
+    <ImageUploader currentImage={product?.image} />
+
+    <!-- Product Fields -->
+    <div class="form-grid">
+      <Input
+        name="name"
+        label="Nombre del producto"
+        placeholder="Ej: Camiseta Sublime Básica"
+        value={product?.name || ''}
+        required
+      />
+
+      <Input
+        name="price"
+        label="Precio (Gs.)"
+        type="number"
+        placeholder="Ej: 120000"
+        value={product?.price?.toString() || ''}
+        required
+      />
+
+      <Input
+        name="category"
+        label="Categoría"
+        placeholder="Ej: Ropa, Arte, Accesorios"
+        value={product?.category || ''}
+        required
+      />
+
+      <Input
+        name="description"
+        label="Descripción"
+        placeholder="Descripción del producto..."
+        value={product?.description || ''}
+      />
+    </div>
+
+    <!-- Actions -->
+    <div class="form-actions">
+      <Button variant="ghost" href="/admin">Cancelar</Button>
+      <Button variant="primary" type="submit">
+        {mode === 'create' ? 'Crear Producto' : 'Guardar Cambios'}
+      </Button>
+    </div>
+  </form>
+</div>
+
+<style>
+  .admin-form-wrapper {
+    max-width: 720px;
+  }
+
+  .admin-form-wrapper h2 {
+    color: var(--on-surface);
+    margin-bottom: var(--space-2xl);
+  }
+
+  .admin-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-xl);
+  }
+
+  @media (min-width: 768px) {
+    .form-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .form-actions {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: flex-end;
+    padding-top: var(--space-lg);
+    border-top: var(--border-width) solid var(--outline-variant);
+  }
+</style>
+
+<script>
+  // Form submission handler
+  const form = document.getElementById('product-form');
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(form as HTMLFormElement);
+    const data = Object.fromEntries(formData.entries());
+
+    // TODO: Call backend API to create/update product
+    console.log('Product data:', data);
+
+    // For now, redirect to admin
+    window.location.href = '/admin';
+  });
+</script>

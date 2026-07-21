@@ -1,0 +1,81 @@
+---
+/**
+ * Input component — Chromatic High-Contrast design system
+ * 
+ * Bottom-border only (2px thick).
+ * Border: White by default, Yellow (tertiary) on focus.
+ * Sharp corners (0px radius).
+ */
+
+interface Props {
+  type?: string;
+  name: string;
+  placeholder?: string;
+  label?: string;
+  required?: boolean;
+  class?: string;
+  id?: string;
+}
+
+const {
+  type = 'text',
+  name,
+  placeholder = '',
+  label,
+  required = false,
+  class: className = '',
+  id,
+} = Astro.props;
+
+const inputId = id || name;
+---
+
+<div class:list={['input-wrapper', className]}>
+  {label && (
+    <label for={inputId} class="input-label label-sm">
+      {label}
+    </label>
+  )}
+  <input
+    type={type}
+    name={name}
+    id={inputId}
+    placeholder={placeholder}
+    required={required}
+    class="input"
+  />
+</div>
+
+<style>
+  .input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .input-label {
+    color: var(--on-surface-variant);
+  }
+
+  .input {
+    width: 100%;
+    padding: var(--space-md) 0;
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--on-surface);
+    background: transparent;
+    border: none;
+    border-bottom: var(--border-hard) solid var(--on-surface);
+    border-radius: var(--border-radius);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .input::placeholder {
+    color: var(--outline);
+  }
+
+  .input:focus {
+    border-bottom-color: var(--tertiary);
+  }
+</style>

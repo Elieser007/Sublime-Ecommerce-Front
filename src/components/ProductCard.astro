@@ -1,0 +1,181 @@
+---
+/**
+ * ProductCard component — Chromatic High-Contrast design system
+ * 
+ * Card with no background (transparent), 1px White border.
+ * On hover, border transitions to CMYK brand colors.
+ * Sharp corners (0px radius).
+ * 
+ * Shows: product image, name, price, category chip.
+ */
+
+interface Props {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  category?: string;
+}
+
+const { id, name, price, image, category } = Astro.props;
+
+// Format price in Guaraníes (no decimals)
+const formattedPrice = new Intl.NumberFormat('es-PY', {
+  style: 'decimal',
+  maximumFractionDigits: 0,
+}).format(price);
+---
+
+<article class="product-card">
+  <a href={`/producto/${id}`} class="product-link">
+    <!-- Image container -->
+    <div class="product-image-wrapper">
+      <img
+        src={image}
+        alt={name}
+        class="product-image"
+        loading="lazy"
+        width="400"
+        height="400"
+      />
+    </div>
+
+    <!-- Info -->
+    <div class="product-info">
+      {category && (
+        <span class="product-category label-sm">{category}</span>
+      )}
+      <h3 class="product-name body-lg">{name}</h3>
+      <p class="product-price body-lg">Gs. {formattedPrice}</p>
+    </div>
+  </a>
+
+  <!-- Add to cart button (client-side) -->
+  <button
+    class="product-add-btn btn btn--secondary"
+    data-product-id={id}
+    data-product-name={name}
+    data-product-price={price}
+    data-product-image={image}
+    aria-label={`Agregar ${name} al carrito`}
+  >
+    Agregar al carrito
+  </button>
+</article>
+
+<style>
+  .product-card {
+    display: flex;
+    flex-direction: column;
+    border: var(--border-width) solid var(--on-surface);
+    transition: border-color 0.2s ease;
+  }
+
+  .product-card:hover {
+    border-color: var(--primary);
+  }
+
+  .product-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .product-link:hover {
+    text-decoration: none;
+  }
+
+  /* Image */
+  .product-image-wrapper {
+    aspect-ratio: 1;
+    overflow: hidden;
+    background-color: var(--surface-container);
+  }
+
+  .product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+
+  .product-card:hover .product-image {
+    transform: scale(1.05);
+  }
+
+  /* Info */
+  .product-info {
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    flex: 1;
+  }
+
+  .product-category {
+    color: var(--secondary);
+  }
+
+  .product-name {
+    color: var(--on-surface);
+    font-weight: 600;
+  }
+
+  .product-price {
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  /* Add to cart button */
+  .product-add-btn {
+    width: 100%;
+    border-top: var(--border-width) solid var(--outline-variant);
+    border-radius: 0;
+    padding: var(--space-md);
+  }
+</style>
+
+<script>
+  // Client-side: Add to cart (LocalStorage)
+  document.querySelectorAll('[data-product-id]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const el = btn as HTMLElement;
+      const product = {
+        id: el.dataset.productId,
+        name: el.dataset.productName,
+        price: Number(el.dataset.productPrice),
+        image: el.dataset.productImage,
+        quantity: 1,
+      };
+
+      // Read existing cart from LocalStorage
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+
+      // Check if product already exists
+      const existing = cart.find((item: any) => item.id === product.id);
+      if (existing) {
+        existing.quantity += 1;
+      } else {
+        cart.push(product);
+      }
+
+      // Save back to LocalStorage
+      localStorage.setItem('cart', JSON.stringify(cart));
+
+      // Update cart badge
+      const badge = document.querySelector('.cart-badge');
+      if (badge) {
+        const total = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
+        badge.textContent = total.toString();
+      }
+
+      // Visual feedback
+      btn.textContent = '¡Agregado!';
+      setTimeout(() => {
+        btn.textContent = 'Agregar al carrito';
+      }, 1500);
+    });
+  });
+</script>

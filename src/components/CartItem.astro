@@ -1,0 +1,180 @@
+---
+/**
+ * CartItem component — Chromatic High-Contrast
+ * 
+ * Single product row in the cart.
+ * Shows: image, name, price, QuantityControl, remove button, subtotal.
+ */
+
+import QuantityControl from './QuantityControl.astro';
+
+interface Props {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  quantity: number;
+}
+
+const { id, name, price, quantity, image } = Astro.props;
+
+const formattedPrice = new Intl.NumberFormat('es-PY', {
+  style: 'decimal',
+  maximumFractionDigits: 0,
+}).format(price);
+
+const subtotal = price * quantity;
+const formattedSubtotal = new Intl.NumberFormat('es-PY', {
+  style: 'decimal',
+  maximumFractionDigits: 0,
+}).format(subtotal);
+---
+
+<div class="cart-item" data-product-id={id}>
+  <!-- Image -->
+  <div class="cart-item-image">
+    <img src={image} alt={name} width="80" height="80" loading="lazy" />
+  </div>
+
+  <!-- Info -->
+  <div class="cart-item-info">
+    <h3 class="cart-item-name body-lg">{name}</h3>
+    <p class="cart-item-price label-sm">Gs. {formattedPrice} c/u</p>
+  </div>
+
+  <!-- Quantity -->
+  <div class="cart-item-qty">
+    <QuantityControl productId={id} quantity={quantity} />
+  </div>
+
+  <!-- Subtotal -->
+  <div class="cart-item-subtotal">
+    <span class="label-sm">Subtotal</span>
+    <p class="cart-item-total body-lg">Gs. {formattedSubtotal}</p>
+  </div>
+
+  <!-- Remove -->
+  <button
+    class="cart-item-remove"
+    data-remove-id={id}
+    aria-label={`Eliminar ${name} del carrito`}
+  >
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
+</div>
+
+<style>
+  .cart-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-md);
+    align-items: center;
+    padding: var(--space-lg) 0;
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+
+  @media (min-width: 768px) {
+    .cart-item {
+      grid-template-columns: 80px 1fr auto auto auto;
+    }
+  }
+
+  .cart-item-image {
+    width: 80px;
+    height: 80px;
+    overflow: hidden;
+    background-color: var(--surface-container);
+  }
+
+  .cart-item-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .cart-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .cart-item-name {
+    color: var(--on-surface);
+    font-weight: 600;
+  }
+
+  .cart-item-price {
+    color: var(--on-surface-variant);
+  }
+
+  .cart-item-subtotal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    text-align: right;
+  }
+
+  .cart-item-subtotal .label-sm {
+    color: var(--outline);
+  }
+
+  .cart-item-total {
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  .cart-item-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: none;
+    color: var(--outline);
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+
+  .cart-item-remove:hover {
+    color: var(--error);
+  }
+</style>
+
+<script>
+  // Client-side remove from cart
+  document.querySelectorAll('[data-remove-id]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const el = btn as HTMLElement;
+      const productId = el.dataset.removeId;
+
+      // Remove from LocalStorage
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const updated = cart.filter((item: any) => item.id !== productId);
+      localStorage.setItem('cart', JSON.stringify(updated));
+
+      // Remove DOM element
+      const cartItem = el.closest('.cart-item');
+      cartItem?.remove();
+
+      // Dispatch event for CartSummary to recalculate
+      window.dispatchEvent(new CustomEvent('cart-updated'));
+
+      // Show empty state if no items
+      if (updated.length === 0) {
+        const container = document.getElementById('cart-items');
+        if (container) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <p class="body-lg">Tu carrito está vacío</p>
+              <a href="/catalogo" class="btn btn--primary">Ver Catálogo</a>
+            </div>
+          `;
+        }
+      }
+    });
+  });
+</script>
