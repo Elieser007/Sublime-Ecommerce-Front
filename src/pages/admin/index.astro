@@ -1,0 +1,68 @@
+---
+/**
+ * Admin Dashboard — Sublime E-commerce
+ * 
+ * Product list with edit/delete actions.
+ * Uses AdminSidebar + AdminTable components.
+ */
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminSidebar from '../../components/AdminSidebar.astro';
+import AdminTable from '../../components/AdminTable.astro';
+
+// Placeholder products
+const products = [
+  { id: '1', name: 'Camiseta Sublime Básica', price: 120000, category: 'Ropa', image: '/placeholder-product.svg' },
+  { id: '2', name: 'Estampa CMYK Edición Limitada', price: 250000, category: 'Arte', image: '/placeholder-product.svg' },
+  { id: '3', name: 'Tote Bag Sublime', price: 85000, category: 'Accesorios', image: '/placeholder-product.svg' },
+  { id: '4', name: 'Poster High Contrast', price: 95000, category: 'Arte', image: '/placeholder-product.svg' },
+];
+---
+
+<BaseLayout title="Admin — Sublime E-commerce">
+  <div class="admin-layout">
+    <AdminSidebar active="productos" />
+
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1 class="headline-lg-mobile">Productos</h1>
+        <a href="/admin/nuevo" class="btn btn--primary">
+          + Nuevo Producto
+        </a>
+      </div>
+
+      <AdminTable products={products} />
+    </main>
+  </div>
+</BaseLayout>
+
+<style>
+  .admin-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: calc(100vh - 72px);
+  }
+
+  @media (min-width: 768px) {
+    .admin-layout {
+      grid-template-columns: 240px 1fr;
+    }
+  }
+
+  .admin-main {
+    padding: var(--space-2xl);
+  }
+
+  .admin-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-2xl);
+    flex-wrap: wrap;
+    gap: var(--space-md);
+  }
+
+  .admin-header h1 {
+    color: var(--on-surface);
+  }
+</style>

@@ -1,0 +1,201 @@
+---
+/**
+ * Carrito page — Sublime E-commerce
+ * 
+ * Shopping cart with item list and summary.
+ * Cart data lives in LocalStorage (client-side only).
+ * Checkout generates WhatsApp link.
+ */
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CartItem from '../components/CartItem.astro';
+import CartSummary from '../components/CartSummary.astro';
+
+// Placeholder data — in production, loaded from LocalStorage via client-side JS
+const placeholderItems = [
+  { id: '1', name: 'Camiseta Sublime Básica', price: 120000, image: '/placeholder-product.svg', quantity: 2 },
+  { id: '3', name: 'Tote Bag Sublime', price: 85000, image: '/placeholder-product.svg', quantity: 1 },
+];
+---
+
+<BaseLayout title="Carrito — Sublime E-commerce">
+  <section class="cart-page">
+    <div class="container">
+      <h1 class="headline-lg-mobile">Carrito</h1>
+
+      <div class="cart-layout">
+        <!-- Cart Items -->
+        <div class="cart-items" id="cart-items">
+          {placeholderItems.map((item) => (
+            <CartItem
+              id={item.id}
+              name={item.name}
+              price={item.price}
+              image={item.image}
+              quantity={item.quantity}
+            />
+          ))}
+        </div>
+
+        <!-- Cart Summary -->
+        <aside class="cart-aside">
+          <CartSummary />
+        </aside>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .cart-page {
+    padding: var(--space-3xl) 0;
+  }
+
+  .cart-page h1 {
+    color: var(--on-surface);
+    margin-bottom: var(--space-2xl);
+  }
+
+  .cart-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-2xl);
+  }
+
+  @media (min-width: 768px) {
+    .cart-layout {
+      grid-template-columns: 1fr 360px;
+    }
+  }
+
+  .cart-items {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cart-aside {
+    position: sticky;
+    top: 100px;
+    align-self: start;
+  }
+
+  :global(.empty-state) {
+    text-align: center;
+    padding: var(--space-4xl) 0;
+  }
+
+  :global(.empty-state p) {
+    color: var(--on-surface-variant);
+    margin-bottom: var(--space-lg);
+  }
+</style>
+
+<script>
+  // Load cart from LocalStorage on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const container = document.getElementById('cart-items');
+
+    if (!container) return;
+
+    if (cart.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <p class="body-lg">Tu carrito está vacío</p>
+          <a href="/catalogo" class="btn btn--primary">Ver Catálogo</a>
+        </div>
+      `;
+      return;
+    }
+
+    // Render cart items from LocalStorage
+    container.innerHTML = cart.map((item: any) => {
+      const fmt = (n: number) => new Intl.NumberFormat('es-PY', { style: 'decimal', maximumFractionDigits: 0 }).format(n);
+      const subtotal = fmt(item.price * item.quantity);
+
+      return `
+        <div class="cart-item" data-product-id="${item.id}">
+          <div class="cart-item-image">
+            <img src="${item.image}" alt="${item.name}" width="80" height="80" loading="lazy" />
+          </div>
+          <div class="cart-item-info">
+            <h3 class="cart-item-name body-lg">${item.name}</h3>
+            <p class="cart-item-price label-sm">Gs. ${fmt(item.price)} c/u</p>
+          </div>
+          <div class="cart-item-qty">
+            <div class="quantity-control">
+              <button class="qty-btn" data-action="decrease" data-product-id="${item.id}">−</button>
+              <input type="number" class="qty-input" value="${item.quantity}" min="1" max="99" data-product-id="${item.id}" readonly />
+              <button class="qty-btn" data-action="increase" data-product-id="${item.id}">+</button>
+            </div>
+          </div>
+          <div class="cart-item-subtotal">
+            <span class="label-sm">Subtotal</span>
+            <p class="cart-item-total body-lg">Gs. ${subtotal}</p>
+          </div>
+          <button class="cart-item-remove" data-remove-id="${item.id}" aria-label="Eliminar ${item.name}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    // Re-attach event listeners
+    attachCartListeners();
+  });
+
+  function attachCartListeners() {
+    // Quantity controls
+    document.querySelectorAll('[data-action]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const el = btn as HTMLElement;
+        const action = el.dataset.action;
+        const productId = el.dataset.productId;
+        const input = document.querySelector(`.qty-input[data-product-id="${productId}"]`) as HTMLInputElement;
+        if (!input) return;
+
+        let value = parseInt(input.value) || 1;
+        if (action === 'increase') value = Math.min(value + 1, 99);
+        if (action === 'decrease') value = Math.max(value - 1, 1);
+        input.value = value.toString();
+
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const item = cart.find((i: any) => i.id === productId);
+        if (item) {
+          item.quantity = value;
+          localStorage.setItem('cart', JSON.stringify(cart));
+        }
+        window.dispatchEvent(new CustomEvent('cart-updated'));
+      });
+    });
+
+    // Remove buttons
+    document.querySelectorAll('[data-remove-id]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const el = btn as HTMLElement;
+        const productId = el.dataset.removeId;
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const updated = cart.filter((item: any) => item.id !== productId);
+        localStorage.setItem('cart', JSON.stringify(updated));
+
+        const cartItem = el.closest('.cart-item');
+        cartItem?.remove();
+        window.dispatchEvent(new CustomEvent('cart-updated'));
+
+        if (updated.length === 0) {
+          const container = document.getElementById('cart-items');
+          if (container) {
+            container.innerHTML = `
+              <div class="empty-state">
+                <p class="body-lg">Tu carrito está vacío</p>
+                <a href="/catalogo" class="btn btn--primary">Ver Catálogo</a>
+              </div>
+            `;
+          }
+        }
+      });
+    });
+  }
+</script>

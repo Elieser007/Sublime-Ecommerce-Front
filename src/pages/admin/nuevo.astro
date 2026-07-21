@@ -1,0 +1,40 @@
+---
+/**
+ * Admin — Nuevo Producto
+ * 
+ * Form to create a new product.
+ * Uses AdminProductForm with mode="create".
+ */
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminSidebar from '../../components/AdminSidebar.astro';
+import AdminProductForm from '../../components/AdminProductForm.astro';
+---
+
+<BaseLayout title="Nuevo Producto — Admin">
+  <div class="admin-layout">
+    <AdminSidebar active="nuevo" />
+
+    <main class="admin-main">
+      <AdminProductForm mode="create" />
+    </main>
+  </div>
+</BaseLayout>
+
+<style>
+  .admin-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: calc(100vh - 72px);
+  }
+
+  @media (min-width: 768px) {
+    .admin-layout {
+      grid-template-columns: 240px 1fr;
+    }
+  }
+
+  .admin-main {
+    padding: var(--space-2xl);
+  }
+</style>
