@@ -57,7 +57,10 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
       <div class="shop-grid">
         <!-- Desktop Sidebar: Category Tree -->
         <aside class="shop-sidebar">
-          <h2 class="sidebar-title label-sm">Categorías</h2>
+          <div class="sidebar-search">
+                <SearchBar />
+              </div>
+              <h2 class="sidebar-title label-sm">Categorías</h2>
           <!-- Loading state for category tree -->
           <div id="category-tree-loading" class="sidebar-loading">
             <div class="skeleton-line"></div>
@@ -354,8 +357,19 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
       </div>`;
     document.body.appendChild(panel);
     panel.querySelector('#close-categories')?.addEventListener('click', () => { panel.style.display = 'none'; });
-    panel.querySelector('.mobile-panel-overlay')?.addEventListener('click', (e) => {
+    // Click overlay background to close
+    panel.addEventListener('click', (e) => {
       if (e.target === panel) panel.style.display = 'none';
+    });
+    // Mobile category items dispatch filter event
+    panel.querySelectorAll('.mobile-cat-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        const filter = item.dataset.filter;
+        if (filter) {
+          window.dispatchEvent(new CustomEvent('category-select', { detail: { category: filter } }));
+          panel.style.display = 'none';
+        }
+      });
     });
   });
 
