@@ -21,10 +21,6 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
 ---
 
 <BaseLayout title="Sublime — Shop">
-  <!-- 1. Top promotions -->
-  <PromotionWall section="always-catalog-top" />
-  <PromotionWall section="home-catalog-top" />
-
   <!-- Mobile: Action Buttons -->
   <div class="mobile-actions">
     <button class="mobile-action-btn" id="open-categories">
@@ -107,11 +103,9 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
     </div>
   </section>
 
-  <!-- 3. Bottom promotions -->
-  <PromotionWall section="home-catalog-bottom" />
-  <PromotionWall section="always-catalog-bottom" />
-
-  <!-- Mobile Panels (rendered by JS) -->
+  <!-- Bottom banner -->
+      <PromotionWall section="always-catalog-bottom" />
+    <!-- Mobile Panels (rendered by JS) -->
   <div id="mobile-category-panel-container"></div>
   <MobileFilterPanel />
 </BaseLayout>
