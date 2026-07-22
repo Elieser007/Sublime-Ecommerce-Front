@@ -16,6 +16,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import PromotionWall from '../components/PromotionWall.astro';
 import ProductCard from '../components/ProductCard.astro';
 import CategoryTree from '../components/CategoryTree.astro';
+import CategoryFilter from '../components/CategoryFilter.astro';
+import SearchBar from '../components/SearchBar.astro';
 import MobileCategoryPanel from '../components/MobileCategoryPanel.astro';
 import MobileFilterPanel from '../components/MobileFilterPanel.astro';
 ---
@@ -134,6 +136,16 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
   const $retryProducts = document.getElementById('retry-products');
   const $retryCategories = document.getElementById('retry-categories');
 
+      // Helper: normalize string to slug (matches backend slugify)
+      function slugify(str) {
+        if (!str) return '';
+        return str.toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      }
+
   // ─── RENDER CATEGORY TREE ──────────────────────────────
   async function loadCategoryTree() {
     try {
@@ -214,7 +226,9 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
         const price = formatPrice(product.base_price);
         const category = product.section_name || '';
 
-        html += `<div class="product-wrapper" data-category="${(product.section_name || product.category_name || '').toLowerCase()}">
+        const secSlug = slugify(product.section_name);
+            const catSlug = slugify(product.category_name);
+            html += `<div class="product-wrapper" data-category="${secSlug}" data-section-slug="${secSlug}" data-category-slug="${catSlug}" data-product-name="${product.name}" data-product-category="${secSlug}"
           <article class="product-card">
             <a href="/producto/${product.id}" class="product-link">
               <div class="product-image-wrapper">
