@@ -80,13 +80,13 @@ describe("buildCartMessage", () => {
 
 describe("generateWhatsAppUrl", () => {
   it("generates valid wa.me URL", () => {
-    const url = generateWhatsAppUrl(mockCart, "595000000000");
+    const url = generateWhatsAppUrl(mockCart, "595991969608");
 
-    expect(url).toMatch(/^https:\/\/wa\.me\/595000000000\?text=/);
+    expect(url).toMatch(/^https:\/\/wa\.me\/595991969608\?text=/);
   });
 
   it("encodes message in URL", () => {
-    const url = generateWhatsAppUrl(mockCart, "595000000000");
+    const url = generateWhatsAppUrl(mockCart, "595991969608");
 
     // URL should contain encoded text parameter
     expect(url).toContain("text=");
@@ -94,13 +94,13 @@ describe("generateWhatsAppUrl", () => {
   });
 
   it("returns hash for empty cart", () => {
-    const url = generateWhatsAppUrl([], "595000000000");
+    const url = generateWhatsAppUrl([], "595991969608");
 
     expect(url).toBe("#");
   });
 
   it("includes product names in encoded text", () => {
-    const url = generateWhatsAppUrl(mockCart, "595000000000");
+    const url = generateWhatsAppUrl(mockCart, "595991969608");
     const textParam = decodeURIComponent(url.split("text=")[1]);
 
     expect(textParam).toContain("Camiseta Básica");
