@@ -75,7 +75,7 @@ import Button from '../components/Button.astro';
 
         <div class="auth-footer">
           <p class="body-md">¿No tenés cuenta?</p>
-          <a href="/registro" class="auth-link label-sm">Crear cuenta</a>
+          <a href="/register" class="auth-link label-sm">Crear cuenta</a>
         </div>
       </div>
     </div>
@@ -244,8 +244,8 @@ import Button from '../components/Button.astro';
         return;
       }
 
-      // Success — redirect to admin or home
-      window.location.href = '/admin';
+      // Success — redirect to protected dashboard
+      window.location.href = '/dashboard';
     } catch (err) {
       showError('Error de conexión. Intentá de nuevo.');
     }
@@ -253,12 +253,12 @@ import Button from '../components/Button.astro';
 
   // Google OAuth
   document.getElementById('google-login')?.addEventListener('click', () => {
-    window.location.href = `${API_URL}/api/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(window.location.origin + '/admin')}`;
+    window.location.href = `${API_URL}/api/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(window.location.origin + '/dashboard')}`;
   });
 
   // Facebook OAuth
   document.getElementById('facebook-login')?.addEventListener('click', () => {
-    window.location.href = `${API_URL}/api/auth/sign-in/social?provider=facebook&callbackURL=${encodeURIComponent(window.location.origin + '/admin')}`;
+    window.location.href = `${API_URL}/api/auth/sign-in/social?provider=facebook&callbackURL=${encodeURIComponent(window.location.origin + '/dashboard')}`;
   });
 
   function showError(msg: string) {

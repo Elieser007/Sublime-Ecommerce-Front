@@ -1,0 +1,458 @@
+---
+/**
+ * Admin Categories — Manage Sections, Categories, Subcategories
+ * 
+ * Uses reusable components: DataTable, TableAction, Badge
+ */
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminSidebar from '../../components/AdminSidebar.astro';
+import DataTable from '../../components/admin/DataTable.astro';
+import TableAction from '../../components/admin/TableAction.astro';
+import Badge from '../../components/admin/Badge.astro';
+
+const sectionColumns = [
+  { key: 'name', label: 'Nombre' },
+  { key: 'slug', label: 'Slug' },
+  { key: 'description', label: 'Descripción' },
+  { key: 'status', label: 'Estado' },
+  { key: 'actions', label: 'Acciones', width: '100px' },
+];
+
+const categoryColumns = [
+  { key: 'name', label: 'Nombre' },
+  { key: 'section', label: 'Sección' },
+  { key: 'slug', label: 'Slug' },
+  { key: 'status', label: 'Estado' },
+  { key: 'actions', label: 'Acciones', width: '100px' },
+];
+
+const subcategoryColumns = [
+  { key: 'name', label: 'Nombre' },
+  { key: 'category', label: 'Categoría' },
+  { key: 'slug', label: 'Slug' },
+  { key: 'status', label: 'Estado' },
+  { key: 'actions', label: 'Acciones', width: '100px' },
+];
+---
+
+<BaseLayout title="Categorías — Admin">
+  <div class="admin-layout">
+    <AdminSidebar active="categories" />
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1 class="headline-lg-mobile">Categorías</h1>
+        <p class="body-md admin-subtitle">Sección → Categoría → Subcategoría</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="sections">📁 Secciones</button>
+        <button class="tab" data-tab="categories">📦 Categorías</button>
+        <button class="tab" data-tab="subcategories">🏷️ Subcategorías</button>
+      </div>
+
+      <!-- Sections Tab -->
+      <div class="tab-content active" id="tab-sections">
+        <div class="content-header">
+          <div class="content-info">
+            <h2 class="body-lg">Secciones</h2>
+            <p class="label-sm content-desc">Grupo macro de artículos</p>
+          </div>
+          <button class="btn btn--primary" id="add-section">
+            <span class="btn-icon">+</span>
+            Nueva Sección
+          </button>
+        </div>
+        <p class="body-md examples">
+          Ej: <span class="example-tag">Indumentaria</span> <span class="example-tag">Accesorios</span> <span class="example-tag">Papelería</span>
+        </p>
+        <DataTable columns={sectionColumns}>
+          <tr id="sections-loading"><td colspan="5" class="empty-cell">Cargando...</td></tr>
+        </DataTable>
+      </div>
+
+      <!-- Categories Tab -->
+      <div class="tab-content" id="tab-categories">
+        <div class="content-header">
+          <div class="content-info">
+            <h2 class="body-lg">Categorías</h2>
+            <p class="label-sm content-desc">Producto base a sublimar</p>
+          </div>
+          <button class="btn btn--primary" id="add-category">
+            <span class="btn-icon">+</span>
+            Nueva Categoría
+          </button>
+        </div>
+        <p class="body-md examples">
+          Ej: <span class="example-tag">Remeras</span> <span class="example-tag">Tazas</span> <span class="example-tag">Termos</span>
+        </p>
+        <DataTable columns={categoryColumns}>
+          <tr id="categories-loading"><td colspan="5" class="empty-cell">Cargando...</td></tr>
+        </DataTable>
+      </div>
+
+      <!-- Subcategories Tab -->
+      <div class="tab-content" id="tab-subcategories">
+        <div class="content-header">
+          <div class="content-info">
+            <h2 class="body-lg">Subcategorías</h2>
+            <p class="label-sm content-desc">Detalle técnico o temática</p>
+          </div>
+          <button class="btn btn--primary" id="add-subcategory">
+            <span class="btn-icon">+</span>
+            Nueva Subcategoría
+          </button>
+        </div>
+        <p class="body-md examples">
+          Ej: <span class="example-tag">Anime</span> <span class="example-tag">Frases</span> <span class="example-tag">Tazas Mágicas</span>
+        </p>
+        <DataTable columns={subcategoryColumns}>
+          <tr id="subcategories-loading"><td colspan="5" class="empty-cell">Cargando...</td></tr>
+        </DataTable>
+      </div>
+
+      <!-- Modal -->
+      <div class="modal-overlay" id="modal-overlay" style="display: none;">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 class="headline-lg-mobile" id="modal-title">Nuevo</h3>
+            <button class="modal-close" id="modal-close">✕</button>
+          </div>
+          <form class="modal-form" id="modal-form">
+            <input type="hidden" id="modal-id" />
+            <input type="hidden" id="modal-type" />
+            <div class="form-group">
+              <label class="label-sm">Nombre *</label>
+              <input type="text" name="name" class="form-input body-md" required />
+            </div>
+            <div class="form-group" id="parent-group" style="display: none;">
+              <label class="label-sm" id="parent-label">Sección</label>
+              <select name="parentId" class="form-select body-md" id="parent-select">
+                <option value="">Seleccionar...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="label-sm">Descripción</label>
+              <textarea name="description" class="form-textarea body-md" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="label-sm">Orden</label>
+              <input type="number" name="sortOrder" class="form-input body-md" value="0" />
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn--secondary" id="modal-cancel">Cancelar</button>
+              <button type="submit" class="btn btn--primary">Guardar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+</BaseLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  let sections: any[] = [];
+  let categories: any[] = [];
+  let subcategories: any[] = [];
+
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach((c) => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(`tab-${(tab as HTMLElement).dataset.tab}`)?.classList.add('active');
+    });
+  });
+
+  async function loadSections() {
+    const res = await fetch(`${API_URL}/api/sections`, { credentials: 'include' });
+    if (res.ok) { const data = await res.json(); sections = data.sections || []; renderSections(); }
+  }
+
+  async function loadCategories() {
+    const res = await fetch(`${API_URL}/api/categories`, { credentials: 'include' });
+    if (res.ok) { const data = await res.json(); categories = data.categories || []; renderCategories(); }
+  }
+
+  async function loadSubcategories() {
+    const res = await fetch(`${API_URL}/api/subcategories`, { credentials: 'include' });
+    if (res.ok) { const data = await res.json(); subcategories = data.subcategories || []; renderSubcategories(); }
+  }
+
+  function renderSections() {
+    const tbody = document.querySelector('#tab-sections tbody');
+    if (!tbody) return;
+    if (sections.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No hay secciones</td></tr>'; return; }
+    tbody.innerHTML = sections.map((s) => `
+      <tr>
+        <td><strong>${s.name}</strong></td>
+        <td><code class="slug-badge">${s.slug}</code></td>
+        <td>${s.description || '—'}</td>
+        <td><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
+        <td>
+          <div class="cell-actions">
+            <button class="ta-btn" onclick="editItem('section','${s.id}')" title="Editar">✏️</button>
+            <button class="ta-btn ta-btn--delete" onclick="deleteItem('section','${s.id}')" title="Eliminar">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderCategories() {
+    const tbody = document.querySelector('#tab-categories tbody');
+    if (!tbody) return;
+    if (categories.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No hay categorías</td></tr>'; return; }
+    tbody.innerHTML = categories.map((c) => {
+      const sec = sections.find((s) => s.id === c.section_id);
+      return `<tr>
+        <td><strong>${c.name}</strong></td>
+        <td><span class="parent-badge">${sec?.name || '—'}</span></td>
+        <td><code class="slug-badge">${c.slug}</code></td>
+        <td><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
+        <td><div class="cell-actions">
+          <button class="ta-btn" onclick="editItem('category','${c.id}')" title="Editar">✏️</button>
+          <button class="ta-btn ta-btn--delete" onclick="deleteItem('category','${c.id}')" title="Eliminar">🗑️</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderSubcategories() {
+    const tbody = document.querySelector('#tab-subcategories tbody');
+    if (!tbody) return;
+    if (subcategories.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No hay subcategorías</td></tr>'; return; }
+    tbody.innerHTML = subcategories.map((s) => {
+      const cat = categories.find((c) => c.id === s.category_id);
+      return `<tr>
+        <td><strong>${s.name}</strong></td>
+        <td><span class="parent-badge">${cat?.name || '—'}</span></td>
+        <td><code class="slug-badge">${s.slug}</code></td>
+        <td><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
+        <td><div class="cell-actions">
+          <button class="ta-btn" onclick="editItem('subcategory','${s.id}')" title="Editar">✏️</button>
+          <button class="ta-btn ta-btn--delete" onclick="deleteItem('subcategory','${s.id}')" title="Eliminar">🗑️</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function openModal(type: string, mode: string, data?: any) {
+    const overlay = document.getElementById('modal-overlay');
+    const title = document.getElementById('modal-title');
+    const typeInput = document.getElementById('modal-type') as HTMLInputElement;
+    const idInput = document.getElementById('modal-id') as HTMLInputElement;
+    const parentGroup = document.getElementById('parent-group');
+    const parentLabel = document.getElementById('parent-label');
+    const parentSelect = document.getElementById('parent-select') as HTMLSelectElement;
+    if (!overlay || !title) return;
+    typeInput.value = type;
+    idInput.value = data?.id || '';
+    const typeNames: Record<string, string> = { section: 'Sección', category: 'Categoría', subcategory: 'Subcategoría' };
+    title.textContent = mode === 'create' ? `Nueva ${typeNames[type]}` : `Editar ${typeNames[type]}`;
+    if (type === 'category') {
+      parentGroup.style.display = '';
+      parentLabel.textContent = 'Sección *';
+      parentSelect.innerHTML = '<option value="">Seleccionar...</option>' + sections.map((s) => `<option value="${s.id}">${s.name}</option>`).join('');
+      if (data?.section_id) parentSelect.value = data.section_id;
+    } else if (type === 'subcategory') {
+      parentGroup.style.display = '';
+      parentLabel.textContent = 'Categoría *';
+      parentSelect.innerHTML = '<option value="">Seleccionar...</option>' + categories.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+      if (data?.category_id) parentSelect.value = data.category_id;
+    } else { parentGroup.style.display = 'none'; }
+    if (data) { const form = document.getElementById('modal-form') as HTMLFormElement; form.name.value = data.name || ''; form.description.value = data.description || ''; form.sortOrder.value = data.sort_order || 0; }
+    else { (document.getElementById('modal-form') as HTMLFormElement).reset(); }
+    overlay.style.display = '';
+  }
+
+  function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
+  document.getElementById('add-section')?.addEventListener('click', () => openModal('section', 'create'));
+  document.getElementById('add-category')?.addEventListener('click', () => openModal('category', 'create'));
+  document.getElementById('add-subcategory')?.addEventListener('click', () => openModal('subcategory', 'create'));
+  document.getElementById('modal-close')?.addEventListener('click', closeModal);
+  document.getElementById('modal-cancel')?.addEventListener('click', closeModal);
+  document.getElementById('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+  document.getElementById('modal-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const type = (document.getElementById('modal-type') as HTMLInputElement).value;
+    const id = (document.getElementById('modal-id') as HTMLInputElement).value;
+    const isEdit = !!id;
+    const body: any = { name: form.name.value, description: form.description.value || null, sortOrder: parseInt(form.sortOrder.value) || 0 };
+    if (type === 'category') body.sectionId = form.parentId.value;
+    if (type === 'subcategory') body.categoryId = form.parentId.value;
+    const endpoint = isEdit ? `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}/${id}` : `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}`;
+    const res = await fetch(endpoint, { method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+    if (res.ok) { closeModal(); loadSections(); loadCategories(); loadSubcategories(); }
+    else { const error = await res.json(); alert(error.error || 'Error al guardar'); }
+  });
+
+  (window as any).editItem = async function(type: string, id: string) {
+    let data; if (type === 'section') data = sections.find((s) => s.id === id); else if (type === 'category') data = categories.find((c) => c.id === id); else data = subcategories.find((s) => s.id === id);
+    if (data) openModal(type, 'edit', data);
+  };
+
+  (window as any).deleteItem = async function(type: string, id: string) {
+    if (!confirm('¿Estás seguro? Se desactivará este elemento y sus hijos.')) return;
+    const endpoint = `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}/${id}`;
+    const res = await fetch(endpoint, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) { loadSections(); loadCategories(); loadSubcategories(); }
+  };
+
+  loadSections();
+  loadCategories();
+  loadSubcategories();
+</script>
+
+<style>
+  .admin-layout { display: grid; grid-template-columns: 1fr; min-height: calc(100vh - 72px); }
+  @media (min-width: 768px) { .admin-layout { grid-template-columns: 260px 1fr; } }
+  .admin-main { padding: var(--space-2xl); overflow-y: auto; }
+  .admin-header { margin-bottom: var(--space-2xl); }
+  .admin-header h1 { color: var(--on-surface); margin-bottom: var(--space-sm); }
+  .admin-subtitle { color: var(--on-surface-variant); }
+
+  .tabs { display: flex; gap: 0; margin-bottom: var(--space-2xl); border-bottom: 1px solid rgba(62, 72, 80, 0.3); }
+  .tab { display: flex; align-items: center; gap: 8px; padding: 12px 24px; background: transparent; border: none; border-bottom: 2px solid transparent; color: #bdc8d1; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; transition: all 0.2s ease; margin-bottom: -2px; }
+  .tab:hover { color: #e2e2e2; background-color: rgba(255, 255, 255, 0.03); }
+  .tab.active { color: #82cfff; border-bottom-color: #82cfff; background-color: rgba(130, 207, 255, 0.08); }
+  .tab-content { display: none; animation: fadeIn 0.2s ease; }
+  .tab-content.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .content-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md); flex-wrap: wrap; gap: var(--space-md); }
+  .content-info h2 { color: var(--on-surface); margin-bottom: var(--space-xs); }
+  .content-desc { color: var(--on-surface-variant); }
+  .examples { color: var(--on-surface-variant); margin-bottom: var(--space-xl); }
+  .example-tag { display: inline-block; padding: 2px 8px; background-color: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); font-family: 'Space Mono', monospace; font-size: 11px; margin: 0 2px; }
+
+  .empty-cell { text-align: center; padding: 48px !important; color: #bdc8d1; }
+
+  .cell-actions { display: flex; gap: 6px; justify-content: flex-end; opacity: 0.6; transition: opacity 0.2s ease; }
+  tr:hover .cell-actions { opacity: 1; }
+
+  .slug-badge { display: inline-block; padding: 4px 10px; background-color: rgba(53, 53, 53, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
+  .parent-badge { display: inline-block; padding: 4px 10px; background-color: rgba(130, 207, 255, 0.1); border: 1px solid rgba(130, 207, 255, 0.3); color: #82cfff; font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
+
+  .modal-overlay { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .modal { background-color: #131313; border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 24px; border-bottom: 1px solid rgba(62, 72, 80, 0.3); }
+  .modal-header h3 { color: #e2e2e2; }
+  .modal-close { background: none; border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; width: 36px; height: 36px; color: #bdc8d1; cursor: pointer; font-size: 18px; transition: all 0.15s ease; }
+  .modal-close:hover { border-color: #ffb4ab; color: #ffb4ab; }
+  .modal-form { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+  .form-group { display: flex; flex-direction: column; gap: 8px; }
+  .form-group label { color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .form-input, .form-select, .form-textarea { padding: 12px; background-color: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; color: #e2e2e2; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; transition: all 0.2s ease; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: #82cfff; box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.2); }
+  .form-actions { display: flex; gap: 12px; justify-content: flex-end; padding-top: 20px; border-top: 1px solid rgba(62, 72, 80, 0.3); }
+
+  /* Dynamic content styles — MUST use :global() */
+  :global(.ta-btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: rgba(130, 207, 255, 0.08);
+    border: 1px solid rgba(130, 207, 255, 0.2);
+    border-radius: 0px;
+    color: #82cfff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    backdrop-filter: blur(4px);
+    font-size: 14px;
+  }
+
+  :global(.ta-btn:hover) {
+    background: rgba(130, 207, 255, 0.15);
+    border-color: rgba(130, 207, 255, 0.5);
+    transform: scale(1.1);
+  }
+
+  :global(.ta-btn:active) {
+    transform: scale(0.95);
+  }
+
+  :global(.ta-btn--delete) {
+    background: rgba(255, 180, 171, 0.08);
+    border-color: rgba(255, 180, 171, 0.2);
+    color: #ffb4ab;
+  }
+
+  :global(.ta-btn--delete:hover) {
+    background: rgba(255, 180, 171, 0.15);
+    border-color: rgba(255, 180, 171, 0.5);
+  }
+
+  :global(.badge) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 0px;
+    white-space: nowrap;
+  }
+
+  :global(.badge-dot) {
+    width: 6px;
+    height: 6px;
+    border-radius: 0px;
+    background-color: currentColor;
+  }
+
+  :global(.badge--active) {
+    background-color: rgba(130, 207, 255, 0.1);
+    color: #82cfff;
+    border: 1px solid rgba(130, 207, 255, 0.3);
+  }
+</style>
+
+<style>
+  :global(.btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-radius: 0px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(8px);
+  }
+  :global(.btn:hover) { transform: scale(1.05); }
+  :global(.btn:active) { transform: scale(0.95); }
+  :global(.btn--primary) {
+    background-color: rgba(130, 207, 255, 0.1);
+    color: #82cfff;
+    border: 1px solid rgba(130, 207, 255, 0.5);
+  }
+  :global(.btn--primary:hover) { background-color: rgba(130, 207, 255, 0.2); }
+  :global(.btn--secondary) {
+    background-color: transparent;
+    color: #e2e2e2;
+    border: 1px solid rgba(62, 72, 80, 0.5);
+  }
+  :global(.btn--secondary:hover) {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(62, 72, 80, 0.8);
+  }
+  :global(.btn-icon) { font-size: 18px; line-height: 1; }
+</style>

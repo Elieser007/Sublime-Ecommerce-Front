@@ -1,0 +1,166 @@
+---
+/**
+ * CategoryTree — Recursive Category Component
+ * 
+ * Renders a hierarchical category tree with collapsible levels.
+ * Used in desktop sidebar and mobile panels.
+ * 
+ * Props:
+ * - categories: array of category objects with children
+ * - level: current nesting level (0, 1, 2)
+ * - activeCategory: currently selected category id
+ */
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  children?: Category[];
+}
+
+interface Props {
+  categories: Category[];
+  level?: number;
+  activeCategory?: string;
+}
+
+const { categories, level = 0, activeCategory } = Astro.props;
+---
+
+<ul class:list={['category-tree', { 'category-tree--root': level === 0 }]}>
+  {categories.map((cat) => (
+    <li class="category-tree-item">
+      <div class:list={['category-tree-row', { active: activeCategory === cat.id }]}>
+        {cat.children && cat.children.length > 0 && (
+          <button class="tree-toggle" data-category-id={cat.id} aria-label="Expandir">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+        )}
+        {(!cat.children || cat.children.length === 0) && (
+          <span class="tree-spacer"></span>
+        )}
+        <button class="tree-label body-md" data-filter={cat.id}>
+          {cat.name}
+        </button>
+        {cat.children && cat.children.length > 0 && (
+          <span class="tree-count label-sm">{cat.children.length}</span>
+        )}
+      </div>
+      {cat.children && cat.children.length > 0 && (
+        <div class="tree-children" id={`tree-${cat.id}`}>
+          <Astro.self categories={cat.children} level={level + 1} activeCategory={activeCategory} />
+        </div>
+      )}
+    </li>
+  ))}
+</ul>
+
+<script>
+  // Toggle expand/collapse
+  document.querySelectorAll('.tree-toggle').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const el = btn as HTMLElement;
+      const categoryId = el.dataset.categoryId;
+      const children = document.getElementById(`tree-${categoryId}`);
+      if (children) {
+        children.classList.toggle('collapsed');
+        el.classList.toggle('expanded');
+      }
+    });
+  });
+
+  // Category filter
+  document.querySelectorAll('[data-filter]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const category = (btn as HTMLElement).dataset.filter;
+      // Dispatch custom event for parent to handle
+      window.dispatchEvent(new CustomEvent('category-select', { detail: { category } }));
+    });
+  });
+</script>
+
+<style>
+  .category-tree {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .category-tree--root {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .category-tree-item {
+    /* Nested items */
+  }
+
+  .category-tree-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .category-tree-row:hover {
+    background-color: var(--surface-container-high);
+  }
+
+  .category-tree-row.active {
+    background-color: var(--primary);
+    color: var(--on-primary);
+  }
+
+  .tree-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .tree-toggle.expanded {
+    transform: rotate(180deg);
+  }
+
+  .tree-spacer {
+    width: 20px;
+  }
+
+  .tree-label {
+    flex: 1;
+    text-align: left;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    font-family: var(--font-body);
+  }
+
+  .tree-count {
+    color: var(--outline);
+  }
+
+  .tree-children {
+    padding-left: var(--space-lg);
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  .tree-children.collapsed {
+    max-height: 0;
+  }
+</style>

@@ -1,0 +1,243 @@
+---
+/**
+ * MobileFilterPanel — Slide-in from Right
+ * 
+ * Shows filters (price, sort, etc.) in a slide-in panel from the right side.
+ * Triggered by "Filtros" button on mobile.
+ */
+
+interface Props {
+  // Filters can be extended as needed
+}
+
+const {} = Astro.props;
+---
+
+<!-- Overlay -->
+<div class="panel-overlay" id="filter-overlay"></div>
+
+<!-- Panel -->
+<div class="panel panel--right" id="filter-panel">
+  <div class="panel-header">
+    <h2 class="headline-lg-mobile">Filtros</h2>
+    <button class="panel-close" id="filter-close" aria-label="Cerrar">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="panel-content">
+    <!-- Sort -->
+    <div class="filter-section">
+      <h3 class="label-sm filter-section-title">Ordenar por</h3>
+      <div class="filter-options">
+        <button class="filter-option body-md active" data-sort="default">Destacados</button>
+        <button class="filter-option body-md" data-sort="price-asc">Menor precio</button>
+        <button class="filter-option body-md" data-sort="price-desc">Mayor precio</button>
+        <button class="filter-option body-md" data-sort="name">Nombre A-Z</button>
+      </div>
+    </div>
+
+    <!-- Price Range -->
+    <div class="filter-section">
+      <h3 class="label-sm filter-section-title">Precio</h3>
+      <div class="price-range">
+        <input type="number" class="price-input body-md" placeholder="Mín" id="price-min" />
+        <span class="price-separator">—</span>
+        <input type="number" class="price-input body-md" placeholder="Máx" id="price-max" />
+      </div>
+    </div>
+
+    <!-- Apply Button -->
+    <button class="apply-btn btn btn--primary" id="apply-filters">
+      Aplicar Filtros
+    </button>
+  </div>
+</div>
+
+<script>
+  // Open panel
+  document.getElementById('open-filters')?.addEventListener('click', () => {
+    document.getElementById('filter-panel')?.classList.add('open');
+    document.getElementById('filter-overlay')?.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  });
+
+  // Close panel
+  function closePanel() {
+    document.getElementById('filter-panel')?.classList.remove('open');
+    document.getElementById('filter-overlay')?.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('filter-close')?.addEventListener('click', closePanel);
+  document.getElementById('filter-overlay')?.addEventListener('click', closePanel);
+
+  // Sort options
+  document.querySelectorAll('[data-sort]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // Apply filters
+  document.getElementById('apply-filters')?.addEventListener('click', () => {
+    const sort = document.querySelector('[data-sort].active') as HTMLElement;
+    const minPrice = (document.getElementById('price-min') as HTMLInputElement)?.value;
+    const maxPrice = (document.getElementById('price-max') as HTMLInputElement)?.value;
+
+    window.dispatchEvent(new CustomEvent('filters-applied', {
+      detail: {
+        sort: sort?.dataset.sort || 'default',
+        minPrice: minPrice ? Number(minPrice) : null,
+        maxPrice: maxPrice ? Number(maxPrice) : null,
+      }
+    }));
+
+    closePanel();
+  });
+</script>
+
+<style>
+  .panel-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .panel-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .panel {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 300px;
+    max-width: 85vw;
+    background-color: var(--surface);
+    z-index: 201;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel--right {
+    right: 0;
+  }
+
+  .panel.open {
+    transform: translateX(0);
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-lg);
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+
+  .panel-header h2 {
+    color: var(--on-surface);
+    font-size: 20px;
+  }
+
+  .panel-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: none;
+    color: var(--on-surface);
+    cursor: pointer;
+  }
+
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+  }
+
+  .filter-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .filter-section-title {
+    color: var(--primary);
+  }
+
+  .filter-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .filter-option {
+    padding: var(--space-md);
+    background: none;
+    border: none;
+    border-bottom: var(--border-width) solid var(--outline-variant);
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+  }
+
+  .filter-option:hover {
+    background-color: var(--surface-container-high);
+    color: var(--on-surface);
+  }
+
+  .filter-option.active {
+    color: var(--primary);
+    background-color: var(--surface-container);
+  }
+
+  .price-range {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .price-input {
+    flex: 1;
+    padding: var(--space-md);
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    font-family: var(--font-body);
+    font-size: 14px;
+  }
+
+  .price-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .price-separator {
+    color: var(--outline);
+  }
+
+  .apply-btn {
+    width: 100%;
+    margin-top: auto;
+  }
+</style>

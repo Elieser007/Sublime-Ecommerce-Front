@@ -1,0 +1,70 @@
+---
+/**
+ * Badge — Reusable Status Badge Component
+ * 
+ * Pill-shaped badge with optional dot indicator.
+ * Matching Chromatic High-Contrast admin panel design.
+ */
+
+interface Props {
+  variant?: 'active' | 'inactive' | 'pending';
+  label?: string;
+  showDot?: boolean;
+}
+
+const { variant = 'active', label, showDot = true } = Astro.props;
+
+const labels: Record<string, string> = {
+  active: 'Activo',
+  inactive: 'Inactivo',
+  pending: 'Pendiente',
+};
+
+const text = label || labels[variant];
+---
+
+<span class:list={['badge', `badge--${variant}`]}>
+  {showDot && <span class="badge-dot"></span>}
+  {text}
+</span>
+
+<style>
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 0px;
+    white-space: nowrap;
+  }
+
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 0px;
+    background-color: currentColor;
+  }
+
+  .badge--active {
+    background-color: rgba(130, 207, 255, 0.1);
+    color: #82cfff;
+    border: 1px solid rgba(130, 207, 255, 0.3);
+  }
+
+  .badge--inactive {
+    background-color: rgba(189, 200, 209, 0.1);
+    color: #bdc8d1;
+    border: 1px solid rgba(189, 200, 209, 0.3);
+  }
+
+  .badge--pending {
+    background-color: rgba(213, 202, 0, 0.1);
+    color: #d5ca00;
+    border: 1px solid rgba(213, 202, 0, 0.3);
+  }
+</style>

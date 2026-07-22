@@ -13,7 +13,7 @@ const year = new Date().getFullYear();
     <span></span><span></span><span></span>
   </div>
 
-  <div class="footer-inner container">
+  <div class="footer-inner">
     <div class="footer-brand">
       <span class="footer-logo">SUBLIME</span>
       <p class="footer-tagline body-md">Arte & Diseño</p>
@@ -22,9 +22,9 @@ const year = new Date().getFullYear();
     <div class="footer-links">
       <div class="footer-col">
         <h4 class="label-sm">Navegación</h4>
-        <a href="/">Inicio</a>
-        <a href="/catalogo">Catálogo</a>
-        <a href="/carrito">Carrito</a>
+        <a href="/">Home</a>
+        <a href="/">Shop</a>
+        <a href="/cart">Cart</a>
       </div>
 
       <div class="footer-col">
@@ -46,7 +46,13 @@ const year = new Date().getFullYear();
   }
 
   .footer-inner {
-    padding: var(--space-3xl) 0 var(--space-xl);
+    padding: var(--space-3xl) var(--margin-mobile) var(--space-xl);
+  }
+
+  @media (min-width: 768px) {
+    .footer-inner {
+      padding: var(--space-3xl) var(--margin-desktop) var(--space-xl);
+    }
   }
 
   .footer-brand {

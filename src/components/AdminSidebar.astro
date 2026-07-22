@@ -1,36 +1,208 @@
 ---
 /**
- * AdminSidebar component — Chromatic High-Contrast
+ * AdminSidebar — Multi-Branch Navigation (Client-Side)
  * 
- * Navigation sidebar for admin sections.
- * Fixed left sidebar on desktop, top nav on mobile.
+ * Fetches user data and branches from /api/me and /api/branches.
+ * Shows different menu items based on user role.
+ * Includes branch selector for admins.
  */
-
-interface Props {
-  active?: string;
-}
-
-const { active = 'productos' } = Astro.props;
-
-const links = [
-  { id: 'productos', label: 'Productos', href: '/admin' },
-  { id: 'nuevo', label: 'Nuevo Producto', href: '/admin/nuevo' },
-  { id: 'config', label: 'Configuración', href: '/admin/config' },
-];
 ---
 
-<aside class="admin-sidebar">
+<aside class="admin-sidebar" id="admin-sidebar">
+  <!-- User Info (populated by JS) -->
+  <div class="sidebar-user" id="sidebar-user">
+    <div class="user-avatar">
+      <span class="avatar-text label-sm" id="user-initial">U</span>
+    </div>
+    <div class="user-info">
+      <p class="user-name body-md" id="user-name">Cargando...</p>
+      <span class="user-role label-sm" id="user-role">-</span>
+    </div>
+  </div>
+
+  <!-- Branch Selector (Admin only, populated by JS) -->
+  <div class="branch-selector" id="branch-selector" style="display: none;">
+    <label class="label-sm">Sucursal</label>
+    <select class="branch-select" id="branch-select">
+      <option value="">Cargando...</option>
+    </select>
+  </div>
+
+  <!-- Navigation -->
   <nav class="sidebar-nav">
-    {links.map((link) => (
-      <a
-        href={link.href}
-        class:list={['sidebar-link', 'body-md', { active: active === link.id }]}
-      >
-        {link.label}
+    <!-- Grupo: Principal -->
+    <div class="nav-group">
+      <span class="nav-group-title label-sm">Principal</span>
+      <a href="/dashboard" class="sidebar-link active" data-section="dashboard">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"/>
+          <rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        <span>Dashboard</span>
       </a>
-    ))}
+    </div>
+
+    <!-- Grupo: Tienda -->
+    <div class="nav-group">
+      <span class="nav-group-title label-sm">Tienda</span>
+      <a href="/admin/products" class="sidebar-link" data-section="products">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <path d="M16 10a4 4 0 01-8 0"/>
+        </svg>
+        <span>Productos</span>
+      </a>
+      <a href="/admin/orders" class="sidebar-link" data-section="orders">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="9" cy="21" r="1"/>
+          <circle cx="20" cy="21" r="1"/>
+          <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+        </svg>
+        <span>Pedidos</span>
+      </a>
+    </div>
+
+    <!-- Grupo: Administración (solo admin) -->
+    <div class="nav-group admin-only" style="display: none;">
+      <span class="nav-group-title label-sm">Administración</span>
+      <a href="/admin/users" class="sidebar-link" data-section="users">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+          <path d="M16 3.13a4 4 0 010 7.75"/>
+        </svg>
+        <span>Usuarios</span>
+      </a>
+      <a href="/admin/categories" class="sidebar-link" data-section="categories">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+        <span>Categorías</span>
+      </a>
+      <a href="/admin/branches" class="sidebar-link" data-section="branches">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Sucursales</span>
+      </a>
+    </div>
+
+    <!-- Logout -->
+    <div class="nav-group nav-group--bottom">
+      <button class="sidebar-link sidebar-link--logout" id="logout-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span>Salir</span>
+      </button>
+    </div>
   </nav>
 </aside>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+
+  async function initSidebar() {
+    try {
+      // Fetch user data
+      const meRes = await fetch(`${API_URL}/api/me`, { credentials: 'include' });
+      if (!meRes.ok) {
+        window.location.href = '/login';
+        return;
+      }
+      const { user } = await meRes.json();
+      const isAdmin = user.role === 'admin';
+
+      // Update user info
+      document.getElementById('user-initial').textContent = user.name?.charAt(0) || 'U';
+      document.getElementById('user-name').textContent = user.name || 'Usuario';
+      document.getElementById('user-role').textContent = isAdmin ? 'Administrador' : 'Cliente';
+
+      // Show admin-only groups
+      if (isAdmin) {
+        document.querySelectorAll('.admin-only').forEach(el => {
+          (el as HTMLElement).style.display = '';
+        });
+      }
+
+      // Fetch branches for admin
+      if (isAdmin) {
+        const branchRes = await fetch(`${API_URL}/api/branches`, { credentials: 'include' });
+        if (branchRes.ok) {
+          const { branches } = await branchRes.json();
+          
+          if (branches && branches.length > 0) {
+            const selector = document.getElementById('branch-selector');
+            const select = document.getElementById('branch-select') as HTMLSelectElement;
+            
+            if (selector && select) {
+              select.innerHTML = '';
+              branches.forEach((branch: any) => {
+                const option = document.createElement('option');
+                option.value = branch.id;
+                option.textContent = branch.name;
+                if (branch.id === user.currentBranchId) {
+                  option.selected = true;
+                }
+                select.appendChild(option);
+              });
+              selector.style.display = '';
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Sidebar init error:', err);
+    }
+  }
+
+  // Branch switching
+  document.getElementById('branch-select')?.addEventListener('change', async (e) => {
+    const branchId = (e.target as HTMLSelectElement).value;
+    if (!branchId) return;
+    
+    try {
+      const res = await fetch(`${API_URL}/api/branches/switch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ branchId }),
+      });
+      
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        alert('Error al cambiar de sucursal');
+      }
+    } catch {
+      alert('Error de conexión');
+    }
+  });
+
+  // Logout
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    try {
+      const { signOut } = await import('/src/lib/auth-client.ts');
+      await signOut({
+        fetchOptions: {
+          onSuccess: () => { window.location.href = '/login'; },
+          onError: () => { window.location.href = '/login'; },
+        },
+      });
+    } catch {
+      window.location.href = '/login';
+    }
+  });
+
+  initSidebar();
+</script>
 
 <style>
   .admin-sidebar {
@@ -38,6 +210,9 @@ const links = [
     border-right: var(--border-width) solid var(--outline-variant);
     padding: var(--space-lg);
     min-height: calc(100vh - 72px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
   }
 
   @media (max-width: 767px) {
@@ -48,28 +223,115 @@ const links = [
     }
   }
 
-  .sidebar-nav {
+  .sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding-bottom: var(--space-lg);
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+
+  .user-avatar {
+    width: 48px;
+    height: 48px;
+    background-color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--border-radius);
+  }
+
+  .avatar-text {
+    color: var(--on-primary);
+    font-family: var(--font-display);
+    font-size: 20px;
+  }
+
+  .user-info {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
   }
 
-  @media (max-width: 767px) {
-    .sidebar-nav {
-      flex-direction: row;
-      overflow-x: auto;
-    }
+  .user-name {
+    color: var(--on-surface);
+    font-weight: 600;
+  }
+
+  .user-role {
+    color: var(--primary);
+  }
+
+  .branch-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding-bottom: var(--space-lg);
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+
+  .branch-selector label {
+    color: var(--on-surface-variant);
+  }
+
+  .branch-select {
+    width: 100%;
+    padding: var(--space-md);
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--on-surface);
+    background-color: var(--surface);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+  }
+
+  .branch-select:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    flex: 1;
+  }
+
+  .nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .nav-group--bottom {
+    margin-top: auto;
+    padding-top: var(--space-lg);
+    border-top: var(--border-width) solid var(--outline-variant);
+  }
+
+  .nav-group-title {
+    color: var(--primary);
+    padding: 0 var(--space-md);
+    margin-bottom: var(--space-xs);
   }
 
   .sidebar-link {
     display: flex;
     align-items: center;
+    gap: var(--space-md);
     padding: var(--space-md);
     color: var(--on-surface-variant);
     text-decoration: none;
     border-radius: var(--border-radius);
     transition: all 0.15s ease;
-    white-space: nowrap;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 14px;
+    width: 100%;
+    text-align: left;
   }
 
   .sidebar-link:hover {
@@ -84,7 +346,24 @@ const links = [
     border-left: 3px solid var(--primary);
   }
 
+  .sidebar-link--logout {
+    margin-top: auto;
+    color: var(--error);
+    border-top: var(--border-width) solid var(--outline-variant);
+    padding-top: var(--space-lg);
+  }
+
+  .sidebar-link--logout:hover {
+    background-color: var(--error-container);
+    color: var(--on-error-container);
+  }
+
   @media (max-width: 767px) {
+    .sidebar-nav {
+      flex-direction: row;
+      overflow-x: auto;
+    }
+
     .sidebar-link.active {
       border-left: none;
       border-bottom: 3px solid var(--primary);

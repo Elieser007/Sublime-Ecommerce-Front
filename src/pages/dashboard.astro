@@ -1,0 +1,344 @@
+---
+/**
+ * Dashboard — Protected Page
+ * 
+ * Only accessible after login.
+ * Shows overview graphs and admin summary.
+ * Redirects to /login if not authenticated.
+ */
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import AdminSidebar from '../components/AdminSidebar.astro';
+---
+
+<BaseLayout title="Dashboard — Sublime E-commerce">
+  <div class="dashboard-layout">
+    <AdminSidebar active="dashboard" />
+    <main class="dashboard-main">
+      <section class="dashboard-page">
+      <!-- Loading state -->
+      <div class="dashboard-loading" id="dashboard-loading">
+        <div class="cmyk-bar"><span></span><span></span><span></span></div>
+        <p class="body-md">Verificando sesión...</p>
+      </div>
+
+      <!-- Unauthorized state -->
+      <div class="dashboard-unauthorized" id="dashboard-unauthorized" style="display: none;">
+        <h1 class="headline-lg-mobile">Acceso Denegado</h1>
+        <p class="body-lg">Necesitás iniciar sesión para acceder al dashboard.</p>
+        <a href="/login" class="btn btn--primary">Iniciar Sesión</a>
+      </div>
+
+      <!-- Dashboard content (shown after auth check) -->
+      <div class="dashboard-content" id="dashboard-content" style="display: none;">
+        <div class="dashboard-header">
+          <h1 class="headline-lg-mobile">Dashboard</h1>
+          <p class="body-lg" id="welcome-message">Bienvenido</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="label-sm">Productos</span>
+            <span class="stat-value headline-lg-mobile">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="label-sm">Pedidos</span>
+            <span class="stat-value headline-lg-mobile">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="label-sm">Usuarios</span>
+            <span class="stat-value headline-lg-mobile">1</span>
+          </div>
+          <div class="stat-card">
+            <span class="label-sm">Imágenes</span>
+            <span class="stat-value headline-lg-mobile">0</span>
+          </div>
+        </div>
+
+        <!-- Charts Placeholder -->
+        <div class="charts-section">
+          <h2 class="headline-lg-mobile">Gráficos</h2>
+          <div class="charts-grid">
+            <div class="chart-card">
+              <h3 class="body-lg">Ventas por Mes</h3>
+              <div class="chart-placeholder">
+                <svg width="100%" height="200" viewBox="0 0 400 200">
+                  <!-- CMYK bar chart placeholder -->
+                  <rect x="20" y="150" width="40" height="50" fill="#82cfff"/>
+                  <rect x="80" y="100" width="40" height="100" fill="#ffb0cc"/>
+                  <rect x="140" y="80" width="40" height="120" fill="#d5ca00"/>
+                  <rect x="200" y="120" width="40" height="80" fill="#82cfff"/>
+                  <rect x="260" y="60" width="40" height="140" fill="#ffb0cc"/>
+                  <rect x="320" y="90" width="40" height="110" fill="#d5ca00"/>
+                </svg>
+              </div>
+            </div>
+            <div class="chart-card">
+              <h3 class="body-lg">Productos Más Vendidos</h3>
+              <div class="chart-placeholder">
+                <svg width="100%" height="200" viewBox="0 0 400 200">
+                  <!-- CMYK horizontal bars placeholder -->
+                  <rect x="0" y="20" width="300" height="30" fill="#82cfff"/>
+                  <rect x="0" y="60" width="250" height="30" fill="#ffb0cc"/>
+                  <rect x="0" y="100" width="200" height="30" fill="#d5ca00"/>
+                  <rect x="0" y="140" width="150" height="30" fill="#82cfff"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="actions-section">
+          <h2 class="headline-lg-mobile">Acciones</h2>
+          <div class="actions-grid">
+            <a href="/admin/nuevo" class="action-card">
+              <span class="body-lg">+ Nuevo Producto</span>
+            </a>
+            <a href="/catalogo" class="action-card">
+              <span class="body-lg">Ver Catálogo</span>
+            </a>
+            <button class="action-card action-card--logout" id="logout-btn">
+              <span class="body-lg">Cerrar Sesión</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      </section>
+    </main>
+  </div>
+</BaseLayout>
+
+<style>
+  .dashboard-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: calc(100vh - 72px);
+  }
+
+  @media (min-width: 768px) {
+    .dashboard-layout {
+      grid-template-columns: 260px 1fr;
+    }
+  }
+
+  .dashboard-main {
+    padding: var(--space-2xl);
+    overflow-y: auto;
+  }
+
+  .dashboard-page {
+    padding: 0;
+  }
+
+  .dashboard-loading {
+    text-align: center;
+    padding: var(--space-4xl) 0;
+  }
+
+  .dashboard-loading p {
+    color: var(--on-surface-variant);
+    margin-top: var(--space-lg);
+  }
+
+  .dashboard-unauthorized {
+    text-align: center;
+    padding: var(--space-4xl) 0;
+  }
+
+  .dashboard-unauthorized h1 {
+    color: var(--error);
+    margin-bottom: var(--space-lg);
+  }
+
+  .dashboard-unauthorized p {
+    color: var(--on-surface-variant);
+    margin-bottom: var(--space-2xl);
+  }
+
+  .dashboard-header {
+    margin-bottom: var(--space-2xl);
+  }
+
+  .dashboard-header h1 {
+    color: var(--on-surface);
+    margin-bottom: var(--space-sm);
+  }
+
+  .dashboard-header p {
+    color: var(--on-surface-variant);
+  }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--gutter);
+    margin-bottom: var(--space-3xl);
+  }
+
+  @media (min-width: 768px) {
+    .stats-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .stat-card {
+    background-color: var(--surface-container);
+    padding: var(--space-xl);
+    border: var(--border-width) solid var(--outline-variant);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .stat-card .label-sm {
+    color: var(--primary);
+  }
+
+  .stat-value {
+    color: var(--on-surface);
+  }
+
+  /* Charts */
+  .charts-section {
+    margin-bottom: var(--space-3xl);
+  }
+
+  .charts-section h2 {
+    color: var(--on-surface);
+    margin-bottom: var(--space-xl);
+  }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--gutter);
+  }
+
+  @media (min-width: 768px) {
+    .charts-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .chart-card {
+    background-color: var(--surface-container);
+    padding: var(--space-xl);
+    border: var(--border-width) solid var(--outline-variant);
+  }
+
+  .chart-card h3 {
+    color: var(--on-surface);
+    margin-bottom: var(--space-lg);
+  }
+
+  .chart-placeholder {
+    background-color: var(--surface);
+    border: var(--border-width) solid var(--outline-variant);
+    padding: var(--space-md);
+  }
+
+  /* Actions */
+  .actions-section h2 {
+    color: var(--on-surface);
+    margin-bottom: var(--space-xl);
+  }
+
+  .actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--gutter);
+  }
+
+  @media (min-width: 768px) {
+    .actions-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .action-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl);
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+    text-decoration: none;
+    color: var(--on-surface);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .action-card:hover {
+    border-color: var(--primary);
+    text-decoration: none;
+  }
+
+  .action-card--logout {
+    background-color: transparent;
+    border-color: var(--error);
+    color: var(--error);
+  }
+
+  .action-card--logout:hover {
+    background-color: var(--error);
+    color: var(--on-error);
+  }
+</style>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const loading = document.getElementById('dashboard-loading');
+  const unauthorized = document.getElementById('dashboard-unauthorized');
+  const content = document.getElementById('dashboard-content');
+  const welcomeMessage = document.getElementById('welcome-message');
+
+  async function checkAuth() {
+    try {
+      const res = await fetch(`${API_URL}/api/me`, {
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const user = data.user;
+        const isAdmin = user.role === 'admin';
+        
+        // Show dashboard
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+        if (welcomeMessage) {
+          const roleText = isAdmin ? '(Admin)' : '(Cliente)';
+          welcomeMessage.textContent = `Bienvenido, ${user.name || 'Usuario'} ${roleText}`;
+        }
+      } else {
+        // Not authenticated — show unauthorized
+        if (loading) loading.style.display = 'none';
+        if (unauthorized) unauthorized.style.display = 'block';
+      }
+    } catch {
+      // Error — show unauthorized
+      if (loading) loading.style.display = 'none';
+      if (unauthorized) unauthorized.style.display = 'block';
+    }
+  }
+
+  checkAuth();
+
+  // Logout using Better Auth client
+  document.getElementById('logout-btn')?.addEventListener('click', async () => {
+    try {
+      const { signOut } = await import('/src/lib/auth-client.ts');
+      await signOut({
+        fetchOptions: {
+          onSuccess: () => { window.location.href = '/login'; },
+          onError: () => { window.location.href = '/login'; },
+        },
+      });
+    } catch {
+      window.location.href = '/login';
+    }
+  });
+</script>

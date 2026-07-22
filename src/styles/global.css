@@ -9,8 +9,8 @@
 
 /* --- CSS Custom Properties (Design Tokens) --- */
 :root {
-  /* Surface */
-  --surface: #131313;
+  /* Surface — slightly lighter than pure black */
+  --surface: #0a0a0a;
   --surface-dim: #131313;
   --surface-bright: #393939;
   --surface-container-lowest: #0e0e0e;
@@ -55,8 +55,8 @@
   --error-container: #93000a;
   --on-error-container: #ffdad6;
 
-  /* Background */
-  --background: #131313;
+  /* Background — pure black per design spec */
+  --background: #000000;
   --on-background: #e2e2e2;
 
   /* Typography */

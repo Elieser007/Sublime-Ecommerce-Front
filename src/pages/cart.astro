@@ -18,10 +18,10 @@ const placeholderItems = [
 ];
 ---
 
-<BaseLayout title="Carrito — Sublime E-commerce">
+<BaseLayout title="Cart — Sublime E-commerce">
   <section class="cart-page">
     <div class="container">
-      <h1 class="headline-lg-mobile">Carrito</h1>
+      <h1 class="headline-lg-mobile">Cart</h1>
 
       <div class="cart-layout">
         <!-- Cart Items -->
@@ -102,7 +102,7 @@ const placeholderItems = [
       container.innerHTML = `
         <div class="empty-state">
           <p class="body-lg">Tu carrito está vacío</p>
-          <a href="/catalogo" class="btn btn--primary">Ver Catálogo</a>
+          <a href="/" class="btn btn--primary">Ver Catálogo</a>
         </div>
       `;
       return;
@@ -190,7 +190,7 @@ const placeholderItems = [
             container.innerHTML = `
               <div class="empty-state">
                 <p class="body-lg">Tu carrito está vacío</p>
-                <a href="/catalogo" class="btn btn--primary">Ver Catálogo</a>
+                <a href="/" class="btn btn--primary">Ver Catálogo</a>
               </div>
             `;
           }

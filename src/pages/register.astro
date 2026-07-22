@@ -252,8 +252,8 @@ import Button from '../components/Button.astro';
         return;
       }
 
-      // Success — redirect to admin
-      window.location.href = '/admin';
+      // Success — redirect to protected dashboard
+      window.location.href = '/dashboard';
     } catch (err) {
       showError('Error de conexión. Intentá de nuevo.');
     }
@@ -261,12 +261,12 @@ import Button from '../components/Button.astro';
 
   // Google OAuth
   document.getElementById('google-register')?.addEventListener('click', () => {
-    window.location.href = `${API_URL}/api/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(window.location.origin + '/admin')}`;
+    window.location.href = `${API_URL}/api/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(window.location.origin + '/dashboard')}`;
   });
 
   // Facebook OAuth
   document.getElementById('facebook-register')?.addEventListener('click', () => {
-    window.location.href = `${API_URL}/api/auth/sign-in/social?provider=facebook&callbackURL=${encodeURIComponent(window.location.origin + '/admin')}`;
+    window.location.href = `${API_URL}/api/auth/sign-in/social?provider=facebook&callbackURL=${encodeURIComponent(window.location.origin + '/dashboard')}`;
   });
 
   function showError(msg: string) {

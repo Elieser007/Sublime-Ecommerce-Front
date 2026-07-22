@@ -1,0 +1,199 @@
+---
+/**
+ * PromotionWall — Dynamic Lego-style Promotion Grid
+ * 
+ * Fetches promotions from API and renders them in a CSS Grid.
+ * Each promotion has: position (x, y), size (width, height), type, content.
+ * 
+ * Usage: <PromotionWall section="home-hero" />
+ */
+
+interface Props {
+  section: string;
+  class?: string;
+}
+
+const { section, class: className = "" } = Astro.props;
+---
+
+<div class={`promotion-wall ${className}`} data-section={section}>
+  <!-- Loading state -->
+  <div class="promo-loading" id={`promo-loading-${section}`}>
+    <div class="cmyk-bar"><span></span><span></span><span></span></div>
+  </div>
+  
+  <!-- Promotions grid (populated by JS) -->
+  <div class="promo-grid" id={`promo-grid-${section}`} style="display: none;"></div>
+</div>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  
+  async function loadPromotions(sectionSlug: string) {
+    const grid = document.getElementById(`promo-grid-${sectionSlug}`);
+    const loading = document.getElementById(`promo-loading-${sectionSlug}`);
+    
+    if (!grid || !loading) return;
+    
+    try {
+      const res = await fetch(`${API_URL}/api/promotions?section=${sectionSlug}`, {
+        credentials: 'include',
+      });
+      
+      if (!res.ok) return;
+      
+      const { promotions } = await res.json();
+      
+      if (!promotions || promotions.length === 0) {
+        loading.style.display = 'none';
+        // Hide entire section when no promotions
+        const wall = document.getElementById(`promo-loading-${sectionSlug}`)?.parentElement;
+        if (wall) (wall as HTMLElement).style.display = 'none';
+        return;
+      }
+      
+      // Find grid dimensions from promotions
+      let maxCols = 1;
+      let maxRows = 1;
+      promotions.forEach((p: any) => {
+        const endX = p.pos_x + p.width;
+        const endY = p.pos_y + p.height;
+        if (endX > maxCols) maxCols = endX;
+        if (endY > maxRows) maxRows = endY;
+      });
+      
+      // Set grid template
+      grid.style.gridTemplateColumns = `repeat(${maxCols}, 1fr)`;
+      grid.style.gridTemplateRows = `repeat(${maxRows}, minmax(200px, auto))`;
+      
+      // Render each promotion
+      grid.innerHTML = promotions.map((promo: any) => {
+        const gridColumn = `${promo.pos_x + 1} / span ${promo.width}`;
+        const gridRow = `${promo.pos_y + 1} / span ${promo.height}`;
+        
+        return `
+          <div 
+            class="promo-tile promo-tile--${promo.tile_type}"
+            style="grid-column: ${gridColumn}; grid-row: ${gridRow};"
+            data-promo-id="${promo.id}"
+          >
+            ${promo.image_url ? `<img src="${promo.image_url}" alt="${promo.title}" class="promo-image" loading="lazy" />` : ''}
+            <div class="promo-content">
+              <h3 class="promo-title">${promo.title}</h3>
+              ${promo.subtitle ? `<p class="promo-subtitle">${promo.subtitle}</p>` : ''}
+              ${promo.link ? `<a href="${promo.link}" class="promo-link" aria-label="${promo.title}"></a>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      loading.style.display = 'none';
+      grid.style.display = 'grid';
+      
+    } catch (err) {
+      console.error('Error loading promotions:', err);
+      loading.style.display = 'none';
+    }
+  }
+  
+  // Load promotions for each section on page
+  document.querySelectorAll('.promotion-wall').forEach((wall) => {
+    const section = (wall as HTMLElement).dataset.section;
+    if (section) loadPromotions(section);
+  });
+</script>
+
+<style>
+  .promotion-wall {
+    width: 100%;
+    margin-bottom: var(--space-2xl);
+  }
+
+  .promo-loading {
+    text-align: center;
+    padding: var(--space-2xl);
+  }
+
+  .promo-grid {
+    display: grid;
+    gap: var(--space-md);
+    grid-auto-flow: dense;
+  }
+
+  .promo-tile {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+    min-height: 200px;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+  }
+
+  .promo-tile:hover {
+    border-color: var(--primary);
+  }
+
+  .promo-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  .promo-content {
+    position: relative;
+    z-index: 1;
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    height: 100%;
+    background: linear-gradient(transparent 40%, rgba(0, 0, 0, 0.8));
+    color: white;
+  }
+
+  .promo-title {
+    font-family: var(--font-display);
+    font-size: 24px;
+    text-transform: uppercase;
+    margin-bottom: var(--space-sm);
+  }
+
+  .promo-subtitle {
+    font-size: 14px;
+    opacity: 0.9;
+  }
+
+  .promo-link {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+  }
+
+  /* Tile type variations */
+  .promo-tile--banner .promo-content {
+    background: linear-gradient(90deg, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+  }
+
+  .promo-tile--text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background-color: var(--primary);
+    color: var(--on-primary);
+  }
+
+  .promo-tile--text .promo-content {
+    background: none;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .promo-tile--text .promo-title {
+    font-size: 32px;
+  }
+</style>

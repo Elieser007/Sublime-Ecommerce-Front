@@ -1,0 +1,78 @@
+---
+/**
+ * TableAction — Reusable Action Button for Tables
+ * 
+ * Small icon button for table row actions (edit, delete, etc.)
+ * Matching Chromatic High-Contrast admin panel design.
+ */
+
+interface Props {
+  icon?: string;
+  variant?: 'default' | 'delete';
+  title?: string;
+  class?: string;
+}
+
+const { icon, variant = 'default', title = '', class: className = '' } = Astro.props;
+---
+
+<button
+  class:list={['ta-btn', `ta-btn--${variant}`, className]}
+  title={title}
+  type="button"
+>
+  {icon ? (
+    <span class="ta-icon">{icon}</span>
+  ) : (
+    <slot />
+  )}
+</button>
+
+<style>
+  .ta-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: rgba(130, 207, 255, 0.08);
+    border: 1px solid rgba(130, 207, 255, 0.2);
+    border-radius: 0px;
+    color: #82cfff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    backdrop-filter: blur(4px);
+  }
+
+  .ta-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .ta-btn:hover {
+    background: rgba(130, 207, 255, 0.15);
+    border-color: rgba(130, 207, 255, 0.5);
+    transform: scale(1.1);
+  }
+
+  .ta-btn:active {
+    transform: scale(0.95);
+  }
+
+  .ta-btn--delete {
+    background: rgba(255, 180, 171, 0.08);
+    border-color: rgba(255, 180, 171, 0.2);
+    color: #ffb4ab;
+  }
+
+  .ta-btn--delete:hover {
+    background: rgba(255, 180, 171, 0.15);
+    border-color: rgba(255, 180, 171, 0.5);
+  }
+
+  .ta-icon {
+    font-size: 14px;
+    line-height: 1;
+  }
+</style>

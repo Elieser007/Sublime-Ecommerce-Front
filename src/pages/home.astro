@@ -1,0 +1,168 @@
+---
+/**
+ * Homepage — Sublime E-commerce
+ * 
+ * Hero section + featured products grid.
+ * Dark theme, CMYK accents, sharp corners.
+ */
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ProductCard from '../components/ProductCard.astro';
+import Chip from '../components/Chip.astro';
+
+// Placeholder products — will be replaced by D1 data at build time
+const featuredProducts = [
+  {
+    id: '1',
+    name: 'Camiseta Sublime Básica',
+    price: 120000,
+    image: '/placeholder-product.svg',
+    category: 'Ropa',
+  },
+  {
+    id: '2',
+    name: 'Estampa CMYK Edición Limitada',
+    price: 250000,
+    image: '/placeholder-product.svg',
+    category: 'Arte',
+  },
+  {
+    id: '3',
+    name: 'Tote Bag Sublime',
+    price: 85000,
+    image: '/placeholder-product.svg',
+    category: 'Accesorios',
+  },
+  {
+    id: '4',
+    name: 'Poster High Contrast',
+    price: 95000,
+    image: '/placeholder-product.svg',
+    category: 'Arte',
+  },
+];
+---
+
+<BaseLayout title="Sublime E-commerce — Arte & Diseño">
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <Chip variant="primary">Nuevo Drop</Chip>
+        <h1 class="hero-title display-lg">
+          Arte &<br/>Diseño
+        </h1>
+        <p class="hero-subtitle body-lg">
+          Productos únicos para mentes creativas. Calidad que se nota, estilo que se siente.
+        </p>
+        <div class="hero-actions">
+          <a href="/" class="btn btn--primary">Ver Catálogo</a>
+          <a href="https://wa.me/595000000000" class="btn btn--secondary" target="_blank" rel="noopener">
+            Contactar por WhatsApp
+          </a>
+        </div>
+      </div>
+
+      <!-- CMYK decorative element -->
+      <div class="hero-cmyk">
+        <div class="cmyk-bar cmyk-bar--lg">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Featured Products -->
+  <section class="featured section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="headline-lg-mobile">Destacados</h2>
+        <a href="/" class="label-sm section-link">Ver todo →</a>
+      </div>
+
+      <div class="products-grid grid">
+        {featuredProducts.map((product) => (
+          <ProductCard
+            id={product.id}
+            name={product.name}
+            price={product.price}
+            image={product.image}
+            category={product.category}
+          />
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* Hero */
+  .hero {
+    padding: var(--space-4xl) 0 var(--space-3xl);
+  }
+
+  .hero-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    max-width: 600px;
+  }
+
+  .hero-title {
+    color: var(--on-surface);
+    margin: var(--space-md) 0;
+  }
+
+  .hero-subtitle {
+    color: var(--on-surface-variant);
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    margin-top: var(--space-md);
+  }
+
+  @media (min-width: 768px) {
+    .hero-actions {
+      flex-direction: row;
+    }
+  }
+
+  .hero-cmyk {
+    margin-top: var(--space-3xl);
+  }
+
+  .cmyk-bar--lg {
+    height: 8px;
+  }
+
+  /* Featured Section */
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: var(--space-xl);
+  }
+
+  .section-link {
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  .section-link:hover {
+    text-decoration: underline;
+  }
+
+  /* Products Grid */
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 768px) {
+    .products-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+</style>

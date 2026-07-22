@@ -1,168 +1,278 @@
 ---
 /**
- * Homepage — Sublime E-commerce
+ * Shop — Homepage (/)
  * 
- * Hero section + featured products grid.
- * Dark theme, CMYK accents, sharp corners.
+ * Layout:
+ * - Promotion sections (top/bottom)
+ * - Desktop: sidebar with category tree
+ * - Mobile: two buttons (Categorías, Filtros) → slide-in panels
+ * - Product grid
  */
 
 import BaseLayout from '../layouts/BaseLayout.astro';
+import PromotionWall from '../components/PromotionWall.astro';
 import ProductCard from '../components/ProductCard.astro';
-import Chip from '../components/Chip.astro';
+import CategoryTree from '../components/CategoryTree.astro';
+import MobileCategoryPanel from '../components/MobileCategoryPanel.astro';
+import MobileFilterPanel from '../components/MobileFilterPanel.astro';
 
-// Placeholder products — will be replaced by D1 data at build time
-const featuredProducts = [
+// Placeholder categories (will be fetched from API)
+const categories = [
   {
-    id: '1',
-    name: 'Camiseta Sublime Básica',
-    price: 120000,
-    image: '/placeholder-product.svg',
-    category: 'Ropa',
+    id: 'ropa', name: 'Ropa', slug: 'ropa',
+    children: [
+      { id: 'camisetas', name: 'Camisetas', slug: 'camisetas', children: [
+        { id: 'basicas', name: 'Básicas', slug: 'basicas', children: [] },
+        { id: 'estampadas', name: 'Estampadas', slug: 'estampadas', children: [] },
+      ]},
+      { id: 'sudaderas', name: 'Sudaderas', slug: 'sudaderas', children: [] },
+      { id: 'gorras', name: 'Gorras', slug: 'gorras', children: [] },
+    ],
   },
   {
-    id: '2',
-    name: 'Estampa CMYK Edición Limitada',
-    price: 250000,
-    image: '/placeholder-product.svg',
-    category: 'Arte',
+    id: 'arte', name: 'Arte', slug: 'arte',
+    children: [
+      { id: 'poster', name: 'Pósteres', slug: 'poster', children: [] },
+      { id: 'estampas', name: 'Estampas', slug: 'estampas', children: [] },
+    ],
   },
   {
-    id: '3',
-    name: 'Tote Bag Sublime',
-    price: 85000,
-    image: '/placeholder-product.svg',
-    category: 'Accesorios',
+    id: 'accesorios', name: 'Accesorios', slug: 'accesorios',
+    children: [
+      { id: 'bolsos', name: 'Bolsos', slug: 'bolsos', children: [] },
+      { id: 'vinilos', name: 'Vinilos', slug: 'vinilos', children: [] },
+    ],
   },
-  {
-    id: '4',
-    name: 'Poster High Contrast',
-    price: 95000,
-    image: '/placeholder-product.svg',
-    category: 'Arte',
-  },
+];
+
+const products = [
+  { id: '1', name: 'Camiseta Sublime Básica', price: 120000, image: '/placeholder-product.svg', category: 'Ropa' },
+  { id: '2', name: 'Estampa CMYK Edición Limitada', price: 250000, image: '/placeholder-product.svg', category: 'Arte' },
+  { id: '3', name: 'Tote Bag Sublime', price: 85000, image: '/placeholder-product.svg', category: 'Accesorios' },
+  { id: '4', name: 'Poster High Contrast', price: 95000, image: '/placeholder-product.svg', category: 'Arte' },
+  { id: '5', name: 'Camiseta Oversized Negra', price: 150000, image: '/placeholder-product.svg', category: 'Ropa' },
+  { id: '6', name: 'Estampa Magenta Glow', price: 180000, image: '/placeholder-product.svg', category: 'Arte' },
+  { id: '7', name: 'Gorra Sublime Logo', price: 75000, image: '/placeholder-product.svg', category: 'Accesorios' },
+  { id: '8', name: 'Remera Estampada Cyan', price: 130000, image: '/placeholder-product.svg', category: 'Ropa' },
 ];
 ---
 
-<BaseLayout title="Sublime E-commerce — Arte & Diseño">
-  <!-- Hero Section -->
-  <section class="hero">
-    <div class="container">
-      <div class="hero-content">
-        <Chip variant="primary">Nuevo Drop</Chip>
-        <h1 class="hero-title display-lg">
-          Arte &<br/>Diseño
-        </h1>
-        <p class="hero-subtitle body-lg">
-          Productos únicos para mentes creativas. Calidad que se nota, estilo que se siente.
-        </p>
-        <div class="hero-actions">
-          <a href="/catalogo" class="btn btn--primary">Ver Catálogo</a>
-          <a href="https://wa.me/595000000000" class="btn btn--secondary" target="_blank" rel="noopener">
-            Contactar por WhatsApp
-          </a>
-        </div>
-      </div>
+<BaseLayout title="Sublime — Shop">
+  <!-- 1. ALWAYS: Top promotions -->
+  <PromotionWall section="always-catalog-top" />
 
-      <!-- CMYK decorative element -->
-      <div class="hero-cmyk">
-        <div class="cmyk-bar cmyk-bar--lg">
-          <span></span><span></span><span></span>
-        </div>
-      </div>
+  <!-- 2. HOME: Top promotions -->
+  <PromotionWall section="home-catalog-top" />
+
+  <!-- Mobile: Action Buttons -->
+  <div class="mobile-actions">
+    <button class="mobile-action-btn" id="open-categories">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7"/>
+        <rect x="14" y="3" width="7" height="7"/>
+        <rect x="14" y="14" width="7" height="7"/>
+        <rect x="3" y="14" width="7" height="7"/>
+      </svg>
+      <span class="body-md">Categorías</span>
+    </button>
+    <button class="mobile-action-btn" id="open-filters">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="4" y1="21" x2="4" y2="14"/>
+        <line x1="4" y1="10" x2="4" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="12"/>
+        <line x1="12" y1="8" x2="12" y2="3"/>
+        <line x1="20" y1="21" x2="20" y2="16"/>
+        <line x1="20" y1="12" x2="20" y2="3"/>
+        <line x1="1" y1="14" x2="7" y2="14"/>
+        <line x1="9" y1="8" x2="15" y2="8"/>
+        <line x1="17" y1="16" x2="23" y2="16"/>
+      </svg>
+      <span class="body-md">Filtros</span>
+    </button>
+  </div>
+
+  <!-- Main Content: Sidebar + Products -->
+  <section class="shop-layout">
+      <div class="shop-grid">
+        <!-- Desktop Sidebar: Category Tree -->
+        <aside class="shop-sidebar">
+          <h2 class="sidebar-title label-sm">Categorías</h2>
+          <CategoryTree categories={categories} />
+        </aside>
+
+        <!-- Products Grid -->
+        <main class="shop-main">
+          <div class="products-grid">
+            {products.map((product) => (
+              <div class="product-wrapper" data-category={product.category.toLowerCase()}>
+                <ProductCard
+                  id={product.id}
+                  name={product.name}
+                  price={product.price}
+                  image={product.image}
+                  category={product.category}
+                />
+              </div>
+            ))}
+          </div>
+        </main>
     </div>
   </section>
 
-  <!-- Featured Products -->
-  <section class="featured section">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="headline-lg-mobile">Destacados</h2>
-        <a href="/catalogo" class="label-sm section-link">Ver todo →</a>
-      </div>
+  <!-- 3. HOME: Bottom promotions -->
+  <PromotionWall section="home-catalog-bottom" />
 
-      <div class="products-grid grid">
-        {featuredProducts.map((product) => (
-          <ProductCard
-            id={product.id}
-            name={product.name}
-            price={product.price}
-            image={product.image}
-            category={product.category}
-          />
-        ))}
-      </div>
-    </div>
-  </section>
+  <!-- 4. ALWAYS: Bottom promotions -->
+  <PromotionWall section="always-catalog-bottom" />
+
+  <!-- Mobile Panels -->
+  <MobileCategoryPanel categories={categories} />
+  <MobileFilterPanel />
 </BaseLayout>
 
+<script>
+  // Category filter (from sidebar, tree, or mobile panel)
+  window.addEventListener('category-select', ((e: CustomEvent) => {
+    const category = e.detail.category;
+    
+    // Update active states
+    document.querySelectorAll('.filter-btn, .tree-label').forEach((btn) => {
+      const el = btn as HTMLElement;
+      if (el.dataset.filter === category || el.dataset.filter === 'all') {
+        el.closest('.category-tree-row, .filter-btn')?.classList.add('active');
+      } else {
+        el.closest('.category-tree-row, .filter-btn')?.classList.remove('active');
+      }
+    });
+
+    // Filter products
+    document.querySelectorAll('.product-wrapper').forEach((wrapper) => {
+      const el = wrapper as HTMLElement;
+      if (category === 'all' || el.dataset.category === category) {
+        el.style.display = '';
+      } else {
+        el.style.display = 'none';
+      }
+    });
+  }) as EventListener);
+
+  // Filter by price (from mobile filter panel)
+  window.addEventListener('filters-applied', ((e: CustomEvent) => {
+    const { minPrice, maxPrice } = e.detail;
+    
+    document.querySelectorAll('.product-wrapper').forEach((wrapper) => {
+      const el = wrapper as HTMLElement;
+      const priceEl = el.querySelector('.product-price');
+      if (!priceEl) return;
+      
+      const priceText = priceEl.textContent || '';
+      const price = Number(priceText.replace(/[^0-9]/g, ''));
+      
+      let show = true;
+      if (minPrice && price < minPrice) show = false;
+      if (maxPrice && price > maxPrice) show = false;
+      
+      el.style.display = show ? '' : 'none';
+    });
+  }) as EventListener);
+</script>
+
 <style>
-  /* Hero */
-  .hero {
-    padding: var(--space-4xl) 0 var(--space-3xl);
-  }
-
-  .hero-content {
+  /* Mobile Action Buttons */
+  .mobile-actions {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-lg);
-    max-width: 600px;
-  }
-
-  .hero-title {
-    color: var(--on-surface);
-    margin: var(--space-md) 0;
-  }
-
-  .hero-subtitle {
-    color: var(--on-surface-variant);
-  }
-
-  .hero-actions {
-    display: flex;
-    flex-direction: column;
     gap: var(--space-md);
-    margin-top: var(--space-md);
+    padding: var(--space-md) var(--margin-mobile);
+    background-color: var(--surface-container);
+    border-bottom: var(--border-width) solid var(--outline-variant);
   }
 
   @media (min-width: 768px) {
-    .hero-actions {
-      flex-direction: row;
+    .mobile-actions {
+      display: none;
     }
   }
 
-  .hero-cmyk {
-    margin-top: var(--space-3xl);
-  }
-
-  .cmyk-bar--lg {
-    height: 8px;
-  }
-
-  /* Featured Section */
-  .section-header {
+  .mobile-action-btn {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: var(--space-xl);
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    background: none;
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    cursor: pointer;
+    transition: all 0.15s ease;
   }
 
-  .section-link {
+  .mobile-action-btn:hover {
+    border-color: var(--primary);
     color: var(--primary);
-    text-decoration: none;
   }
 
-  .section-link:hover {
-    text-decoration: underline;
+  /* Shop Layout */
+  .shop-layout {
+    padding: var(--space-2xl) var(--margin-mobile);
+  }
+
+  @media (min-width: 768px) {
+    .shop-layout {
+      padding: var(--space-2xl) var(--margin-desktop);
+    }
+  }
+
+  .shop-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-2xl);
+  }
+
+  @media (min-width: 768px) {
+    .shop-grid {
+      grid-template-columns: 240px 1fr;
+    }
+  }
+
+  /* Sidebar */
+  .shop-sidebar {
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    .shop-sidebar {
+      display: block;
+      background-color: var(--surface-container);
+      padding: var(--space-lg);
+      border: var(--border-width) solid var(--outline-variant);
+      height: fit-content;
+      position: sticky;
+      top: 100px;
+    }
+  }
+
+  .sidebar-title {
+    color: var(--primary);
+    margin-bottom: var(--space-lg);
+    text-transform: uppercase;
   }
 
   /* Products Grid */
   .products-grid {
-    grid-template-columns: repeat(2, 1fr);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--gutter);
   }
 
   @media (min-width: 768px) {
     .products-grid {
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .products-grid {
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     }
   }
 </style>
