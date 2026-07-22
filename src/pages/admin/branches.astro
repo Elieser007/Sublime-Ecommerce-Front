@@ -1,0 +1,263 @@
+---
+/**
+ * Admin Branches — Branch Management
+ * DataTable with search, filters, pagination, create/edit modal
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminSidebar from '../../components/AdminSidebar.astro';
+import DataTable from '../../components/admin/DataTable.astro';
+
+const columns = [
+  { key: 'name', label: 'Nombre' },
+  { key: 'slug', label: 'Slug' },
+  { key: 'address', label: 'Dirección' },
+  { key: 'phone', label: 'Teléfono' },
+  { key: 'status', label: 'Estado' },
+  { key: 'actions', label: 'Acciones', width: '100px' },
+];
+---
+
+<BaseLayout title="Sucursales — Admin">
+  <div class="admin-layout">
+    <AdminSidebar active="branches" />
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1 class="headline-lg-mobile">Sucursales</h1>
+        <p class="body-md admin-subtitle">Administra las sucursales del negocio</p>
+      </div>
+
+      <div class="content-header">
+        <div class="toolbar">
+          <input type="text" id="search" class="form-input body-md" placeholder="Buscar nombre o dirección..." />
+          <select id="status-filter" class="form-select body-md">
+            <option value="">Todos</option>
+            <option value="1">Activas</option>
+            <option value="0">Inactivas</option>
+          </select>
+          <select id="limit" class="form-select body-md">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <button class="btn btn--primary" id="add-branch">
+          <span class="btn-icon">+</span> Nueva
+        </button>
+      </div>
+
+      <DataTable columns={columns}>
+        <tr><td colspan="6" class="empty-cell">Cargando...</td></tr>
+      </DataTable>
+
+      <div class="pagination-bar">
+        <span class="body-md" id="showing">Mostrando 0 de 0</span>
+        <div class="page-nav">
+          <button class="btn btn--secondary" id="prev" disabled>Anterior</button>
+          <span class="body-md" id="page-info">Página 1 de 1</span>
+          <button class="btn btn--secondary" id="next" disabled>Siguiente</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modal-overlay" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="headline-lg-mobile" id="modal-title">Nueva Sucursal</h3>
+        <button class="modal-close" id="modal-close">✕</button>
+      </div>
+      <form class="modal-form" id="modal-form">
+        <input type="hidden" id="modal-id" />
+        <div class="form-group">
+          <label class="label-sm">Nombre *</label>
+          <input type="text" name="name" class="form-input body-md" required />
+        </div>
+        <div class="form-group">
+          <label class="label-sm">Dirección</label>
+          <input type="text" name="address" class="form-input body-md" />
+        </div>
+        <div class="form-group">
+          <label class="label-sm">Teléfono</label>
+          <input type="text" name="phone" class="form-input body-md" />
+        </div>
+        <div class="form-group" id="slug-group" style="display: none;">
+          <label class="label-sm">Slug</label>
+          <code class="slug-display" id="slug-display"></code>
+        </div>
+        <div class="form-error" id="form-error"></div>
+        <div class="form-actions">
+          <button type="button" class="btn btn--secondary" id="modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  let items: any[] = [];
+  let currentPage = 1;
+  let limit = 25;
+  let totalItems = 0;
+  let totalPages = 0;
+  let currentSearch = '';
+  let currentStatus = '';
+
+  const $ = (id: string) => document.getElementById(id);
+
+  async function loadBranches() {
+    const tbody = document.querySelector('tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Cargando...</td></tr>';
+    const params = new URLSearchParams();
+    params.set('page', String(currentPage));
+    params.set('limit', String(limit));
+    if (currentSearch) params.set('search', currentSearch);
+    if (currentStatus) params.set('is_active', currentStatus);
+    try {
+      const res = await fetch(`${API_URL}/api/branches?${params.toString()}`, { credentials: 'include' });
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      if (!res.ok) throw new Error('Error');
+      const data = await res.json();
+      items = data.data || [];
+      totalItems = data.total || 0;
+      totalPages = data.pages || 1;
+      render();
+    } catch (err) {
+      if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Error al cargar</td></tr>';
+    }
+  }
+
+  function render() {
+    const tbody = document.querySelector('tbody');
+    if (!tbody) return;
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">No hay sucursales</td></tr>';
+    } else {
+      tbody.innerHTML = items.map((b: any) => `<tr>
+        <td><strong>${b.name}</strong></td>
+        <td><code class="slug-badge">${b.slug}</code></td>
+        <td>${b.address || '—'}</td>
+        <td>${b.phone || '—'}</td>
+        <td><span class="badge ${b.is_active ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${b.is_active ? 'Activo' : 'Inactivo'}</span></td>
+        <td><div class="cell-actions">
+          <button class="ta-btn" onclick="editBranch('${b.id}')" title="Editar">✏️</button>
+          <button class="ta-btn ta-btn--delete" onclick="deleteBranch('${b.id}')" title="Desactivar">🗑️</button>
+        </div></td>
+      </tr>`).join('');
+    }
+    updatePagination();
+  }
+
+  function updatePagination() {
+    const start = totalItems === 0 ? 0 : (currentPage - 1) * limit + 1;
+    const end = Math.min(currentPage * limit, totalItems);
+    $('showing')!.textContent = `Mostrando ${start}–${end} de ${totalItems}`;
+    $('page-info')!.textContent = `Página ${currentPage} de ${totalPages}`;
+    ($('prev') as HTMLButtonElement).disabled = currentPage <= 1;
+    ($('next') as HTMLButtonElement).disabled = currentPage >= totalPages;
+  }
+
+  function openModal(isEdit: boolean, branch?: any) {
+    const form = $('modal-form') as HTMLFormElement;
+    form.reset();
+    $('form-error')!.textContent = '';
+    $('modal-title')!.textContent = isEdit ? 'Editar Sucursal' : 'Nueva Sucursal';
+    ($('modal-id') as HTMLInputElement).value = branch?.id || '';
+    ($('slug-group') as HTMLElement).style.display = isEdit ? 'block' : 'none';
+    if (branch) {
+      form.name.value = branch.name || '';
+      form.address.value = branch.address || '';
+      form.phone.value = branch.phone || '';
+      $('slug-display')!.textContent = branch.slug || '';
+    }
+    $('modal-overlay')!.style.display = '';
+  }
+
+  function closeModal() { $('modal-overlay')!.style.display = 'none'; }
+
+  $('add-branch')?.addEventListener('click', () => openModal(false));
+  $('modal-close')?.addEventListener('click', closeModal);
+  $('modal-cancel')?.addEventListener('click', closeModal);
+  $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+  let searchTimeout: any;
+  $('search')?.addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadBranches(); }, 300);
+  });
+  $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadBranches(); });
+  $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadBranches(); });
+  $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadBranches(); } });
+  $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadBranches(); } });
+
+  $('modal-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const id = ($('modal-id') as HTMLInputElement).value;
+    const isEdit = !!id;
+    const body = { name: form.name.value, address: form.address.value || null, phone: form.phone.value || null };
+    const res = await fetch(isEdit ? `${API_URL}/api/branches/${id}` : `${API_URL}/api/branches`, {
+      method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
+    });
+    if (!res.ok) { const err = await res.json(); $('form-error')!.textContent = err.error || 'Error'; return; }
+    closeModal(); loadBranches();
+  });
+
+  (window as any).editBranch = (id: string) => { const branch = items.find((b: any) => b.id === id); if (branch) openModal(true, branch); };
+  (window as any).deleteBranch = async (id: string) => {
+    if (!confirm('¿Desactivar esta sucursal?')) return;
+    const res = await fetch(`${API_URL}/api/branches/${id}`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) loadBranches();
+  };
+
+  loadBranches();
+</script>
+
+<style>
+  .admin-layout { display: grid; grid-template-columns: 1fr; min-height: calc(100vh - 72px); }
+  @media (min-width: 768px) { .admin-layout { grid-template-columns: 260px 1fr; } }
+  .admin-main { padding: var(--space-2xl); overflow-y: auto; }
+  .admin-header { margin-bottom: var(--space-2xl); }
+  .admin-header h1 { color: var(--on-surface); margin-bottom: var(--space-sm); }
+  .admin-subtitle { color: var(--on-surface-variant); }
+  .content-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md); flex-wrap: wrap; gap: var(--space-md); }
+  .toolbar { display: flex; gap: 12px; flex-wrap: wrap; flex: 1; }
+  .form-input, .form-select { padding: 12px; background-color: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; color: #e2e2e2; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; min-width: 160px; }
+  .form-input:focus, .form-select:focus { outline: none; border-color: #82cfff; box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.2); }
+  .empty-cell { text-align: center; padding: 48px !important; color: #bdc8d1; }
+  .cell-actions { display: flex; gap: 6px; justify-content: flex-end; opacity: 0.6; transition: opacity 0.2s ease; }
+  tr:hover .cell-actions { opacity: 1; }
+  .slug-badge { display: inline-block; padding: 4px 10px; background-color: rgba(53, 53, 53, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
+  .slug-display { display: inline-block; padding: 10px 12px; background-color: rgba(53, 53, 53, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 12px; border-radius: 0px; }
+  .pagination-bar { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-xl); flex-wrap: wrap; gap: var(--space-md); }
+  .page-nav { display: flex; gap: 12px; align-items: center; }
+  .modal-overlay { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .modal { background-color: #131313; border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 24px; border-bottom: 1px solid rgba(62, 72, 80, 0.3); }
+  .modal-header h3 { color: #e2e2e2; }
+  .modal-close { background: none; border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; width: 36px; height: 36px; color: #bdc8d1; cursor: pointer; font-size: 18px; }
+  .modal-close:hover { border-color: #ffb4ab; color: #ffb4ab; }
+  .modal-form { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+  .form-group { display: flex; flex-direction: column; gap: 8px; }
+  .form-group label { color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .form-error { color: #ffb4ab; font-size: 14px; min-height: 20px; }
+  .form-actions { display: flex; gap: 12px; justify-content: flex-end; padding-top: 20px; border-top: 1px solid rgba(62, 72, 80, 0.3); }
+  :global(.btn) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 24px; font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 0px; cursor: pointer; transition: all 0.2s ease; }
+  :global(.btn:hover) { transform: scale(1.05); }
+  :global(.btn:active) { transform: scale(0.95); }
+  :global(.btn--primary) { background-color: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.5); }
+  :global(.btn--primary:hover) { background-color: rgba(130, 207, 255, 0.2); }
+  :global(.btn--secondary) { background-color: transparent; color: #e2e2e2; border: 1px solid rgba(62, 72, 80, 0.5); }
+  :global(.btn--secondary:hover) { background-color: rgba(255, 255, 255, 0.05); }
+  :global(.btn-icon) { font-size: 18px; line-height: 1; }
+  :global(.ta-btn) { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: rgba(130, 207, 255, 0.08); border: 1px solid rgba(130, 207, 255, 0.2); border-radius: 0px; color: #82cfff; cursor: pointer; transition: all 0.15s ease; font-size: 14px; }
+  :global(.ta-btn:hover) { background: rgba(130, 207, 255, 0.15); border-color: rgba(130, 207, 255, 0.5); transform: scale(1.1); }
+  :global(.ta-btn--delete) { background: rgba(255, 180, 171, 0.08); border-color: rgba(255, 180, 171, 0.2); color: #ffb4ab; }
+  :global(.ta-btn--delete:hover) { background: rgba(255, 180, 171, 0.15); border-color: rgba(255, 180, 171, 0.5); }
+  :global(.badge) { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 0px; white-space: nowrap; }
+  :global(.badge-dot) { width: 6px; height: 6px; border-radius: 0px; background-color: currentColor; }
+  :global(.badge--active) { background-color: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.3); }
+  :global(.badge--inactive) { background-color: rgba(255, 180, 171, 0.1); color: #ffb4ab; border: 1px solid rgba(255, 180, 171, 0.3); }
+</style>

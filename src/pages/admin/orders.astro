@@ -1,0 +1,298 @@
+---
+/**
+ * Admin Orders — Order Management
+ * DataTable with search, filters, pagination, detail modal with status change
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminSidebar from '../../components/AdminSidebar.astro';
+import DataTable from '../../components/admin/DataTable.astro';
+
+const columns = [
+  { key: 'id', label: 'ID', width: '80px' },
+  { key: 'customer', label: 'Cliente' },
+  { key: 'phone', label: 'Teléfono' },
+  { key: 'branch', label: 'Sucursal' },
+  { key: 'total', label: 'Total' },
+  { key: 'status', label: 'Estado' },
+  { key: 'created', label: 'Creado' },
+  { key: 'actions', label: 'Acciones', width: '60px' },
+];
+---
+
+<BaseLayout title="Pedidos — Admin">
+  <div class="admin-layout">
+    <AdminSidebar active="orders" />
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1 class="headline-lg-mobile">Pedidos</h1>
+        <p class="body-md admin-subtitle">Visualiza y actualiza el estado de los pedidos</p>
+      </div>
+
+      <div class="content-header">
+        <div class="toolbar">
+          <input type="text" id="search" class="form-input body-md" placeholder="Buscar cliente, email o ID..." />
+          <select id="status-filter" class="form-select body-md">
+            <option value="">Todos</option>
+            <option value="pending">Pendiente</option>
+            <option value="confirmed">Confirmado</option>
+            <option value="preparing">Preparando</option>
+            <option value="shipped">Enviado</option>
+            <option value="delivered">Entregado</option>
+            <option value="cancelled">Cancelado</option>
+          </select>
+          <select id="branch-filter" class="form-select body-md"><option value="">Todas las sucursales</option></select>
+          <select id="limit" class="form-select body-md">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+
+      <DataTable columns={columns}>
+        <tr><td colspan="8" class="empty-cell">Cargando...</td></tr>
+      </DataTable>
+
+      <div class="pagination-bar">
+        <span class="body-md" id="showing">Mostrando 0 de 0</span>
+        <div class="page-nav">
+          <button class="btn btn--secondary" id="prev" disabled>Anterior</button>
+          <span class="body-md" id="page-info">Página 1 de 1</span>
+          <button class="btn btn--secondary" id="next" disabled>Siguiente</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modal-overlay" style="display: none;">
+    <div class="modal modal--wide">
+      <div class="modal-header">
+        <h3 class="headline-lg-mobile" id="modal-title">Detalle del Pedido</h3>
+        <button class="modal-close" id="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-grid">
+          <div class="detail-group"><span class="label-sm">Cliente</span><span class="body-md" id="detail-customer"></span></div>
+          <div class="detail-group"><span class="label-sm">Teléfono</span><span class="body-md" id="detail-phone"></span></div>
+          <div class="detail-group"><span class="label-sm">Email</span><span class="body-md" id="detail-email"></span></div>
+          <div class="detail-group"><span class="label-sm">Sucursal</span><span class="body-md" id="detail-branch"></span></div>
+          <div class="detail-group"><span class="label-sm">Total</span><span class="body-md" id="detail-total"></span></div>
+          <div class="detail-group"><span class="label-sm">Creado</span><span class="body-md" id="detail-created"></span></div>
+        </div>
+        <div class="detail-section">
+          <span class="label-sm">Items</span>
+          <table class="items-table">
+            <thead><tr><th class="label-sm">Producto</th><th class="label-sm">Variante</th><th class="label-sm">Cant.</th><th class="label-sm">Precio</th><th class="label-sm">Total</th></tr></thead>
+            <tbody id="detail-items"></tbody>
+          </table>
+        </div>
+        <div class="detail-section"><span class="label-sm">Notas</span><p class="body-md" id="detail-notes"></p></div>
+        <form class="status-form" id="status-form">
+          <div class="form-group"><label class="label-sm">Cambiar Estado</label><select id="status-select" class="form-select body-md" required></select></div>
+          <div class="form-group"><label class="label-sm">Agregar Nota</label><input type="text" id="notes-input" class="form-input body-md" placeholder="Nota adicional..." /></div>
+          <div class="form-error" id="form-error"></div>
+          <div class="form-actions">
+            <button type="button" class="btn btn--secondary" id="modal-cancel">Cerrar</button>
+            <button type="submit" class="btn btn--primary">Guardar Estado</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const STATUS_LABELS: Record<string, string> = { pending: 'Pendiente', confirmed: 'Confirmado', preparing: 'Preparando', shipped: 'Enviado', delivered: 'Entregado', cancelled: 'Cancelado' };
+  const ALLOWED_TRANSITIONS: Record<string, string[]> = { pending: ['confirmed', 'cancelled'], confirmed: ['preparing', 'cancelled'], preparing: ['shipped', 'cancelled'], shipped: ['delivered'], delivered: [], cancelled: [] };
+
+  let items: any[] = [];
+  let currentPage = 1;
+  let limit = 25;
+  let totalItems = 0;
+  let totalPages = 0;
+  let currentSearch = '';
+  let currentStatus = '';
+  let currentBranch = '';
+  let branches: any[] = [];
+  let currentOrderId: string | null = null;
+
+  const $ = (id: string) => document.getElementById(id);
+  const formatPrice = (cents: number) => `₲ ${(cents || 0).toLocaleString('es-PY')}`;
+  const shortId = (id: string) => (id || '').slice(0, 8);
+  const statusBadge = (status: string) => `<span class="badge badge--${status}"><span class="badge-dot"></span>${STATUS_LABELS[status] || status}</span>`;
+
+  async function loadBranches() {
+    const res = await fetch(`${API_URL}/api/branches`, { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    branches = data.branches || [];
+    ($('branch-filter') as HTMLSelectElement).innerHTML = '<option value="">Todas las sucursales</option>' + branches.map((b: any) => `<option value="${b.id}">${b.name}</option>`).join('');
+  }
+
+  async function loadOrders() {
+    const tbody = document.querySelector('tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">Cargando...</td></tr>';
+    const params = new URLSearchParams();
+    params.set('page', String(currentPage));
+    params.set('limit', String(limit));
+    if (currentSearch) params.set('search', currentSearch);
+    if (currentStatus) params.set('status', currentStatus);
+    if (currentBranch) params.set('branch_id', currentBranch);
+    try {
+      const res = await fetch(`${API_URL}/api/orders?${params.toString()}`, { credentials: 'include' });
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      if (!res.ok) throw new Error('Error');
+      const data = await res.json();
+      items = data.data || [];
+      totalItems = data.total || 0;
+      totalPages = data.pages || 1;
+      render();
+    } catch (err) {
+      if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">Error al cargar</td></tr>';
+    }
+  }
+
+  function render() {
+    const tbody = document.querySelector('tbody');
+    if (!tbody) return;
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">No hay pedidos</td></tr>';
+    } else {
+      tbody.innerHTML = items.map((o: any) => `<tr>
+        <td><code class="id-badge">${shortId(o.id)}</code></td>
+        <td><strong>${o.customer_name}</strong></td>
+        <td>${o.customer_phone}</td>
+        <td>${o.branch_name || '—'}</td>
+        <td>${formatPrice(o.total)}</td>
+        <td>${statusBadge(o.status)}</td>
+        <td>${new Date(o.created_at * 1000).toLocaleDateString('es-PY')}</td>
+        <td><div class="cell-actions"><button class="ta-btn" onclick="viewOrder('${o.id}')" title="Ver">👁️</button></div></td>
+      </tr>`).join('');
+    }
+    updatePagination();
+  }
+
+  function updatePagination() {
+    const start = totalItems === 0 ? 0 : (currentPage - 1) * limit + 1;
+    const end = Math.min(currentPage * limit, totalItems);
+    $('showing')!.textContent = `Mostrando ${start}–${end} de ${totalItems}`;
+    $('page-info')!.textContent = `Página ${currentPage} de ${totalPages}`;
+    ($('prev') as HTMLButtonElement).disabled = currentPage <= 1;
+    ($('next') as HTMLButtonElement).disabled = currentPage >= totalPages;
+  }
+
+  async function viewOrder(id: string) {
+    currentOrderId = id;
+    try {
+      const res = await fetch(`${API_URL}/api/orders/${id}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('No se pudo cargar');
+      const { order } = await res.json();
+      $('detail-customer')!.textContent = order.customer_name;
+      $('detail-phone')!.textContent = order.customer_phone;
+      $('detail-email')!.textContent = order.customer_email || '—';
+      $('detail-branch')!.textContent = order.branch_name || '—';
+      $('detail-total')!.textContent = formatPrice(order.total);
+      $('detail-created')!.textContent = new Date(order.created_at * 1000).toLocaleString('es-PY');
+      $('detail-notes')!.textContent = order.notes || 'Sin notas';
+      ($('detail-items') as HTMLTableSectionElement).innerHTML = (order.items || []).map((item: any) => `<tr>
+        <td>${item.product_name || '—'}</td><td>${item.variant_name || '—'}</td><td>${item.quantity}</td><td>${formatPrice(item.unit_price)}</td><td>${formatPrice(item.total_price)}</td>
+      </tr>`).join('');
+      const statusSelect = $('status-select') as HTMLSelectElement;
+      const allowed = ALLOWED_TRANSITIONS[order.status] || [];
+      statusSelect.innerHTML = `<option value="${order.status}" selected>${STATUS_LABELS[order.status]} (actual)</option>` + allowed.map((s: string) => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('');
+      $('modal-title')!.textContent = `Pedido ${shortId(order.id)}`;
+      $('modal-overlay')!.style.display = '';
+      $('form-error')!.textContent = '';
+    } catch (err) { console.error(err); }
+  }
+
+  function closeModal() { $('modal-overlay')!.style.display = 'none'; currentOrderId = null; }
+
+  $('modal-close')?.addEventListener('click', closeModal);
+  $('modal-cancel')?.addEventListener('click', closeModal);
+  $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+  let searchTimeout: any;
+  $('search')?.addEventListener('input', (e) => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadOrders(); }, 300); });
+  $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadOrders(); });
+  $('branch-filter')?.addEventListener('change', (e) => { currentBranch = (e.target as HTMLSelectElement).value; currentPage = 1; loadOrders(); });
+  $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadOrders(); });
+  $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadOrders(); } });
+  $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadOrders(); } });
+
+  $('status-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!currentOrderId) return;
+    const status = ($('status-select') as HTMLSelectElement).value;
+    const notes = ($('notes-input') as HTMLInputElement).value;
+    const res = await fetch(`${API_URL}/api/orders/${currentOrderId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ status, notes }),
+    });
+    if (!res.ok) { const err = await res.json(); $('form-error')!.textContent = err.error || 'Error'; return; }
+    closeModal(); loadOrders();
+  });
+
+  (window as any).viewOrder = viewOrder;
+
+  async function init() { await loadBranches(); await loadOrders(); }
+  init();
+</script>
+
+<style>
+  .admin-layout { display: grid; grid-template-columns: 1fr; min-height: calc(100vh - 72px); }
+  @media (min-width: 768px) { .admin-layout { grid-template-columns: 260px 1fr; } }
+  .admin-main { padding: var(--space-2xl); overflow-y: auto; }
+  .admin-header { margin-bottom: var(--space-2xl); }
+  .admin-header h1 { color: var(--on-surface); margin-bottom: var(--space-sm); }
+  .admin-subtitle { color: var(--on-surface-variant); }
+  .content-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md); flex-wrap: wrap; gap: var(--space-md); }
+  .toolbar { display: flex; gap: 12px; flex-wrap: wrap; flex: 1; }
+  .form-input, .form-select { padding: 12px; background-color: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; color: #e2e2e2; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; min-width: 140px; }
+  .form-input:focus, .form-select:focus { outline: none; border-color: #82cfff; box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.2); }
+  .empty-cell { text-align: center; padding: 48px !important; color: #bdc8d1; }
+  .cell-actions { display: flex; gap: 6px; justify-content: flex-end; opacity: 0.6; transition: opacity 0.2s ease; }
+  tr:hover .cell-actions { opacity: 1; }
+  .id-badge { display: inline-block; padding: 4px 8px; background-color: rgba(53, 53, 53, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
+  .pagination-bar { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-xl); flex-wrap: wrap; gap: var(--space-md); }
+  .page-nav { display: flex; gap: 12px; align-items: center; }
+  .modal-overlay { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal { background-color: #131313; border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal--wide { max-width: 720px; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 24px; border-bottom: 1px solid rgba(62, 72, 80, 0.3); }
+  .modal-header h3 { color: #e2e2e2; }
+  .modal-close { background: none; border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; width: 36px; height: 36px; color: #bdc8d1; cursor: pointer; font-size: 18px; }
+  .modal-close:hover { border-color: #ffb4ab; color: #ffb4ab; }
+  .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; }
+  .detail-group { display: flex; flex-direction: column; gap: 6px; }
+  .detail-group .label-sm { color: #82cfff; }
+  .detail-section { display: flex; flex-direction: column; gap: 12px; }
+  .detail-section .label-sm { color: #82cfff; }
+  .items-table { width: 100%; border-collapse: collapse; }
+  .items-table th, .items-table td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(62, 72, 80, 0.2); color: #e2e2e2; font-size: 14px; }
+  .items-table th { font-family: 'Space Mono', monospace; font-size: 11px; color: #bdc8d1; }
+  .status-form { display: flex; flex-direction: column; gap: 16px; padding-top: 16px; border-top: 1px solid rgba(62, 72, 80, 0.3); }
+  .form-group { display: flex; flex-direction: column; gap: 8px; }
+  .form-group label { color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .form-error { color: #ffb4ab; font-size: 14px; min-height: 20px; }
+  .form-actions { display: flex; gap: 12px; justify-content: flex-end; }
+  :global(.btn) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 24px; font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 0px; cursor: pointer; transition: all 0.2s ease; }
+  :global(.btn:hover) { transform: scale(1.05); }
+  :global(.btn:active) { transform: scale(0.95); }
+  :global(.btn--primary) { background-color: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.5); }
+  :global(.btn--primary:hover) { background-color: rgba(130, 207, 255, 0.2); }
+  :global(.btn--secondary) { background-color: transparent; color: #e2e2e2; border: 1px solid rgba(62, 72, 80, 0.5); }
+  :global(.btn--secondary:hover) { background-color: rgba(255, 255, 255, 0.05); }
+  :global(.ta-btn) { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: rgba(130, 207, 255, 0.08); border: 1px solid rgba(130, 207, 255, 0.2); border-radius: 0px; color: #82cfff; cursor: pointer; transition: all 0.15s ease; font-size: 14px; }
+  :global(.ta-btn:hover) { background: rgba(130, 207, 255, 0.15); border-color: rgba(130, 207, 255, 0.5); transform: scale(1.1); }
+  :global(.badge) { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 0px; white-space: nowrap; }
+  :global(.badge-dot) { width: 6px; height: 6px; border-radius: 0px; background-color: currentColor; }
+  :global(.badge--pending) { background-color: rgba(213, 202, 0, 0.15); color: #d5ca00; border: 1px solid rgba(213, 202, 0, 0.4); }
+  :global(.badge--confirmed) { background-color: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.3); }
+  :global(.badge--preparing) { background-color: rgba(0, 188, 212, 0.1); color: #00bcd4; border: 1px solid rgba(0, 188, 212, 0.3); }
+  :global(.badge--shipped) { background-color: rgba(179, 157, 219, 0.15); color: #b39ddb; border: 1px solid rgba(179, 157, 219, 0.4); }
+  :global(.badge--delivered) { background-color: rgba(129, 199, 132, 0.15); color: #81c784; border: 1px solid rgba(129, 199, 132, 0.4); }
+  :global(.badge--cancelled) { background-color: rgba(255, 180, 171, 0.1); color: #ffb4ab; border: 1px solid rgba(255, 180, 171, 0.3); }
+</style>
