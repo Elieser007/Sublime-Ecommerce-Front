@@ -1,0 +1,115 @@
+---
+/**
+ * HeroPromo — Full-width hero banner
+ * 
+ * Shows the first promotion as a large hero with background image,
+ * centered text, and CTA button. Used for main promotions.
+ */
+interface Promotion {
+  id: string;
+  title?: string;
+  description?: string;
+  imageUrl: string;
+  link: string;
+}
+
+interface Props {
+  promotions: Promotion[];
+}
+
+const { promotions } = Astro.props;
+const promo = promotions[0];
+---
+
+{promo && (
+  <div class="hero-promo">
+    <div class="hero-bg" style={`background-image: url('${promo.imageUrl}');`}></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      {promo.title && <h2 class="hero-title">{promo.title}</h2>}
+      {promo.description && <p class="hero-desc">{promo.description}</p>}
+      <a href={promo.link} class="hero-btn">Ver más</a>
+    </div>
+  </div>
+)}
+
+<style>
+  .hero-promo {
+    position: relative;
+    width: 100%;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: var(--border-width) solid var(--outline-variant);
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-color: var(--surface-container);
+  }
+
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.9) 0%,
+      rgba(0, 0, 0, 0.5) 50%,
+      rgba(0, 0, 0, 0.3) 100%
+    );
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    padding: var(--space-3xl) var(--space-2xl);
+    color: white;
+    max-width: 800px;
+  }
+
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(32px, 6vw, 64px);
+    text-transform: uppercase;
+    line-height: 1;
+    margin-bottom: var(--space-md);
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  }
+
+  .hero-desc {
+    font-size: clamp(16px, 2vw, 20px);
+    opacity: 0.9;
+    margin-bottom: var(--space-xl);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .hero-btn {
+    display: inline-block;
+    padding: var(--space-md) var(--space-2xl);
+    background: var(--primary);
+    color: var(--on-primary);
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    transition: all 0.2s ease;
+  }
+
+  .hero-btn:hover {
+    background: white;
+    color: black;
+    text-decoration: none;
+  }
+
+  @media (max-width: 767px) {
+    .hero-promo { min-height: 200px; }
+    .hero-content { padding: var(--space-2xl) var(--space-lg); }
+  }
+</style>

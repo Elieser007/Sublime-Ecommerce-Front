@@ -1,0 +1,218 @@
+---
+/**
+ * CarouselPromo — Auto-playing slideshow
+ * 
+ * Shows promotions one at a time with fade transition.
+ * Includes dots and arrow navigation.
+ */
+interface Promotion {
+  id: string;
+  title?: string;
+  description?: string;
+  imageUrl: string;
+  link: string;
+}
+
+interface Props {
+  promotions: Promotion[];
+  id?: string;
+}
+
+const { promotions, id = 'carousel' } = Astro.props;
+---
+
+<div class="carousel-promo" data-carousel-id={id}>
+  <div class="carousel-track">
+    {promotions.map((promo, i) => (
+      <div class={`carousel-slide ${i === 0 ? 'active' : ''}`} data-index={i}>
+        <div class="slide-bg" style={`background-image: url('${promo.imageUrl}');`}></div>
+        <div class="slide-overlay"></div>
+        <div class="slide-content">
+          {promo.title && <h3 class="slide-title">{promo.title}</h3>}
+          {promo.description && <p class="slide-desc">{promo.description}</p>}
+        </div>
+        <a href={promo.link} class="slide-link" aria-label={promo.title || 'Promoción'}></a>
+      </div>
+    ))}
+  </div>
+
+  {promotions.length > 1 && (
+    <div class="carousel-dots">
+      {promotions.map((_, i) => (
+        <button class={`carousel-dot ${i === 0 ? 'active' : ''}`} data-slide={i} aria-label={`Slide ${i + 1}`}></button>
+      ))}
+    </div>
+    <button class="carousel-arrow carousel-arrow--left" aria-label="Anterior">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <button class="carousel-arrow carousel-arrow--right" aria-label="Siguiente">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </button>
+  )}
+</div>
+
+<script>
+  function initCarousel(container: HTMLElement) {
+    const slides = container.querySelectorAll('.carousel-slide');
+    const dots = container.querySelectorAll('.carousel-dot');
+    const prevBtn = container.querySelector('.carousel-arrow--left');
+    const nextBtn = container.querySelector('.carousel-arrow--right');
+    let current = 0;
+    let timer: ReturnType<typeof setInterval>;
+
+    function goTo(index: number) {
+      slides[current]?.classList.remove('active');
+      dots[current]?.classList.remove('active');
+      current = index;
+      slides[current]?.classList.add('active');
+      dots[current]?.classList.add('active');
+    }
+
+    function next() { goTo((current + 1) % slides.length); }
+    function prev() { goTo((current - 1 + slides.length) % slides.length); }
+    function startAuto() { timer = setInterval(next, 5000); }
+    function stopAuto() { clearInterval(timer); }
+
+    prevBtn?.addEventListener('click', () => { stopAuto(); prev(); startAuto(); });
+    nextBtn?.addEventListener('click', () => { stopAuto(); next(); startAuto(); });
+    dots.forEach((dot) => {
+      dot.addEventListener('click', () => {
+        stopAuto();
+        goTo(Number((dot as HTMLElement).dataset.slide));
+        startAuto();
+      });
+    });
+
+    container.addEventListener('mouseenter', stopAuto);
+    container.addEventListener('mouseleave', startAuto);
+
+    if (slides.length > 1) startAuto();
+  }
+
+  document.querySelectorAll('.carousel-promo').forEach((el) => initCarousel(el as HTMLElement));
+</script>
+
+<style>
+  .carousel-promo {
+    position: relative;
+    width: 100%;
+  }
+
+  .carousel-track {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 1;
+    overflow: hidden;
+    border: var(--border-width) solid var(--outline-variant);
+  }
+
+  .carousel-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+  }
+  .carousel-slide.active { opacity: 1; pointer-events: auto; }
+
+  .slide-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-color: var(--surface-container);
+  }
+
+  .slide-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 40%, transparent 100%);
+  }
+
+  .slide-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: var(--space-xl) var(--space-2xl);
+    z-index: 2;
+    color: white;
+  }
+
+  .slide-title {
+    font-family: var(--font-display);
+    font-size: clamp(24px, 4vw, 48px);
+    text-transform: uppercase;
+    line-height: 1;
+    margin-bottom: var(--space-sm);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+
+  .slide-desc {
+    font-size: clamp(14px, 1.5vw, 18px);
+    opacity: 0.9;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+  }
+
+  .slide-link {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+  }
+
+  .carousel-dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    position: absolute;
+    bottom: var(--space-md);
+    right: var(--space-md);
+    z-index: 10;
+  }
+
+  .carousel-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+  }
+  .carousel-dot:hover { background: rgba(255,255,255,0.7); }
+  .carousel-dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
+
+  .carousel-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease, background 0.2s ease;
+  }
+  .carousel-promo:hover .carousel-arrow { opacity: 1; }
+  .carousel-arrow:hover { background: rgba(0,0,0,0.8); }
+  .carousel-arrow--left { left: var(--space-md); }
+  .carousel-arrow--right { right: var(--space-md); }
+
+  @media (max-width: 767px) {
+    .carousel-track { aspect-ratio: 16 / 9; }
+    .slide-content { padding: var(--space-lg); }
+    .carousel-arrow { opacity: 1; width: 32px; height: 32px; }
+  }
+</style>

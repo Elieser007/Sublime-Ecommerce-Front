@@ -1,0 +1,877 @@
+---
+/**
+ * Admin Promotions — Promotion Management
+ * 
+ * Left: Section list with display_type selector
+ * Right: Promotions for selected section + live preview
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminSidebar from '../../components/AdminSidebar.astro';
+import PromotionWall from '../../components/PromotionWall.astro';
+import HeroPromo from '../../components/promo/HeroPromo.astro';
+import CarouselPromo from '../../components/promo/CarouselPromo.astro';
+import TilesPromo from '../../components/promo/TilesPromo.astro';
+import SplitPromo from '../../components/promo/SplitPromo.astro';
+import BannerPromo from '../../components/promo/BannerPromo.astro';
+import RibbonPromo from '../../components/promo/RibbonPromo.astro';
+---
+
+<BaseLayout title="Promociones — Admin">
+  <div class="admin-layout">
+    <AdminSidebar active="promotions" />
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1 class="headline-lg-mobile">Promociones</h1>
+        <p class="body-md admin-subtitle">Gestiona los anuncios del sitio</p>
+      </div>
+
+      <div class="promo-layout">
+        <!-- LEFT: Sections -->
+        <aside class="promo-sections">
+          <h2 class="label-sm sections-title">Secciones</h2>
+          <div id="sections-list" class="sections-list">
+            <p class="body-sm">Cargando...</p>
+          </div>
+        </aside>
+
+        <!-- RIGHT: Promotions Manager -->
+        <section class="promo-manager" id="promo-manager" style="display: none;">
+          <div class="manager-header">
+            <div>
+              <h2 class="headline-lg-mobile" id="section-name">-</h2>
+              <code class="slug-badge" id="section-slug">-</code>
+            </div>
+            <div class="manager-actions">
+              <select class="form-select body-md" id="display-type-select">
+                <option value="tiles">Tiles — Grid de cuadros</option>
+                <option value="carousel">Carousel — Slideshow</option>
+                <option value="hero">Hero — Banner full-width</option>
+                <option value="split">Split — Imagen + texto</option>
+                <option value="banner">Banner — Franja de texto</option>
+                <option value="ribbon">Ribbon — Cinta horizontal</option>
+              </select>
+              <button class="btn btn--primary" id="add-promo-btn">+ Nuevo Anuncio</button>
+            </div>
+          </div>
+
+          <!-- Preview -->
+          <div class="preview-section">
+            <h3 class="label-sm">Vista Previa</h3>
+            <div id="live-preview-container"><p class="body-sm" style="color:var(--on-surface-variant);">Seleccioná una sección para ver la vista previa</p></div>
+          </div>
+
+          <!-- Promotions List -->
+          <div class="promos-list" id="promos-list"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: Create/Edit Promotion -->
+  <div class="modal-overlay" id="modal-overlay" style="display: none;">
+    <div class="modal modal--wide">
+      <div class="modal-header">
+        <h3 class="headline-lg-mobile" id="modal-title">Nuevo Anuncio</h3>
+        <button class="modal-close" id="modal-close">✕</button>
+      </div>
+      <form class="modal-form" id="promo-form">
+        <input type="hidden" id="promo-id" />
+
+        <div class="form-row">
+          <div class="form-group form-group--wide">
+            <label class="label-sm">URL de imagen *</label>
+            <input type="url" name="imageUrl" class="form-input body-md" required placeholder="https://..." id="input-image-url" />
+            <div class="image-preview" id="image-preview" style="display: none;">
+              <img id="preview-img" src="" alt="Preview" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="label-sm">Título</label>
+            <input type="text" name="title" class="form-input body-md" placeholder="Ej: Nueva Colección" />
+          </div>
+          <div class="form-group">
+            <label class="label-sm">Link *</label>
+            <input type="text" name="link" class="form-input body-md" required placeholder="/producto/..." />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group form-group--wide">
+            <label class="label-sm">Descripción</label>
+            <input type="text" name="description" class="form-input body-md" placeholder="Texto corto descriptivo" />
+          </div>
+        </div>
+
+        <div class="form-row" id="tile-options">
+          <div class="form-group">
+            <label class="label-sm">Columnas (tile)</label>
+            <select name="tileCols" class="form-select body-md">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="label-sm">Filas (tile)</label>
+            <select name="tileRows" class="form-select body-md">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="label-sm">Posición</label>
+            <input type="number" name="position" class="form-input body-md" value="0" min="0" />
+          </div>
+        </div>
+
+        <div class="form-error" id="form-error"></div>
+        <div class="form-actions">
+          <button type="button" class="btn btn--secondary" id="modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const $ = (id: string) => document.getElementById(id);
+
+  let sections: any[] = [];
+  let selectedSection: any = null;
+  let promotions: any[] = [];
+  let currentDisplayType = 'tiles';
+
+  // ─── LOAD SECTIONS ──────────────────────────────────────
+  async function loadSections() {
+    try {
+      const res = await fetch(`${API_URL}/api/promotion-sections`, { credentials: 'include' });
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      if (!res.ok) throw new Error('Error');
+      const data = await res.json();
+      sections = data.sections || [];
+      renderSections();
+    } catch (err) {
+      $('sections-list')!.innerHTML = '<p class="body-sm">Error al cargar</p>';
+    }
+  }
+
+  function renderSections() {
+    if (sections.length === 0) {
+      $('sections-list')!.innerHTML = '<p class="body-sm">No hay secciones</p>';
+      return;
+    }
+
+    // Parse slug to explain what it means
+    function explainSlug(slug: string): string {
+      const parts = slug.split('-');
+      const explains: Record<string, string> = {
+        always: 'Se muestra siempre',
+        catalog: 'Página de catálogo',
+        home: 'Página principal',
+        top: 'Arriba',
+        bottom: 'Abajo',
+        hero: 'Sección principal grande',
+      };
+      return parts.map(p => explains[p] || p).join(' · ');
+    }
+
+    $('sections-list')!.innerHTML = sections.map((s: any) => `
+      <div class="section-card ${selectedSection?.id === s.id ? 'active' : ''}" data-id="${s.id}">
+        <div class="section-card-header">
+          <div>
+            <strong class="body-md">${s.name}</strong>
+            <code class="slug-badge">${s.slug}</code>
+          </div>
+          <span class="badge badge--active">${s.display_type}</span>
+        </div>
+        <p class="section-card-slug body-sm">${explainSlug(s.slug)}</p>
+      </div>
+    `).join('');
+
+    // Click handlers
+    $('sections-list')!.querySelectorAll('.section-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const id = (card as HTMLElement).dataset.id;
+        selectSection(id);
+      });
+    });
+  }
+
+      // Type descriptions
+      const typeInfo: Record<string, string> = {
+        tiles: "El tipo Tiles muestra tus anuncios en un grid de cuadros. Cada anuncio puede ocupar diferente cantidad de espacio (1x1, 2x2, etc). Es ideal cuando queres mostrar variedad de productos o categorias en una sola seccion.",
+        carousel: "El tipo Carousel muestra un anuncio a la vez como un slideshow que cambia automaticamente. El usuario puede navegar con flechas o puntos. Perfecto para ofertas principales.",
+        hero: "El tipo Hero es un banner grande que ocupa todo el ancho con imagen de fondo y texto centrado. Solo muestra el primer anuncio. Ideal para promociones estrella.",
+        split: "El tipo Split muestra imagen a un lado y texto al otro, alternando la direccion. Ideal para describir productos con detalle.",
+        banner: "El tipo Banner es una franja con texto centrado y borde decorativo. Sin imagenes. Para mensajes urgentes como Envio gratis.",
+        ribbon: "El tipo Ribbon es una cinta horizontal con varios anuncios lado a lado. Para mostrar varias ofertas cortas juntas.",
+      };
+      
+      function updateTypeInfo(type: string) {
+        const desc = $("type-info-desc");
+        if (desc) desc.textContent = typeInfo[type] || "";
+      }
+
+  async function selectSection(sectionId: string) {
+    selectedSection = sections.find((s: any) => s.id === sectionId);
+    if (!selectedSection) return;
+
+    currentDisplayType = selectedSection.display_type;
+
+    // Update UI
+    $('section-name')!.textContent = selectedSection.name;
+    $('section-slug')!.textContent = selectedSection.slug;
+    ($('display-type-select') as HTMLSelectElement).value = currentDisplayType;
+    $('promo-manager')!.style.display = '';
+    $('tile-options')!.style.display = currentDisplayType === 'tiles' ? '' : 'none';
+
+    updateTypeInfo(currentDisplayType);
+    renderSections(); // Update active state
+    await loadPromotions();
+  }
+
+  // ─── LOAD PROMOTIONS ────────────────────────────────────
+  async function loadPromotions() {
+    if (!selectedSection) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/promotions?section=${selectedSection.slug}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Error');
+      const data = await res.json();
+      promotions = data.promotions || [];
+      renderPromotions();
+      renderPreview();
+    } catch (err) {
+      $('promos-list')!.innerHTML = '<p class="body-sm">Error al cargar promociones</p>';
+    }
+  }
+
+  function renderPromotions() {
+    if (promotions.length === 0) {
+      $('promos-list')!.innerHTML = '<p class="body-sm empty-msg">No hay anuncios en esta sección. Crea uno nuevo.</p>';
+      return;
+    }
+
+    $('promos-list')!.innerHTML = promotions.map((p: any) => `
+      <div class="promo-card" data-id="${p.id}">
+        <div class="promo-card-img">
+          <img src="${p.imageUrl}" alt="${p.title || ''}" />
+        </div>
+        <div class="promo-card-info">
+          <strong class="body-md">${p.title || '(sin título)'}</strong>
+          <span class="body-sm">${p.description || ''}</span>
+          <code class="slug-badge">${p.link}</code>
+          ${currentDisplayType === 'tiles' ? `<span class="body-sm">${p.tileCols}×${p.tileRows} · pos ${p.position}</span>` : ''}
+        </div>
+        <div class="promo-card-actions">
+          <button class="ta-btn" onclick="editPromo('${p.id}')" title="Editar">✏️</button>
+          <button class="ta-btn ta-btn--delete" onclick="deletePromo('${p.id}')" title="Eliminar">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ─── LIVE PREVIEW ───────────────────────────────────────
+      // ─── CAROUSEL INIT (preview) ─────────────────────────────
+      function initPreviewCarousel(container) {
+        var slides = container.querySelectorAll('.carousel-slide');
+        var dots = container.querySelectorAll('.carousel-dot');
+        var prevBtn = container.querySelector('.carousel-arrow--left');
+        var nextBtn = container.querySelector('.carousel-arrow--right');
+        var current = 0;
+        var timer;
+
+        function goTo(index) {
+          slides[current].classList.remove('active');
+          dots[current].classList.remove('active');
+          current = index;
+          slides[current].classList.add('active');
+          dots[current].classList.add('active');
+        }
+
+        function next() { goTo((current + 1) % slides.length); }
+        function prev() { goTo((current - 1 + slides.length) % slides.length); }
+        function startAuto() { timer = setInterval(next, 5000); }
+        function stopAuto() { clearInterval(timer); }
+
+        prevBtn.addEventListener('click', function() { stopAuto(); prev(); startAuto(); });
+        nextBtn.addEventListener('click', function() { stopAuto(); next(); startAuto(); });
+        dots.forEach(function(dot) {
+          dot.addEventListener('click', function() {
+            stopAuto();
+            goTo(parseInt(dot.dataset.slide));
+            startAuto();
+          });
+        });
+
+        container.addEventListener('mouseenter', stopAuto);
+        container.addEventListener('mouseleave', startAuto);
+
+        if (slides.length > 1) startAuto();
+      }
+
+      function renderPreview() {
+        const container = $('live-preview-container');
+        if (!container || !selectedSection) return;
+        if (promotions.length === 0) {
+          container.innerHTML = '<p class="body-sm">Sin anuncios</p>';
+          return;
+        }
+        container.innerHTML = '';
+        var html = '';
+        switch (currentDisplayType) {
+          case 'hero':
+            var p = promotions[0];
+            html = '<div class="hero-promo"><div class="hero-bg" style="background-image:url(\'' + p.imageUrl + '\')"></div><div class="hero-overlay"></div><div class="hero-content">' + (p.title ? '<h2 class="hero-title">' + p.title + '</h2>' : '') + (p.description ? '<p class="hero-desc">' + p.description + '</p>' : '') + '<a href="' + p.link + '" class="hero-btn">Ver más</a></div></div>';
+            break;
+          case 'carousel':
+            html = '<div class="carousel-promo" data-carousel-id="preview"><div class="carousel-track">';
+            promotions.forEach(function(pt, i) {
+              html += '<div class="carousel-slide ' + (i === 0 ? 'active' : '') + '" data-index="' + i + '"><div class="slide-bg" style="background-image:url(\'' + pt.imageUrl + '\')"></div><div class="slide-overlay"></div><div class="slide-content">' + (pt.title ? '<h3 class="slide-title">' + pt.title + '</h3>' : '') + (pt.description ? '<p class="slide-desc">' + pt.description + '</p>' : '') + '</div><a href="' + pt.link + '" class="slide-link" aria-label="' + (pt.title || 'Promocion') + '"></a></div>';
+            });
+            html += '</div>';
+            if (promotions.length > 1) {
+              html += '<div class="carousel-dots">';
+              promotions.forEach(function(_, i) {
+                html += '<button class="carousel-dot ' + (i === 0 ? 'active' : '') + '" data-slide="' + i + '" aria-label="Slide ' + (i + 1) + '"></button>';
+              });
+              html += '</div>';
+              html += '<button class="carousel-arrow carousel-arrow--left" aria-label="Anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>';
+              html += '<button class="carousel-arrow carousel-arrow--right" aria-label="Siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>';
+            }
+            html += '</div>';
+            break;
+          case 'tiles':
+            html = '<div class="tiles-promo" style="grid-template-columns:repeat(4,1fr);grid-auto-rows:160px;">';
+            promotions.forEach(function(pt) {
+              var col = (pt.position % 4) + 1;
+              var row = Math.floor(pt.position / 4) + 1;
+              html += '<div class="tile" style="grid-column:' + col + '/span ' + pt.tileCols + ';grid-row:' + row + '/span ' + pt.tileRows + ';"><div class="tile-bg" style="background-image:url(\'' + pt.imageUrl + '\')"></div><div class="tile-overlay"></div><div class="tile-content">' + (pt.title ? '<h3 class="tile-title">' + pt.title + '</h3>' : '') + (pt.description ? '<p class="tile-desc">' + pt.description + '</p>' : '') + '</div><a href="' + pt.link + '" class="tile-link" aria-label="' + (pt.title || 'Promocion') + '"></a></div>';
+            });
+            html += '</div>';
+            break;
+          case 'split':
+            html = '<div class="split-promo">';
+            promotions.forEach(function(pt, i) {
+              var rev = i % 2 === 1 ? ' split-item--reverse' : '';
+              html += '<a href="' + pt.link + '" class="split-item' + rev + '"><div class="split-img"><img src="' + pt.imageUrl + '" alt="' + (pt.title || '') + '" /></div><div class="split-text">' + (pt.title ? '<h3 class="split-title">' + pt.title + '</h3>' : '') + (pt.description ? '<p class="split-desc">' + pt.description + '</p>' : '') + '<span class="split-link">Ver más →</span></div></a>';
+            });
+            html += '</div>';
+            break;
+          case 'banner':
+            html = '<div class="banner-promo">';
+            promotions.forEach(function(pt) {
+              html += '<a href="' + pt.link + '" class="banner-item">' + (pt.title ? '<span class="banner-title">' + pt.title + '</span>' : '') + (pt.description ? '<span class="banner-desc">' + pt.description + '</span>' : '') + '</a>';
+            });
+            html += '</div>';
+            break;
+          case 'ribbon':
+            html = '<div class="ribbon-promo">';
+            promotions.forEach(function(pt) {
+              html += '<a href="' + pt.link + '" class="ribbon-item"><div class="ribbon-bg" style="background-image:url(\'' + pt.imageUrl + '\')"></div><div class="ribbon-overlay"></div><div class="ribbon-content">' + (pt.title ? '<span class="ribbon-title">' + pt.title + '</span>' : '') + (pt.description ? '<span class="ribbon-desc">' + pt.description + '</span>' : '') + '</div></a>';
+            });
+            html += '</div>';
+            break;
+        }
+        container.innerHTML = html;
+        // Initialize carousel if present
+        var carousel = container.querySelector(".carousel-promo");
+        if (carousel) initPreviewCarousel(carousel);
+
+      }
+
+  function openModal(isEdit: boolean, promo?: any) {
+    const form = $('promo-form') as HTMLFormElement;
+    form.reset();
+    $('form-error')!.textContent = '';
+    $('modal-title')!.textContent = isEdit ? 'Editar Anuncio' : 'Nuevo Anuncio';
+    ($('promo-id') as HTMLInputElement).value = promo?.id || '';
+    $('tile-options')!.style.display = currentDisplayType === 'tiles' ? '' : 'none';
+    $('image-preview')!.style.display = 'none';
+
+    if (promo) {
+      form.imageUrl.value = promo.imageUrl || '';
+      form.title.value = promo.title || '';
+      form.description.value = promo.description || '';
+      form.link.value = promo.link || '';
+      form.tileCols.value = promo.tileCols || 1;
+      form.tileRows.value = promo.tileRows || 1;
+      form.position.value = promo.position || 0;
+      if (promo.imageUrl) {
+        $('preview-img')!.src = promo.imageUrl;
+        $('image-preview')!.style.display = '';
+      }
+    }
+
+    $('modal-overlay')!.style.display = '';
+  }
+
+  function closeModal() { $('modal-overlay')!.style.display = 'none'; }
+
+  // File upload handling
+  let uploadedImageUrl = '';
+  
+  $('upload-area')?.addEventListener('click', () => {
+    $('image-file')?.click();
+  });
+  
+  $('image-file')?.addEventListener('change', async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    
+    // Validate size
+    if (file.size > 5 * 1024 * 1024) {
+      $('form-error')!.textContent = 'Imagen muy grande (max 5MB)';
+      return;
+    }
+    
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      ($('preview-img') as HTMLImageElement).src = ev.target?.result as string;
+      $('image-preview')!.style.display = '';
+      $('upload-placeholder')!.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+    
+    // Upload to server
+    $('form-error')!.textContent = 'Subiendo imagen...';
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    try {
+      const res = await fetch(`${API_URL}/api/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        $('form-error')!.textContent = err.error || 'Error al subir';
+        return;
+      }
+      
+      const data = await res.json();
+      uploadedImageUrl = data.url;
+      ($('hidden-image-url') as HTMLInputElement).value = data.url;
+      $('form-error')!.textContent = '';
+    } catch (err) {
+      $('form-error')!.textContent = 'Error de conexión al subir';
+    }
+  });
+  
+  $('upload-remove')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    uploadedImageUrl = '';
+    ($('hidden-image-url') as HTMLInputElement).value = '';
+    ($('preview-img') as HTMLImageElement).src = '';
+    $('image-preview')!.style.display = 'none';
+    $('upload-placeholder')!.style.display = '';
+    ($('image-file') as HTMLInputElement).value = '';
+  });
+
+  // Display type change
+  $('display-type-select')?.addEventListener('change', async (e) => {
+    const newType = (e.target as HTMLSelectElement).value;
+    if (!selectedSection) return;
+
+    const res = await fetch(`${API_URL}/api/promotion-sections/${selectedSection.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ displayType: newType }),
+    });
+
+    if (res.ok) {
+      currentDisplayType = newType;
+      selectedSection.display_type = newType;
+      $('tile-options')!.style.display = newType === 'tiles' ? '' : 'none';
+      renderSections();
+      renderPreview();
+    }
+  });
+
+  // ─── FORM SUBMIT ────────────────────────────────────────
+  $('promo-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const id = ($('promo-id') as HTMLInputElement).value;
+    const isEdit = !!id;
+
+    const body: any = {
+      sectionId: selectedSection.id,
+      imageUrl: form.imageUrl.value,
+      title: form.title.value || null,
+      description: form.description.value || null,
+      link: form.link.value,
+      tileCols: parseInt(form.tileCols.value) || 1,
+      tileRows: parseInt(form.tileRows.value) || 1,
+      position: parseInt(form.position.value) || 0,
+    };
+
+    const res = await fetch(isEdit ? `${API_URL}/api/promotions/${id}` : `${API_URL}/api/promotions`, {
+      method: isEdit ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      $('form-error')!.textContent = err.error || 'Error al guardar';
+      return;
+    }
+
+    closeModal();
+    await loadPromotions();
+  });
+
+  // ─── EVENT LISTENERS ────────────────────────────────────
+  $('add-promo-btn')?.addEventListener('click', () => openModal(false));
+  $('modal-close')?.addEventListener('click', closeModal);
+  $('modal-cancel')?.addEventListener('click', closeModal);
+  $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+  (window as any).editPromo = (id: string) => {
+    const promo = promotions.find((p: any) => p.id === id);
+    if (promo) openModal(true, promo);
+  };
+
+  (window as any).deletePromo = async (id: string) => {
+    if (!confirm('¿Eliminar este anuncio?')) return;
+    const res = await fetch(`${API_URL}/api/promotions/${id}`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) loadPromotions();
+  };
+
+  loadSections();
+</script>
+
+<style is:global>
+      /* ─── PREVIEW: Hero ─────────────────────────────────── */
+      .hero-promo { position: relative; width: 100%; min-height: 300px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
+      .hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
+      .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 100%); }
+      .hero-content { position: relative; z-index: 2; text-align: center; padding: var(--space-3xl) var(--space-2xl); color: white; max-width: 800px; }
+      .hero-title { font-family: var(--font-display); font-size: clamp(32px, 6vw, 64px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-md); text-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+      .hero-desc { font-size: clamp(16px, 2vw, 20px); opacity: 0.9; margin-bottom: var(--space-xl); text-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+      .hero-btn { display: inline-block; padding: var(--space-md) var(--space-2xl); background: var(--primary); color: var(--on-primary); text-decoration: none; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; transition: all 0.2s ease; }
+      .hero-btn:hover { background: white; color: black; text-decoration: none; }
+
+      /* ─── PREVIEW: Carousel ─────────────────────────────── */
+      .carousel-promo { position: relative; width: 100%; }
+      .carousel-track { position: relative; width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
+      .carousel-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
+      .carousel-slide.active { opacity: 1; pointer-events: auto; }
+      .slide-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
+      .slide-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 40%, transparent 100%); }
+      .slide-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-xl) var(--space-2xl); z-index: 2; color: white; }
+      .slide-title { font-family: var(--font-display); font-size: clamp(24px, 4vw, 48px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-sm); text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
+      .slide-desc { font-size: clamp(14px, 1.5vw, 18px); opacity: 0.9; text-shadow: 0 1px 6px rgba(0,0,0,0.4); }
+      .slide-link { position: absolute; inset: 0; z-index: 3; }
+
+      /* ─── PREVIEW: Carousel Dots & Arrows ─────────────────── */
+      .carousel-dots { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); position: absolute; bottom: var(--space-md); right: var(--space-md); z-index: 10; }
+      .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); border: none; cursor: pointer; transition: all 0.2s ease; padding: 0; }
+      .carousel-dot:hover { background: rgba(255,255,255,0.7); }
+      .carousel-dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
+      .carousel-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 10; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; cursor: pointer; opacity: 0; transition: opacity 0.2s ease, background 0.2s ease; }
+      .carousel-promo:hover .carousel-arrow { opacity: 1; }
+      .carousel-arrow:hover { background: rgba(0,0,0,0.8); }
+      .carousel-arrow--left { left: var(--space-md); }
+      .carousel-arrow--right { right: var(--space-md); }
+
+
+      /* ─── PREVIEW: Tiles ────────────────────────────────── */
+      .tiles-promo { display: grid; gap: var(--space-md); grid-auto-flow: dense; }
+      .tile { position: relative; overflow: hidden; border: var(--border-width) solid var(--outline-variant); min-height: 120px; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+      .tile:hover { border-color: var(--primary); box-shadow: 0 0 20px rgba(130,207,255,0.12); }
+      .tile:hover .tile-bg { transform: scale(1.06); }
+      .tile-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+      .tile-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 50%, transparent 100%); }
+      .tile-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-lg); z-index: 2; color: white; }
+      .tile-title { font-family: var(--font-display); font-size: clamp(16px, 2vw, 24px); text-transform: uppercase; line-height: 1.1; margin-bottom: var(--space-xs); text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+      .tile-desc { font-size: clamp(12px, 1vw, 14px); opacity: 0.9; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+      .tile-link { position: absolute; inset: 0; z-index: 3; }
+
+      /* ─── PREVIEW: Split ────────────────────────────────── */
+      .split-promo { display: flex; flex-direction: column; }
+      .split-item { display: flex; flex-direction: row; text-decoration: none; color: inherit; border: var(--border-width) solid var(--outline-variant); border-bottom: none; transition: background 0.2s ease; }
+      .split-item:last-child { border-bottom: var(--border-width) solid var(--outline-variant); }
+      .split-item:hover { background: var(--surface-container-high); text-decoration: none; }
+      .split-item--reverse { flex-direction: row-reverse; }
+      .split-img { flex: 1; min-height: 200px; overflow: hidden; }
+      .split-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+      .split-item:hover .split-img img { transform: scale(1.05); }
+      .split-text { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--space-xl) var(--space-2xl); gap: var(--space-md); }
+      .split-title { font-family: var(--font-display); font-size: clamp(20px, 3vw, 32px); text-transform: uppercase; line-height: 1.1; color: var(--on-surface); }
+      .split-desc { font-size: 15px; color: var(--on-surface-variant); line-height: 1.5; }
+      .split-link { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); }
+
+      /* ─── PREVIEW: Banner ───────────────────────────────── */
+      .banner-promo { display: flex; flex-direction: column; }
+      .banner-item { display: flex; align-items: center; justify-content: center; gap: var(--space-lg); padding: var(--space-lg) var(--space-xl); background: linear-gradient(135deg, var(--surface-container-high), var(--surface-container)); border: var(--border-width) solid var(--outline-variant); text-decoration: none; transition: all 0.2s ease; position: relative; overflow: hidden; }
+      .banner-item::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(to bottom, var(--primary), var(--secondary)); }
+      .banner-item:hover { background: linear-gradient(135deg, var(--surface-container-highest), var(--surface-container-high)); border-color: var(--primary); text-decoration: none; }
+      .banner-title { font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--on-surface); font-weight: 600; }
+      .banner-desc { font-size: 13px; color: var(--primary); }
+
+      /* ─── PREVIEW: Ribbon ───────────────────────────────── */
+      .ribbon-promo { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; border: var(--border-width) solid var(--outline-variant); }
+      .ribbon-promo::-webkit-scrollbar { display: none; }
+      .ribbon-item { flex: 1; min-width: 200px; position: relative; overflow: hidden; text-decoration: none; color: white; display: flex; align-items: center; justify-content: center; min-height: 80px; }
+      .ribbon-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
+      .ribbon-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); transition: background 0.2s ease; }
+      .ribbon-item:hover .ribbon-overlay { background: rgba(0,0,0,0.4); }
+      .ribbon-content { position: relative; z-index: 2; display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); }
+      .ribbon-title { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
+      .ribbon-desc { font-size: 12px; opacity: 0.8; white-space: nowrap; }
+
+  .admin-layout { display: grid; grid-template-columns: 1fr; min-height: calc(100vh - 72px); }
+  @media (min-width: 768px) { .admin-layout { grid-template-columns: 260px 1fr; } }
+  .admin-main { padding: var(--space-2xl); overflow-y: auto; }
+  .admin-header { margin-bottom: var(--space-2xl); }
+  .admin-header h1 { color: var(--on-surface); margin-bottom: var(--space-sm); }
+  .admin-subtitle { color: var(--on-surface-variant); }
+
+  .promo-layout { display: grid; grid-template-columns: 1fr; gap: var(--space-2xl); }
+  @media (min-width: 1024px) { .promo-layout { grid-template-columns: 300px 1fr; } }
+
+  /* Sections */
+  .promo-sections { display: flex; flex-direction: column; gap: var(--space-md); }
+  .sections-title { color: var(--primary); margin-bottom: var(--space-sm); }
+  .sections-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+  .section-card {
+    padding: var(--space-md);
+    border: var(--border-width) solid var(--outline-variant);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: var(--surface-container);
+  }
+  .section-card:hover { border-color: var(--primary); }
+  .section-card.active { border-color: var(--primary); background: var(--surface-container-high); }
+
+
+  .section-card-slug {
+    color: var(--primary);
+    font-size: 11px;
+    margin-top: var(--space-xs);
+    opacity: 0.9;
+  }
+  .type-info {
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    background: var(--surface-container-high);
+    border-left: 3px solid var(--primary);
+  }
+  .type-info-title {
+    color: var(--primary);
+    margin-bottom: var(--space-xs);
+  }
+  .type-info-desc {
+    color: var(--on-surface-variant);
+    line-height: 1.5;
+  }
+
+    color: var(--on-surface-variant);
+    font-size: 11px;
+    margin-top: var(--space-sm);
+    line-height: 1.4;
+    opacity: 0.8;
+  }
+
+  .section-card-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
+  .section-card-header div { display: flex; flex-direction: column; gap: var(--space-xs); }
+
+  /* Manager */
+  .promo-manager { display: flex; flex-direction: column; gap: var(--space-xl); }
+  .manager-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-md); }
+  .manager-header h2 { color: var(--on-surface); }
+  .manager-actions { display: flex; gap: var(--space-md); align-items: center; }
+
+  /* Preview */
+  .preview-section { display: flex; flex-direction: column; gap: var(--space-md); }
+  .preview-section h3 { color: var(--primary); }
+  .live-preview {
+    border: var(--border-width) solid var(--outline-variant);
+    background: var(--surface-container);
+    padding: var(--space-md);
+    min-height: 120px;
+    overflow: hidden;
+  }
+
+  /* Preview: Carousel */
+  .preview-carousel { position: relative; height: 160px; }
+  .preview-slide {
+    position: absolute; inset: 0; opacity: 0; transition: opacity 0.4s;
+    display: flex; align-items: center; gap: var(--space-md);
+    padding: var(--space-md);
+  }
+  .preview-slide.active { opacity: 1; }
+  .preview-slide img { height: 120px; width: auto; object-fit: cover; border: 1px solid var(--outline-variant); }
+  .preview-slide-content { display: flex; flex-direction: column; gap: var(--space-xs); }
+  .preview-slide-content strong { color: var(--on-surface); }
+  .preview-slide-content span { color: var(--on-surface-variant); font-size: 13px; }
+  .preview-dots { position: absolute; bottom: 8px; right: 8px; display: flex; gap: 4px; }
+  .preview-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--outline); }
+  .preview-dot.active { background: var(--primary); width: 16px; border-radius: 3px; }
+
+  /* Preview: Tiles */
+  .preview-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 80px;
+    gap: var(--space-sm);
+  }
+  .preview-tile {
+    position: relative; overflow: hidden; border: 1px solid var(--outline-variant);
+  }
+  .preview-tile img { width: 100%; height: 100%; object-fit: cover; }
+  .preview-tile-content {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: var(--space-xs) var(--space-sm);
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    color: white; font-size: 11px;
+  }
+
+  /* Preview: Ribbon */
+  .preview-ribbon { display: flex; gap: 0; overflow: hidden; border: 1px solid var(--outline-variant); }
+  .preview-ribbon-item {
+    flex: 1; display: flex; align-items: center; gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md); background: var(--surface-container-high);
+    text-decoration: none; color: var(--on-surface); font-size: 12px;
+    border-right: 1px solid var(--outline-variant);
+  }
+  .preview-ribbon-item img { width: 32px; height: 32px; object-fit: cover; }
+
+  /* Promos List */
+  .promos-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+  .empty-msg { text-align: center; padding: var(--space-2xl); color: var(--on-surface-variant); }
+  .promo-card {
+    display: flex; align-items: center; gap: var(--space-md);
+    padding: var(--space-md); border: var(--border-width) solid var(--outline-variant);
+    background: var(--surface-container);
+  }
+  .promo-card-img { width: 80px; height: 60px; flex-shrink: 0; overflow: hidden; border: 1px solid var(--outline-variant); }
+  .promo-card-img img { width: 100%; height: 100%; object-fit: cover; }
+  .promo-card-info { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .promo-card-info strong { color: var(--on-surface); }
+  .promo-card-info span { color: var(--on-surface-variant); font-size: 13px; }
+  .promo-card-actions { display: flex; gap: 6px; opacity: 0.6; transition: opacity 0.2s; }
+  .promo-card:hover .promo-card-actions { opacity: 1; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
+    z-index: 300; display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal {
+    background: var(--surface-dim); border: var(--border-width) solid var(--outline-variant);
+    width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+  }
+  .modal--wide { max-width: 600px; }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-lg); border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+  .modal-header h3 { color: var(--on-surface); }
+  .modal-close {
+    background: none; border: 1px solid var(--outline-variant); width: 36px; height: 36px;
+    color: var(--on-surface-variant); cursor: pointer; font-size: 18px;
+  }
+  .modal-form { padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md); }
+  .form-row { display: flex; gap: var(--space-md); }
+  .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .form-group--wide { flex: 2; }
+  .form-group label { color: var(--on-surface-variant); font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .form-input, .form-select {
+    padding: 10px 12px; background: var(--surface-container-high); border: var(--border-width) solid var(--outline-variant);
+    color: var(--on-surface); font-family: var(--font-body); font-size: 14px; border-radius: 0;
+  }
+  .form-input:focus, .form-select:focus { outline: none; border-color: var(--primary); }
+  .image-preview { margin-top: var(--space-sm); border: 1px solid var(--outline-variant); overflow: hidden; max-height: 160px; }
+  .image-preview img { width: 100%; height: auto; max-height: 160px; object-fit: cover; }
+  .form-error { color: var(--error); font-size: 14px; min-height: 20px; }
+  .form-actions { display: flex; gap: 12px; justify-content: flex-end; padding-top: var(--space-md); border-top: var(--border-width) solid var(--outline-variant); }
+
+  /* Reuse global styles */
+  :global(.btn) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 0; cursor: pointer; transition: all 0.2s; }
+  :global(.btn--primary) { background: rgba(130,207,255,0.1); color: var(--primary); border: 1px solid rgba(130,207,255,0.5); }
+  :global(.btn--primary:hover) { background: rgba(130,207,255,0.2); }
+  :global(.btn--secondary) { background: transparent; color: var(--on-surface); border: 1px solid var(--outline-variant); }
+  :global(.btn--secondary:hover) { background: rgba(255,255,255,0.05); }
+  :global(.slug-badge) { display: inline-block; padding: 2px 8px; background: var(--surface-container-high); border: 1px solid var(--outline-variant); color: var(--on-surface-variant); font-family: var(--font-mono); font-size: 10px; }
+  :global(.badge) { display: inline-flex; align-items: center; padding: 3px 10px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  :global(.badge--active) { background: rgba(130,207,255,0.1); color: var(--primary); border: 1px solid rgba(130,207,255,0.3); }
+  :global(.ta-btn) { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: rgba(130,207,255,0.08); border: 1px solid rgba(130,207,255,0.2); color: var(--primary); cursor: pointer; font-size: 14px; }
+  :global(.ta-btn:hover) { background: rgba(130,207,255,0.15); transform: scale(1.1); }
+  :global(.ta-btn--delete) { background: rgba(255,180,171,0.08); border-color: rgba(255,180,171,0.2); color: var(--error); }
+  :global(.ta-btn--delete:hover) { background: rgba(255,180,171,0.15); }
+
+
+  .type-hint {
+    color: var(--on-surface-variant);
+    font-size: 12px;
+    margin-top: var(--space-xs);
+    font-style: italic;
+  }
+
+  /* Upload area */
+  .upload-area {
+    border: 2px dashed var(--outline-variant);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .upload-area:hover { border-color: var(--primary); }
+  .upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+    color: var(--on-surface-variant);
+    padding: var(--space-lg);
+    text-align: center;
+  }
+  .upload-placeholder svg { opacity: 0.5; }
+  .upload-hint { font-size: 11px; color: var(--outline); }
+  .upload-preview {
+    position: relative;
+    width: 100%;
+    max-height: 200px;
+    overflow: hidden;
+  }
+  .upload-preview img {
+    width: 100%;
+    height: auto;
+    max-height: 200px;
+    object-fit: cover;
+    display: block;
+  }
+  .upload-remove {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background: rgba(0,0,0,0.7);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .upload-remove:hover { background: var(--error); }
+</style>

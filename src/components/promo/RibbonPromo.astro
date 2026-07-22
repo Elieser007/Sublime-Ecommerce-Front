@@ -1,0 +1,104 @@
+---
+/**
+ * RibbonPromo — Horizontal strip
+ * 
+ * Shows promotions side by side in a horizontal ribbon.
+ * For short promotions displayed together.
+ */
+interface Promotion {
+  id: string;
+  title?: string;
+  description?: string;
+  imageUrl: string;
+  link: string;
+}
+
+interface Props {
+  promotions: Promotion[];
+}
+
+const { promotions } = Astro.props;
+---
+
+<div class="ribbon-promo">
+  {promotions.map((promo) => (
+    <a href={promo.link} class="ribbon-item">
+      <div class="ribbon-bg" style={`background-image: url('${promo.imageUrl}');`}></div>
+      <div class="ribbon-overlay"></div>
+      <div class="ribbon-content">
+        {promo.title && <span class="ribbon-title">{promo.title}</span>}
+        {promo.description && <span class="ribbon-desc">{promo.description}</span>}
+      </div>
+    </a>
+  ))}
+</div>
+
+<style>
+  .ribbon-promo {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border: var(--border-width) solid var(--outline-variant);
+  }
+  .ribbon-promo::-webkit-scrollbar { display: none; }
+
+  .ribbon-item {
+    flex: 1;
+    min-width: 200px;
+    position: relative;
+    overflow: hidden;
+    text-decoration: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+  }
+
+  .ribbon-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-color: var(--surface-container);
+  }
+
+  .ribbon-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    transition: background 0.2s ease;
+  }
+  .ribbon-item:hover .ribbon-overlay { background: rgba(0, 0, 0, 0.4); }
+
+  .ribbon-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .ribbon-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .ribbon-desc {
+    font-size: 12px;
+    opacity: 0.8;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 767px) {
+    .ribbon-item { min-width: 160px; min-height: 60px; }
+    .ribbon-content { padding: var(--space-sm) var(--space-md); }
+    .ribbon-title { font-size: 10px; }
+    .ribbon-desc { font-size: 10px; }
+  }
+</style>

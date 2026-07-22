@@ -1,13 +1,9 @@
 ---
 /**
- * PromotionWall — Dynamic Lego-style Promotion Grid
+ * PromotionWall — Dynamic promotion renderer
  * 
- * Fetches promotions from API and renders them in a CSS Grid.
- * Each promotion has: position (x, y), size (width, height), type, content.
- *
- * Supports:
- * - "image" tiles: full background image with overlay + text
- * - "text" tiles: compact announcement bar with background color
+ * Fetches promotions from API and renders based on display_type.
+ * Uses the same CSS classes as individual promo components.
  * 
  * Usage: <PromotionWall section="always-catalog-top" />
  */
@@ -21,284 +17,217 @@ const { section, class: className = "" } = Astro.props;
 ---
 
 <div class={`promotion-wall ${className}`} data-section={section}>
-  <!-- Loading state -->
   <div class="promo-loading" id={`promo-loading-${section}`}>
     <div class="cmyk-bar"><span></span><span></span><span></span></div>
   </div>
-  
-  <!-- Promotions grid (populated by JS) -->
-  <div class="promo-grid" id={`promo-grid-${section}`} style="display: none;"></div>
+  <div id={`promo-content-${section}`} style="display: none;"></div>
 </div>
 
 <script>
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
-  
-  async function loadPromotions(sectionSlug: string) {
-    const grid = document.getElementById(`promo-grid-${sectionSlug}`);
+
+  async function initPromoWall(sectionSlug: string) {
+    const content = document.getElementById(`promo-content-${sectionSlug}`);
     const loading = document.getElementById(`promo-loading-${sectionSlug}`);
-    
-    if (!grid || !loading) return;
-    
+    if (!content || !loading) return;
+
     try {
-      const res = await fetch(`${API_URL}/api/promotions?section=${sectionSlug}`, {
-        credentials: 'include',
-      });
-      
+      const res = await fetch(`${API_URL}/api/promotions?section=${sectionSlug}`, { credentials: 'include' });
       if (!res.ok) return;
-      
-      const { promotions } = await res.json();
-      
+      const data = await res.json();
+      const { section, promotions } = data;
       if (!promotions || promotions.length === 0) {
         loading.style.display = 'none';
-        const wall = document.getElementById(`promo-loading-${sectionSlug}`)?.parentElement;
-        if (wall) (wall as HTMLElement).style.display = 'none';
+        loading.parentElement?.setAttribute('style', 'display: none;');
         return;
       }
-      
-      // Find grid dimensions from promotions
-      let maxCols = 1;
-      let maxRows = 1;
-      promotions.forEach((p: any) => {
-        const endX = p.pos_x + p.width;
-        const endY = p.pos_y + p.height;
-        if (endX > maxCols) maxCols = endX;
-        if (endY > maxRows) maxRows = endY;
-      });
-      
-      // Determine if these are text banners (compact announcement bars)
-      const isTextGrid = promotions.every(p => p.tile_type === 'text');
-      
-      // Set grid template
-      if (isTextGrid) {
-        // Text banners: compact, proportional to viewport
-        const rowHeight = maxRows <= 1 ? 48 : maxRows <= 2 ? 56 : 64;
-        grid.style.gridTemplateColumns = `repeat(${maxCols}, 1fr)`;
-        grid.style.gridTemplateRows = `repeat(${maxRows}, ${rowHeight}px)`;
-      } else {
-        // Image banners: taller, proportional to grid rows
-        const rowHeight = maxRows <= 1 ? 120 : maxRows <= 2 ? 160 : 200;
-        grid.style.gridTemplateColumns = `repeat(${maxCols}, 1fr)`;
-        grid.style.gridTemplateRows = `repeat(${maxRows}, minmax(${rowHeight}px, auto))`;
-      }
-      
-      // Render each promotion
-      grid.innerHTML = promotions.map((promo: any) => {
-        const gridColumn = `${promo.pos_x + 1} / span ${promo.width}`;
-        const gridRow = `${promo.pos_y + 1} / span ${promo.height}`;
-        
-        if (promo.tile_type === 'text') {
-          // Compact announcement bar
-          return `
-            <div 
-              class="promo-tile promo-tile--text"
-              style="grid-column: ${gridColumn}; grid-row: ${gridRow};"
-              data-promo-id="${promo.id}"
-            >
-              <div class="promo-text-inner">
-                <span class="promo-text-title">${promo.title}</span>
-                ${promo.subtitle ? `<span class="promo-text-subtitle">${promo.subtitle}</span>` : ''}
-                ${promo.link ? `<a href="${promo.link}" class="promo-link" aria-label="${promo.title}"></a>` : ''}
-              </div>
-            </div>
-          `;
-        }
-        
-        // Standard tile with image
-        return `
-          <div 
-            class="promo-tile promo-tile--image"
-            style="grid-column: ${gridColumn}; grid-row: ${gridRow};"
-            data-promo-id="${promo.id}"
-          >
-            ${promo.image_url ? `<img src="${promo.image_url}" alt="${promo.title}" class="promo-image" loading="lazy" />` : `<div class="promo-image-placeholder"></div>`}
-            <div class="promo-overlay"></div>
-            <div class="promo-content">
-              <h3 class="promo-title">${promo.title}</h3>
-              ${promo.subtitle ? `<p class="promo-subtitle">${promo.subtitle}</p>` : ''}
-              ${promo.link ? `<a href="${promo.link}" class="promo-link" aria-label="${promo.title}"></a>` : ''}
-            </div>
-          </div>
-        `;
-      }).join('');
-      
+      const displayType = section?.displayType || 'tiles';
       loading.style.display = 'none';
-      grid.style.display = 'grid';
-      
+      content.style.display = '';
+
+      switch (displayType) {
+        case 'carousel': renderCarousel(content, promotions, sectionSlug); break;
+        case 'hero': renderHero(content, promotions); break;
+        case 'split': renderSplit(content, promotions); break;
+        case 'banner': renderBanner(content, promotions); break;
+        case 'ribbon': renderRibbon(content, promotions); break;
+        case 'tiles': default: renderTiles(content, promotions); break;
+      }
     } catch (err) {
       console.error('Error loading promotions:', err);
       loading.style.display = 'none';
     }
   }
-  
-  // Load promotions for each section on page
-  document.querySelectorAll('.promotion-wall').forEach((wall) => {
-    const section = (wall as HTMLElement).dataset.section;
-    if (section) loadPromotions(section);
+
+  function renderHero(c: HTMLElement, promos: any[]) {
+    const p = promos[0];
+    c.innerHTML = `<div class="hero-promo"><div class="hero-bg" style="background-image:url('${p.imageUrl}')"></div><div class="hero-overlay"></div><div class="hero-content">${p.title?`<h2 class="hero-title">${p.title}</h2>`:''}${p.description?`<p class="hero-desc">${p.description}</p>`:''}<a href="${p.link}" class="hero-btn">Ver más</a></div></div>`;
+  }
+
+  function renderCarousel(c: HTMLElement, promos: any[], id: string) {
+    let html = `<div class="carousel-promo" data-carousel-id="${id}"><div class="carousel-track">`;
+    promos.forEach((p, i) => {
+      html += `<div class="carousel-slide ${i===0?'active':''}" data-index="${i}"><div class="slide-bg" style="background-image:url('${p.imageUrl}')"></div><div class="slide-overlay"></div><div class="slide-content">${p.title?`<h3 class="slide-title">${p.title}</h3>`:''}${p.description?`<p class="slide-desc">${p.description}</p>`:''}</div><a href="${p.link}" class="slide-link"></a></div>`;
+    });
+    html += '</div>';
+    if (promos.length > 1) {
+      html += `<div class="carousel-dots">${promos.map((_,i)=>`<button class="carousel-dot ${i===0?'active':''}" data-slide="${i}"></button>`).join('')}</div>`;
+      html += `<button class="carousel-arrow carousel-arrow--left" aria-label="Anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>`;
+      html += `<button class="carousel-arrow carousel-arrow--right" aria-label="Siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`;
+    }
+    html += '</div>';
+    c.innerHTML = html;
+    initCarouselLogic(c.querySelector('.carousel-promo')!);
+  }
+
+  function renderTiles(c: HTMLElement, promos: any[]) {
+    let html = '<div class="tiles-promo" style="grid-template-columns:repeat(4,1fr);grid-auto-rows:160px;">';
+    promos.forEach(p => {
+      const col = (p.position % 4) + 1;
+      const row = Math.floor(p.position / 4) + 1;
+      html += `<div class="tile" style="grid-column:${col}/span ${p.tileCols};grid-row:${row}/span ${p.tileRows};"><div class="tile-bg" style="background-image:url('${p.imageUrl}')"></div><div class="tile-overlay"></div><div class="tile-content">${p.title?`<h3 class="tile-title">${p.title}</h3>`:''}${p.description?`<p class="tile-desc">${p.description}</p>`:''}</div><a href="${p.link}" class="tile-link"></a></div>`;
+    });
+    c.innerHTML = html + '</div>';
+  }
+
+  function renderSplit(c: HTMLElement, promos: any[]) {
+    let html = '<div class="split-promo">';
+    promos.forEach((p, i) => {
+      const rev = i % 2 === 1 ? ' split-item--reverse' : '';
+      html += `<a href="${p.link}" class="split-item${rev}"><div class="split-img"><img src="${p.imageUrl}" alt="${p.title||''}" /></div><div class="split-text">${p.title?`<h3 class="split-title">${p.title}</h3>`:''}${p.description?`<p class="split-desc">${p.description}</p>`:''}<span class="split-link">Ver más →</span></div></a>`;
+    });
+    c.innerHTML = html + '</div>';
+  }
+
+  function renderBanner(c: HTMLElement, promos: any[]) {
+    let html = '<div class="banner-promo">';
+    promos.forEach(p => {
+      html += `<a href="${p.link}" class="banner-item">${p.title?`<span class="banner-title">${p.title}</span>`:''}${p.description?`<span class="banner-desc">${p.description}</span>`:''}</a>`;
+    });
+    c.innerHTML = html + '</div>';
+  }
+
+  function renderRibbon(c: HTMLElement, promos: any[]) {
+    let html = '<div class="ribbon-promo">';
+    promos.forEach(p => {
+      html += `<a href="${p.link}" class="ribbon-item"><div class="ribbon-bg" style="background-image:url('${p.imageUrl}')"></div><div class="ribbon-overlay"></div><div class="ribbon-content">${p.title?`<span class="ribbon-title">${p.title}</span>`:''}${p.description?`<span class="ribbon-desc">${p.description}</span>`:''}</div></a>`;
+    });
+    c.innerHTML = html + '</div>';
+  }
+
+  function initCarouselLogic(el: HTMLElement) {
+    const slides = el.querySelectorAll('.carousel-slide');
+    const dots = el.querySelectorAll('.carousel-dot');
+    let current = 0, timer: any;
+    function goTo(i: number) { slides[current]?.classList.remove('active'); dots[current]?.classList.remove('active'); current = i; slides[current]?.classList.add('active'); dots[current]?.classList.add('active'); }
+    function next() { goTo((current + 1) % slides.length); }
+    function prev() { goTo((current - 1 + slides.length) % slides.length); }
+    function start() { timer = setInterval(next, 5000); }
+    function stop() { clearInterval(timer); }
+    el.querySelector('.carousel-arrow--left')?.addEventListener('click', () => { stop(); prev(); start(); });
+    el.querySelector('.carousel-arrow--right')?.addEventListener('click', () => { stop(); next(); start(); });
+    dots.forEach(d => d.addEventListener('click', () => { stop(); goTo(Number((d as HTMLElement).dataset.slide)); start(); }));
+    el.addEventListener('mouseenter', stop);
+    el.addEventListener('mouseleave', start);
+    if (slides.length > 1) start();
+  }
+
+  document.querySelectorAll('.promotion-wall').forEach((w) => {
+    const s = (w as HTMLElement).dataset.section;
+    if (s) initPromoWall(s);
   });
 </script>
 
-<style>
-  .promotion-wall {
-    width: 100%;
-  }
+<style is:global>
+  /* Loading */
+  .promotion-wall { width: 100%; }
+  .promo-loading { text-align: center; padding: var(--space-lg); }
+  .cmyk-bar { display: flex; width: 100%; height: 4px; }
+  .cmyk-bar span { flex: 1; animation: cmyk-pulse 1.5s ease-in-out infinite; }
+  .cmyk-bar span:nth-child(1) { background: var(--primary); }
+  .cmyk-bar span:nth-child(2) { background: var(--secondary); animation-delay: 0.3s; }
+  .cmyk-bar span:nth-child(3) { background: var(--tertiary); animation-delay: 0.6s; }
+  @keyframes cmyk-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 
-  .promo-loading {
-    text-align: center;
-    padding: var(--space-lg);
-  }
+  /* Hero */
+  .hero-promo { position: relative; width: 100%; min-height: 300px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
+  .hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
+  .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 100%); }
+  .hero-content { position: relative; z-index: 2; text-align: center; padding: var(--space-3xl) var(--space-2xl); color: white; max-width: 800px; }
+  .hero-title { font-family: var(--font-display); font-size: clamp(32px, 6vw, 64px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-md); text-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+  .hero-desc { font-size: clamp(16px, 2vw, 20px); opacity: 0.9; margin-bottom: var(--space-xl); text-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+  .hero-btn { display: inline-block; padding: var(--space-md) var(--space-2xl); background: var(--primary); color: var(--on-primary); text-decoration: none; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; transition: all 0.2s ease; }
+  .hero-btn:hover { background: white; color: black; text-decoration: none; }
+  @media (max-width: 767px) { .hero-promo { min-height: 200px; } .hero-content { padding: var(--space-2xl) var(--space-lg); } }
 
-  .promo-grid {
-    display: grid;
-    gap: var(--space-md);
-    grid-auto-flow: dense;
-  }
+  /* Carousel */
+  .carousel-promo { position: relative; width: 100%; }
+  .carousel-track { position: relative; width: 100%; aspect-ratio: 3/1; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
+  .carousel-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
+  .carousel-slide.active { opacity: 1; pointer-events: auto; }
+  .slide-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
+  .slide-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 40%, transparent 100%); }
+  .slide-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-xl) var(--space-2xl); z-index: 2; color: white; }
+  .slide-title { font-family: var(--font-display); font-size: clamp(24px, 4vw, 48px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-sm); text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
+  .slide-desc { font-size: clamp(14px, 1.5vw, 18px); opacity: 0.9; text-shadow: 0 1px 6px rgba(0,0,0,0.4); }
+  .slide-link { position: absolute; inset: 0; z-index: 3; }
+  .carousel-dots { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); position: absolute; bottom: var(--space-md); right: var(--space-md); z-index: 10; }
+  .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); border: none; cursor: pointer; transition: all 0.2s ease; padding: 0; }
+  .carousel-dot:hover { background: rgba(255,255,255,0.7); }
+  .carousel-dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
+  .carousel-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 10; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; cursor: pointer; opacity: 0; transition: opacity 0.2s ease, background 0.2s ease; }
+  .carousel-promo:hover .carousel-arrow { opacity: 1; }
+  .carousel-arrow:hover { background: rgba(0,0,0,0.8); }
+  .carousel-arrow--left { left: var(--space-md); }
+  .carousel-arrow--right { right: var(--space-md); }
+  @media (max-width: 767px) { .carousel-track { aspect-ratio: 16/9; } .slide-content { padding: var(--space-lg); } .carousel-arrow { opacity: 1; width: 32px; height: 32px; } }
 
-  /* ====== TEXT TILES (announcement bars) ====== */
-  .promo-tile--text {
-    display: flex;
-    align-items: center;
-    background: linear-gradient(135deg, var(--surface-container-high), var(--surface-container));
-    border: var(--border-width) solid var(--outline-variant);
-    overflow: hidden;
-    cursor: default;
-  }
+  /* Tiles */
+  .tiles-promo { display: grid; gap: var(--space-md); grid-auto-flow: dense; }
+  .tile { position: relative; overflow: hidden; border: var(--border-width) solid var(--outline-variant); min-height: 120px; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+  .tile:hover { border-color: var(--primary); box-shadow: 0 0 20px rgba(130,207,255,0.12); }
+  .tile:hover .tile-bg { transform: scale(1.06); }
+  .tile-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); transition: transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94); }
+  .tile-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 50%, transparent 100%); }
+  .tile-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-lg); z-index: 2; color: white; }
+  .tile-title { font-family: var(--font-display); font-size: clamp(16px, 2vw, 24px); text-transform: uppercase; line-height: 1.1; margin-bottom: var(--space-xs); text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+  .tile-desc { font-size: clamp(12px, 1vw, 14px); opacity: 0.9; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+  .tile-link { position: absolute; inset: 0; z-index: 3; }
+  @media (max-width: 767px) { .tiles-promo { grid-template-columns: repeat(2, 1fr) !important; grid-auto-rows: 120px !important; } .tile-content { padding: var(--space-md); } }
 
-  .promo-tile--text:hover {
-    border-color: var(--primary);
-  }
+  /* Split */
+  .split-promo { display: flex; flex-direction: column; }
+  .split-item { display: flex; flex-direction: row; text-decoration: none; color: inherit; border: var(--border-width) solid var(--outline-variant); border-bottom: none; transition: background 0.2s ease; }
+  .split-item:last-child { border-bottom: var(--border-width) solid var(--outline-variant); }
+  .split-item:hover { background: var(--surface-container-high); text-decoration: none; }
+  .split-item--reverse { flex-direction: row-reverse; }
+  .split-img { flex: 1; min-height: 200px; overflow: hidden; }
+  .split-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+  .split-item:hover .split-img img { transform: scale(1.05); }
+  .split-text { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--space-xl) var(--space-2xl); gap: var(--space-md); }
+  .split-title { font-family: var(--font-display); font-size: clamp(20px, 3vw, 32px); text-transform: uppercase; line-height: 1.1; color: var(--on-surface); }
+  .split-desc { font-size: 15px; color: var(--on-surface-variant); line-height: 1.5; }
+  .split-link { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); }
+  @media (max-width: 767px) { .split-item, .split-item--reverse { flex-direction: column; } .split-text { padding: var(--space-lg); } }
 
-  .promo-text-inner {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-sm);
-    width: 100%;
-    height: 100%;
-    padding: 0 var(--space-md);
-    flex-wrap: wrap;
-  }
+  /* Banner */
+  .banner-promo { display: flex; flex-direction: column; }
+  .banner-item { display: flex; align-items: center; justify-content: center; gap: var(--space-lg); padding: var(--space-lg) var(--space-xl); background: linear-gradient(135deg, var(--surface-container-high), var(--surface-container)); border: var(--border-width) solid var(--outline-variant); text-decoration: none; transition: all 0.2s ease; position: relative; overflow: hidden; }
+  .banner-item::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(to bottom, var(--primary), var(--secondary)); }
+  .banner-item:hover { background: linear-gradient(135deg, var(--surface-container-highest), var(--surface-container-high)); border-color: var(--primary); text-decoration: none; }
+  .banner-title { font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--on-surface); font-weight: 600; }
+  .banner-desc { font-size: 13px; color: var(--primary); }
+  @media (max-width: 767px) { .banner-item { flex-direction: column; gap: var(--space-sm); padding: var(--space-md); } }
 
-  .promo-text-title {
-    font-family: var(--font-mono);
-    font-size: clamp(11px, 1.2vw, 13px);
-    color: var(--on-surface);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Dot separators between items (using • character in text) */
-  .promo-text-subtitle {
-    font-family: var(--font-body);
-    font-size: clamp(11px, 1.1vw, 13px);
-    color: var(--primary);
-    white-space: nowrap;
-  }
-
-  /* ====== IMAGE TILES ====== */
-  .promo-tile--image {
-    position: relative;
-    overflow: hidden;
-    border: var(--border-width) solid var(--outline-variant);
-    cursor: pointer;
-    transition: border-color 0.2s ease;
-    background-color: var(--surface-container);
-    min-height: 120px;
-  }
-
-  .promo-tile--image:hover {
-    border-color: var(--primary);
-  }
-
-  .promo-tile--image:hover .promo-image {
-    transform: scale(1.05);
-  }
-
-  .promo-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    position: absolute;
-    top: 0;
-    left: 0;
-    transition: transform 0.3s ease;
-  }
-
-  .promo-image-placeholder {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, var(--surface-container-high), var(--surface-container));
-  }
-
-  .promo-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      to top,
-      rgba(0, 0, 0, 0.8) 0%,
-      rgba(0, 0, 0, 0.3) 50%,
-      transparent 100%
-    );
-    z-index: 1;
-  }
-
-  .promo-content {
-    position: relative;
-    z-index: 2;
-    padding: var(--space-lg);
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    height: 100%;
-    color: white;
-  }
-
-  .promo-title {
-    font-family: var(--font-display);
-    font-size: clamp(18px, 2.5vw, 28px);
-    text-transform: uppercase;
-    line-height: 1.1;
-    margin-bottom: var(--space-xs);
-  }
-
-  .promo-subtitle {
-    font-size: clamp(13px, 1.1vw, 15px);
-    opacity: 0.85;
-    font-family: var(--font-body);
-    max-width: 80%;
-  }
-
-  .promo-link {
-    position: absolute;
-    inset: 0;
-    z-index: 3;
-  }
-
-  /* Responsive */
-  @media (max-width: 767px) {
-    .promo-grid {
-      gap: var(--space-sm);
-    }
-    .promo-content {
-      padding: var(--space-md);
-    }
-    .promo-subtitle {
-      max-width: 100%;
-    }
-    .promo-text-inner {
-      padding: 0 var(--space-sm);
-      flex-direction: column;
-      gap: 2px;
-    }
-    .promo-text-title {
-      white-space: normal;
-      text-align: center;
-      font-size: 10px;
-    }
-    .promo-text-subtitle {
-      font-size: 10px;
-    }
-  }
+  /* Ribbon */
+  .ribbon-promo { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; border: var(--border-width) solid var(--outline-variant); }
+  .ribbon-promo::-webkit-scrollbar { display: none; }
+  .ribbon-item { flex: 1; min-width: 200px; position: relative; overflow: hidden; text-decoration: none; color: white; display: flex; align-items: center; justify-content: center; min-height: 80px; }
+  .ribbon-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
+  .ribbon-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); transition: background 0.2s ease; }
+  .ribbon-item:hover .ribbon-overlay { background: rgba(0,0,0,0.4); }
+  .ribbon-content { position: relative; z-index: 2; display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); }
+  .ribbon-title { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
+  .ribbon-desc { font-size: 12px; opacity: 0.8; white-space: nowrap; }
+  @media (max-width: 767px) { .ribbon-item { min-width: 160px; min-height: 60px; } .ribbon-content { padding: var(--space-sm) var(--space-md); } .ribbon-title, .ribbon-desc { font-size: 10px; } }
 </style>

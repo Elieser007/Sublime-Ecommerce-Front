@@ -1,0 +1,88 @@
+---
+/**
+ * BannerPromo — Text-only banner strip
+ * 
+ * Shows promotions as centered text with decorative border.
+ * No images, just text. For urgent messages.
+ */
+interface Promotion {
+  id: string;
+  title?: string;
+  description?: string;
+  link: string;
+}
+
+interface Props {
+  promotions: Promotion[];
+}
+
+const { promotions } = Astro.props;
+---
+
+<div class="banner-promo">
+  {promotions.map((promo) => (
+    <a href={promo.link} class="banner-item">
+      {promo.title && <span class="banner-title">{promo.title}</span>}
+      {promo.description && <span class="banner-desc">{promo.description}</span>}
+    </a>
+  ))}
+</div>
+
+<style>
+  .banner-promo {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .banner-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-lg);
+    padding: var(--space-lg) var(--space-xl);
+    background: linear-gradient(135deg, var(--surface-container-high), var(--surface-container));
+    border: var(--border-width) solid var(--outline-variant);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .banner-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(to bottom, var(--primary), var(--secondary));
+  }
+
+  .banner-item:hover {
+    background: linear-gradient(135deg, var(--surface-container-highest), var(--surface-container-high));
+    border-color: var(--primary);
+    text-decoration: none;
+  }
+
+  .banner-title {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--on-surface);
+    font-weight: 600;
+  }
+
+  .banner-desc {
+    font-size: 13px;
+    color: var(--primary);
+  }
+
+  @media (max-width: 767px) {
+    .banner-item {
+      flex-direction: column;
+      gap: var(--space-sm);
+      padding: var(--space-md);
+    }
+  }
+</style>
