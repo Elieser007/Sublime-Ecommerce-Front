@@ -7,6 +7,9 @@
  * - Desktop: sidebar with category tree
  * - Mobile: two buttons (Categorías, Filtros) → slide-in panels
  * - Product grid
+ * 
+ * Data is loaded CLIENT-SIDE from the public API.
+ * Static shell renders with loading state, then JS fetches real data.
  */
 
 import BaseLayout from '../layouts/BaseLayout.astro';
@@ -15,53 +18,11 @@ import ProductCard from '../components/ProductCard.astro';
 import CategoryTree from '../components/CategoryTree.astro';
 import MobileCategoryPanel from '../components/MobileCategoryPanel.astro';
 import MobileFilterPanel from '../components/MobileFilterPanel.astro';
-
-// Placeholder categories (will be fetched from API)
-const categories = [
-  {
-    id: 'ropa', name: 'Ropa', slug: 'ropa',
-    children: [
-      { id: 'camisetas', name: 'Camisetas', slug: 'camisetas', children: [
-        { id: 'basicas', name: 'Básicas', slug: 'basicas', children: [] },
-        { id: 'estampadas', name: 'Estampadas', slug: 'estampadas', children: [] },
-      ]},
-      { id: 'sudaderas', name: 'Sudaderas', slug: 'sudaderas', children: [] },
-      { id: 'gorras', name: 'Gorras', slug: 'gorras', children: [] },
-    ],
-  },
-  {
-    id: 'arte', name: 'Arte', slug: 'arte',
-    children: [
-      { id: 'poster', name: 'Pósteres', slug: 'poster', children: [] },
-      { id: 'estampas', name: 'Estampas', slug: 'estampas', children: [] },
-    ],
-  },
-  {
-    id: 'accesorios', name: 'Accesorios', slug: 'accesorios',
-    children: [
-      { id: 'bolsos', name: 'Bolsos', slug: 'bolsos', children: [] },
-      { id: 'vinilos', name: 'Vinilos', slug: 'vinilos', children: [] },
-    ],
-  },
-];
-
-const products = [
-  { id: '1', name: 'Camiseta Sublime Básica', price: 120000, image: '/placeholder-product.svg', category: 'Ropa' },
-  { id: '2', name: 'Estampa CMYK Edición Limitada', price: 250000, image: '/placeholder-product.svg', category: 'Arte' },
-  { id: '3', name: 'Tote Bag Sublime', price: 85000, image: '/placeholder-product.svg', category: 'Accesorios' },
-  { id: '4', name: 'Poster High Contrast', price: 95000, image: '/placeholder-product.svg', category: 'Arte' },
-  { id: '5', name: 'Camiseta Oversized Negra', price: 150000, image: '/placeholder-product.svg', category: 'Ropa' },
-  { id: '6', name: 'Estampa Magenta Glow', price: 180000, image: '/placeholder-product.svg', category: 'Arte' },
-  { id: '7', name: 'Gorra Sublime Logo', price: 75000, image: '/placeholder-product.svg', category: 'Accesorios' },
-  { id: '8', name: 'Remera Estampada Cyan', price: 130000, image: '/placeholder-product.svg', category: 'Ropa' },
-];
 ---
 
 <BaseLayout title="Sublime — Shop">
-  <!-- 1. ALWAYS: Top promotions -->
+  <!-- 1. Top promotions -->
   <PromotionWall section="always-catalog-top" />
-
-  <!-- 2. HOME: Top promotions -->
   <PromotionWall section="home-catalog-top" />
 
   <!-- Mobile: Action Buttons -->
@@ -97,57 +58,255 @@ const products = [
         <!-- Desktop Sidebar: Category Tree -->
         <aside class="shop-sidebar">
           <h2 class="sidebar-title label-sm">Categorías</h2>
-          <CategoryTree categories={categories} />
+          <!-- Loading state for category tree -->
+          <div id="category-tree-loading" class="sidebar-loading">
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+          </div>
+          <!-- Category tree rendered by JS -->
+          <div id="category-tree-container"></div>
+          <!-- Error state for category tree -->
+          <div id="category-tree-error" class="sidebar-error" style="display: none;">
+            <p class="body-sm">Error al cargar categorías</p>
+            <button class="btn btn--small" id="retry-categories">Reintentar</button>
+          </div>
         </aside>
 
         <!-- Products Grid -->
         <main class="shop-main">
-          <div class="products-grid">
-            {products.map((product) => (
-              <div class="product-wrapper" data-category={product.category.toLowerCase()}>
-                <ProductCard
-                  id={product.id}
-                  name={product.name}
-                  price={product.price}
-                  image={product.image}
-                  category={product.category}
-                />
-              </div>
-            ))}
+          <!-- Loading state -->
+          <div id="products-loading" class="products-loading">
+            <div class="products-grid products-grid--skeleton">
+              {[1,2,3,4,5,6].map((i) => (
+                <div class="product-skeleton">
+                  <div class="skeleton-image"></div>
+                  <div class="skeleton-text"></div>
+                  <div class="skeleton-text skeleton-text--short"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <!-- Product grid rendered by JS -->
+          <div id="products-container" style="display: none;">
+            <div class="products-grid" id="products-grid"></div>
+          </div>
+
+          <!-- Error state -->
+          <div id="products-error" class="products-error" style="display: none;">
+            <p class="body-lg">Error al cargar productos</p>
+            <button class="btn btn--primary" id="retry-products">Reintentar</button>
+          </div>
+
+          <!-- Empty state -->
+          <div id="products-empty" class="products-empty" style="display: none;">
+            <p class="body-lg">No hay productos disponibles</p>
           </div>
         </main>
     </div>
   </section>
 
-  <!-- 3. HOME: Bottom promotions -->
+  <!-- 3. Bottom promotions -->
   <PromotionWall section="home-catalog-bottom" />
-
-  <!-- 4. ALWAYS: Bottom promotions -->
   <PromotionWall section="always-catalog-bottom" />
 
-  <!-- Mobile Panels -->
-  <MobileCategoryPanel categories={categories} />
+  <!-- Mobile Panels (rendered by JS) -->
+  <div id="mobile-category-panel-container"></div>
   <MobileFilterPanel />
 </BaseLayout>
 
 <script>
-  // Category filter (from sidebar, tree, or mobile panel)
+  import {
+    fetchProducts,
+    fetchCategoryTree,
+    formatPrice,
+    getProductImageUrl,
+  } from '../lib/public-api';
+
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+
+  // DOM refs
+  const $loading = document.getElementById('products-loading');
+  const $container = document.getElementById('products-container');
+  const $grid = document.getElementById('products-grid');
+  const $error = document.getElementById('products-error');
+  const $empty = document.getElementById('products-empty');
+  const $catTreeContainer = document.getElementById('category-tree-container');
+  const $catTreeLoading = document.getElementById('category-tree-loading');
+  const $catTreeError = document.getElementById('category-tree-error');
+  const $retryProducts = document.getElementById('retry-products');
+  const $retryCategories = document.getElementById('retry-categories');
+
+  // ─── RENDER CATEGORY TREE ──────────────────────────────
+  async function loadCategoryTree() {
+    try {
+      $catTreeLoading.style.display = '';
+      $catTreeContainer.innerHTML = '';
+      $catTreeError.style.display = 'none';
+
+      const tree = await fetchCategoryTree();
+
+      $catTreeLoading.style.display = 'none';
+
+      if (!tree || tree.length === 0) {
+        $catTreeContainer.innerHTML = '<p class="body-sm">Sin categorías</p>';
+        return;
+      }
+
+      // Build HTML for the category tree
+      let html = '<ul class="tree-list">';
+      // "All" button
+      html += `<li class="tree-item active" data-filter="all" data-name="all">
+        <span class="tree-label" data-filter="all">Todos</span>
+      </li>`;
+      for (const section of tree) {
+        html += `<li class="tree-item" data-filter="${section.slug}" data-name="${section.name}">
+          <span class="tree-label" data-filter="${section.slug}">${section.name}</span>
+        </li>`;
+        if (section.categories && section.categories.length > 0) {
+          html += '<ul class="tree-sublist">';
+          for (const cat of section.categories) {
+            html += `<li class="tree-item tree-item--sub" data-filter="${cat.slug}" data-name="${cat.name}">
+              <span class="tree-label tree-label--sub" data-filter="${cat.slug}">${cat.name}</span>
+            </li>`;
+          }
+          html += '</ul>';
+        }
+      }
+      html += '</ul>';
+      $catTreeContainer.innerHTML = html;
+
+      // Attach click handlers for category filtering
+      $catTreeContainer.querySelectorAll('.tree-label').forEach((el) => {
+        el.addEventListener('click', () => {
+          const filter = el.dataset.filter;
+          // Update active state
+          $catTreeContainer.querySelectorAll('.tree-label').forEach((l) => l.classList.remove('active'));
+          el.classList.add('active');
+          // Dispatch event for product filter
+          window.dispatchEvent(new CustomEvent('category-select', { detail: { category: filter } }));
+        });
+      });
+    } catch (err) {
+      $catTreeLoading.style.display = 'none';
+      $catTreeError.style.display = '';
+      console.error('Error loading category tree:', err);
+    }
+  }
+
+  // ─── RENDER PRODUCTS ───────────────────────────────────
+  async function loadProducts(params?: URLSearchParams) {
+    try {
+      $loading.style.display = '';
+      $container.style.display = 'none';
+      $error.style.display = 'none';
+      $empty.style.display = 'none';
+
+      const result = await fetchProducts(params);
+
+      $loading.style.display = 'none';
+
+      if (!result.data || result.data.length === 0) {
+        $empty.style.display = '';
+        return;
+      }
+
+      let html = '';
+      for (const product of result.data) {
+        const imageUrl = getProductImageUrl(product.image_url);
+        const price = formatPrice(product.base_price);
+        const category = product.section_name || '';
+
+        html += `<div class="product-wrapper" data-category="${(product.section_name || product.category_name || '').toLowerCase()}">
+          <article class="product-card">
+            <a href="/producto/${product.id}" class="product-link">
+              <div class="product-image-wrapper">
+                <img src="${imageUrl}" alt="${product.name}" class="product-image" loading="lazy" width="400" height="400" />
+              </div>
+              <div class="product-info">
+                ${category ? `<span class="product-category label-sm">${category}</span>` : ''}
+                <h3 class="product-name body-lg">${product.name}</h3>
+                <p class="product-price body-lg">Gs. ${price}</p>
+              </div>
+            </a>
+            <button class="product-add-btn btn btn--secondary"
+              data-product-id="${product.id}"
+              data-product-name="${product.name}"
+              data-product-price="${product.base_price}"
+              data-product-image="${imageUrl}"
+              aria-label="Agregar ${product.name} al carrito">
+              Agregar al carrito
+            </button>
+          </article>
+        </div>`;
+      }
+      $grid.innerHTML = html;
+      $container.style.display = '';
+
+      // Attach cart handlers
+      $grid.querySelectorAll('[data-product-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const el = btn;
+          const product = {
+            id: el.dataset.productId,
+            name: el.dataset.productName,
+            price: Number(el.dataset.productPrice),
+            image: el.dataset.productImage,
+            quantity: 1,
+          };
+          const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+          const existing = cart.find((item: any) => item.id === product.id);
+          if (existing) { existing.quantity += 1; }
+          else { cart.push(product); }
+          localStorage.setItem('cart', JSON.stringify(cart));
+          // Update cart badge
+          const badge = document.querySelector('.cart-badge');
+          if (badge) {
+            const total = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
+            badge.textContent = total.toString();
+          }
+          btn.textContent = '¡Agregado!';
+          setTimeout(() => { btn.textContent = 'Agregar al carrito'; }, 1500);
+        });
+      });
+
+    } catch (err) {
+      $loading.style.display = 'none';
+      $error.style.display = '';
+      console.error('Error loading products:', err);
+    }
+  }
+
+  // ─── INIT ──────────────────────────────────────────────
+  async function init() {
+    // Load category tree
+    await loadCategoryTree();
+
+    // Load products
+    await loadProducts();
+
+    // Retry buttons
+    $retryProducts?.addEventListener('click', () => loadProducts());
+    $retryCategories?.addEventListener('click', () => loadCategoryTree());
+  }
+
+  // Handle category selection filter
   window.addEventListener('category-select', ((e: CustomEvent) => {
     const category = e.detail.category;
-    
     // Update active states
     document.querySelectorAll('.filter-btn, .tree-label').forEach((btn) => {
-      const el = btn as HTMLElement;
+      const el = btn;
       if (el.dataset.filter === category || el.dataset.filter === 'all') {
-        el.closest('.category-tree-row, .filter-btn')?.classList.add('active');
+        el.closest('.category-tree-row, .filter-btn, .tree-item')?.classList.add('active');
       } else {
-        el.closest('.category-tree-row, .filter-btn')?.classList.remove('active');
+        el.closest('.category-tree-row, .filter-btn, .tree-item')?.classList.remove('active');
       }
     });
 
-    // Filter products
+    // Filter products client-side
     document.querySelectorAll('.product-wrapper').forEach((wrapper) => {
-      const el = wrapper as HTMLElement;
+      const el = wrapper;
       if (category === 'all' || el.dataset.category === category) {
         el.style.display = '';
       } else {
@@ -156,25 +315,41 @@ const products = [
     });
   }) as EventListener);
 
-  // Filter by price (from mobile filter panel)
-  window.addEventListener('filters-applied', ((e: CustomEvent) => {
-    const { minPrice, maxPrice } = e.detail;
-    
-    document.querySelectorAll('.product-wrapper').forEach((wrapper) => {
-      const el = wrapper as HTMLElement;
-      const priceEl = el.querySelector('.product-price');
-      if (!priceEl) return;
-      
-      const priceText = priceEl.textContent || '';
-      const price = Number(priceText.replace(/[^0-9]/g, ''));
-      
-      let show = true;
-      if (minPrice && price < minPrice) show = false;
-      if (maxPrice && price > maxPrice) show = false;
-      
-      el.style.display = show ? '' : 'none';
+  // Mobile panels for categories
+  document.getElementById('open-categories')?.addEventListener('click', async () => {
+    // Create mobile panel with tree data
+    const existingPanel = document.getElementById('mobile-category-panel');
+    if (existingPanel) { existingPanel.style.display = ''; return; }
+
+    const tree = await fetchCategoryTree().catch(() => []);
+    const panel = document.createElement('div');
+    panel.id = 'mobile-category-panel';
+    panel.className = 'mobile-panel-overlay';
+    panel.innerHTML = `
+      <div class="mobile-panel">
+        <div class="mobile-panel-header">
+          <h3 class="body-lg">Categorías</h3>
+          <button class="mobile-panel-close" id="close-categories">✕</button>
+        </div>
+        <div class="mobile-panel-body">
+          ${tree.map((sec) => `
+            <div class="mobile-section">
+              <h4 class="label-sm mobile-section-title">${sec.name}</h4>
+              ${sec.categories ? `<ul class="mobile-cat-list">${sec.categories.map((cat) => `
+                <li class="mobile-cat-item" data-filter="${cat.slug}">
+                  <span>${cat.name}</span>
+                </li>`).join('')}</ul>` : ''}
+            </div>`).join('')}
+        </div>
+      </div>`;
+    document.body.appendChild(panel);
+    panel.querySelector('#close-categories')?.addEventListener('click', () => { panel.style.display = 'none'; });
+    panel.querySelector('.mobile-panel-overlay')?.addEventListener('click', (e) => {
+      if (e.target === panel) panel.style.display = 'none';
     });
-  }) as EventListener);
+  });
+
+  init();
 </script>
 
 <style>
@@ -188,9 +363,7 @@ const products = [
   }
 
   @media (min-width: 768px) {
-    .mobile-actions {
-      display: none;
-    }
+    .mobile-actions { display: none; }
   }
 
   .mobile-action-btn {
@@ -212,33 +385,18 @@ const products = [
   }
 
   /* Shop Layout */
-  .shop-layout {
-    padding: var(--space-2xl) var(--margin-mobile);
-  }
-
-  @media (min-width: 768px) {
-    .shop-layout {
-      padding: var(--space-2xl) var(--margin-desktop);
-    }
-  }
+  .shop-layout { padding: var(--space-2xl) var(--margin-mobile); }
+  @media (min-width: 768px) { .shop-layout { padding: var(--space-2xl) var(--margin-desktop); } }
 
   .shop-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: var(--space-2xl);
   }
-
-  @media (min-width: 768px) {
-    .shop-grid {
-      grid-template-columns: 240px 1fr;
-    }
-  }
+  @media (min-width: 768px) { .shop-grid { grid-template-columns: 240px 1fr; } }
 
   /* Sidebar */
-  .shop-sidebar {
-    display: none;
-  }
-
+  .shop-sidebar { display: none; }
   @media (min-width: 768px) {
     .shop-sidebar {
       display: block;
@@ -257,22 +415,156 @@ const products = [
     text-transform: uppercase;
   }
 
+  .sidebar-loading { display: flex; flex-direction: column; gap: 8px; }
+  .sidebar-error { color: var(--error); }
+  .sidebar-error p { margin-bottom: var(--space-sm); }
+
   /* Products Grid */
   .products-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: var(--gutter);
   }
+  @media (min-width: 768px) { .products-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); } }
+  @media (min-width: 1024px) { .products-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }
 
-  @media (min-width: 768px) {
-    .products-grid {
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    }
+  /* Loading / Skeleton */
+  .products-loading { padding: var(--space-lg) 0; }
+  .products-grid--skeleton { pointer-events: none; }
+  .product-skeleton {
+    border: var(--border-width) solid var(--outline-variant);
+  }
+  .skeleton-image {
+    aspect-ratio: 1;
+    background-color: var(--surface-container);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .skeleton-text {
+    height: 16px;
+    margin: var(--space-sm);
+    background-color: var(--surface-container);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .skeleton-text--short { width: 60%; }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
   }
 
-  @media (min-width: 1024px) {
-    .products-grid {
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    }
+  /* Error / Empty states */
+  .products-error, .products-empty {
+    text-align: center;
+    padding: var(--space-4xl) 0;
+    color: var(--on-surface-variant);
   }
+  .products-error p, .products-empty p { margin-bottom: var(--space-lg); }
+
+  /* Tree list styles */
+  .tree-list { list-style: none; padding: 0; margin: 0; }
+  .tree-item { padding: var(--space-xs) 0; cursor: pointer; }
+  .tree-item.active > .tree-label { color: var(--primary); font-weight: 600; }
+  .tree-label {
+    color: var(--on-surface-variant);
+    font-size: 14px;
+    transition: color 0.15s ease;
+  }
+  .tree-label:hover { color: var(--primary); }
+  .tree-label.active { color: var(--primary); font-weight: 600; }
+  .tree-label--sub { font-size: 13px; padding-left: var(--space-md); }
+  .tree-sublist { list-style: none; padding-left: var(--space-sm); margin: 0; }
+
+  /* Product Card overrides for inline rendering */
+  .product-card {
+    display: flex;
+    flex-direction: column;
+    border: var(--border-width) solid var(--on-surface);
+    transition: border-color 0.2s ease;
+  }
+  .product-card:hover { border-color: var(--primary); }
+  .product-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  .product-link:hover { text-decoration: none; }
+  .product-image-wrapper {
+    aspect-ratio: 1;
+    overflow: hidden;
+    background-color: var(--surface-container);
+  }
+  .product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+  .product-card:hover .product-image { transform: scale(1.05); }
+  .product-info {
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    flex: 1;
+  }
+  .product-category { color: var(--secondary); }
+  .product-name { color: var(--on-surface); font-weight: 600; }
+  .product-price { color: var(--primary); font-weight: 700; }
+  .product-add-btn {
+    width: 100%;
+    border-top: var(--border-width) solid var(--outline-variant);
+    border-radius: 0;
+    padding: var(--space-md);
+  }
+
+  /* Mobile panel */
+  .mobile-panel-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 200;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+  .mobile-panel {
+    width: 85%;
+    max-width: 360px;
+    height: 100%;
+    background-color: var(--surface);
+    border-right: var(--border-width) solid var(--outline-variant);
+    overflow-y: auto;
+  }
+  .mobile-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-lg);
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+  .mobile-panel-close {
+    background: none;
+    border: var(--border-width) solid var(--outline-variant);
+    width: 36px;
+    height: 36px;
+    color: var(--on-surface);
+    cursor: pointer;
+    font-size: 18px;
+  }
+  .mobile-panel-body { padding: var(--space-md); }
+  .mobile-section { margin-bottom: var(--space-lg); }
+  .mobile-section-title {
+    color: var(--primary);
+    margin-bottom: var(--space-sm);
+    text-transform: uppercase;
+  }
+  .mobile-cat-list { list-style: none; padding: 0; margin: 0; }
+  .mobile-cat-item {
+    padding: var(--space-sm) var(--space-md);
+    cursor: pointer;
+    color: var(--on-surface-variant);
+    transition: all 0.15s ease;
+  }
+  .mobile-cat-item:hover { color: var(--primary); background-color: var(--surface-container); }
 </style>

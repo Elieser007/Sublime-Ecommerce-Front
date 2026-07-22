@@ -1,0 +1,289 @@
+---
+/**
+ * Product Detail — /producto/[id]
+ *
+ * Client-side data loading from the public API.
+ * Shows product image, name, price, description, category path.
+ * Add-to-cart button using the existing LocalStorage pattern.
+ *
+ * This page uses on-demand rendering (prerender = false)
+ * because product IDs are not known at build time.
+ * The Cloudflare Worker handles the request at runtime.
+ */
+
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Producto — Sublime">
+  <!-- Loading state -->
+  <div id="detail-loading" class="detail-section">
+    <div class="detail-layout">
+      <div class="detail-image-skeleton"></div>
+      <div class="detail-info-skeleton">
+        <div class="skeleton-line skeleton-line--lg"></div>
+        <div class="skeleton-line skeleton-line--md"></div>
+        <div class="skeleton-line skeleton-line--sm"></div>
+        <div class="skeleton-line skeleton-line--lg"></div>
+        <div class="skeleton-line skeleton-line--md"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error state -->
+  <div id="detail-error" class="detail-state" style="display: none;">
+    <h1 class="headline-lg-mobile" style="color: var(--error);">Producto no encontrado</h1>
+    <p class="body-lg" id="detail-error-message" style="color: var(--on-surface-variant); margin: var(--space-lg) 0;">
+      El producto que buscás no existe o fue eliminado.
+    </p>
+    <div class="detail-actions">
+      <a href="/" class="btn btn--primary">Ver Catálogo</a>
+      <button class="btn btn--secondary" id="retry-detail">Reintentar</button>
+    </div>
+  </div>
+
+  <!-- Product detail (rendered by JS) -->
+  <div id="detail-content" class="detail-section" style="display: none;">
+    <div class="detail-layout">
+      <!-- Image -->
+      <div class="detail-image-container">
+        <img id="detail-image" class="detail-image" src="/placeholder-product.svg" alt="" width="600" height="600" />
+      </div>
+
+      <!-- Info -->
+      <div class="detail-info">
+        <!-- Breadcrumb -->
+        <nav class="detail-breadcrumb body-sm" id="detail-breadcrumb"></nav>
+
+        <h1 class="detail-name headline-lg-mobile" id="detail-name"></h1>
+        <p class="detail-price display-lg" id="detail-price"></p>
+
+        <div class="detail-description body-lg" id="detail-description"></div>
+
+        <button class="btn btn--primary detail-add-btn" id="detail-add-cart">
+          Agregar al carrito
+        </button>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    fetchProductById,
+    formatPrice,
+    getProductImageUrl,
+  } from '../../lib/public-api';
+
+  const $loading = document.getElementById('detail-loading');
+  const $error = document.getElementById('detail-error');
+  const $content = document.getElementById('detail-content');
+  const $errorMessage = document.getElementById('detail-error-message');
+  const $retry = document.getElementById('retry-detail');
+
+  // Detail elements
+  const $image = document.getElementById('detail-image');
+  const $name = document.getElementById('detail-name');
+  const $price = document.getElementById('detail-price');
+  const $description = document.getElementById('detail-description');
+  const $breadcrumb = document.getElementById('detail-breadcrumb');
+  const $addCart = document.getElementById('detail-add-cart');
+
+  // Get product ID from URL
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  const productId = pathParts[pathParts.length - 1];
+
+  let currentProduct: any = null;
+
+  async function loadProduct(id: string) {
+    try {
+      $loading.style.display = '';
+      $error.style.display = 'none';
+      $content.style.display = 'none';
+
+      const product = await fetchProductById(id);
+      currentProduct = product;
+
+      $loading.style.display = 'none';
+      renderProduct(product);
+      $content.style.display = '';
+
+    } catch (err: any) {
+      $loading.style.display = 'none';
+      $error.style.display = '';
+
+      if (err.message === 'Not found') {
+        $errorMessage.textContent = 'El producto que buscás no existe o fue eliminado.';
+      } else {
+        $errorMessage.textContent = 'Error al cargar el producto. Verificá tu conexión.';
+      }
+    }
+  }
+
+  function renderProduct(product: any) {
+    // Image
+    const primaryImage = product.images && product.images.length > 0
+      ? product.images.find((img: any) => img.is_primary) || product.images[0]
+      : null;
+    $image.src = getProductImageUrl(primaryImage?.url);
+    $image.alt = product.name;
+
+    // Name
+    $name.textContent = product.name;
+
+    // Price
+    $price.textContent = `Gs. ${formatPrice(product.base_price)}`;
+
+    // Description
+    if (product.description) {
+      $description.textContent = product.description;
+      $description.style.display = '';
+    } else {
+      $description.style.display = 'none';
+    }
+
+    // Breadcrumb
+    const crumbs = [];
+    if (product.section_name) crumbs.push(product.section_name);
+    if (product.category_name) crumbs.push(product.category_name);
+    if (product.subcategory_name) crumbs.push(product.subcategory_name);
+    $breadcrumb.textContent = crumbs.join(' / ') || 'Producto';
+  }
+
+  // Add to cart
+  $addCart?.addEventListener('click', () => {
+    if (!currentProduct) return;
+    const product = {
+      id: currentProduct.id,
+      name: currentProduct.name,
+      price: currentProduct.base_price,
+      image: getProductImageUrl(
+        currentProduct.images && currentProduct.images.length > 0
+          ? currentProduct.images[0]?.url
+          : null
+      ),
+      quantity: 1,
+    };
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const existing = cart.find((item: any) => item.id === product.id);
+    if (existing) { existing.quantity += 1; }
+    else { cart.push(product); }
+    localStorage.setItem('cart', JSON.stringify(cart));
+    const badge = document.querySelector('.cart-badge');
+    if (badge) {
+      badge.textContent = cart.reduce((sum: number, item: any) => sum + item.quantity, 0).toString();
+    }
+    $addCart.textContent = '¡Agregado!';
+    setTimeout(() => { $addCart.textContent = 'Agregar al carrito'; }, 1500);
+  });
+
+  // Retry
+  $retry?.addEventListener('click', () => loadProduct(productId));
+
+  // Init
+  if (productId) {
+    loadProduct(productId);
+  } else {
+    $loading.style.display = 'none';
+    $error.style.display = '';
+    $errorMessage.textContent = 'ID de producto no válido.';
+  }
+</script>
+
+<style>
+  .detail-section {
+    padding: var(--space-2xl) var(--margin-mobile);
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  @media (min-width: 768px) {
+    .detail-section { padding: var(--space-3xl) var(--margin-desktop); }
+  }
+
+  .detail-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-2xl);
+  }
+  @media (min-width: 768px) {
+    .detail-layout { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* Image */
+  .detail-image-container {
+    border: var(--border-width) solid var(--outline-variant);
+    background-color: var(--surface-container);
+    aspect-ratio: 1;
+    overflow: hidden;
+  }
+  .detail-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Info */
+  .detail-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+  .detail-breadcrumb {
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .detail-name {
+    color: var(--on-surface);
+  }
+  .detail-price {
+    color: var(--primary);
+    font-weight: 700;
+  }
+  .detail-description {
+    color: var(--on-surface-variant);
+    line-height: 1.6;
+  }
+  .detail-add-btn {
+    align-self: flex-start;
+    padding: var(--space-lg) var(--space-2xl);
+  }
+
+  /* Error / Loading states */
+  .detail-state {
+    text-align: center;
+    padding: var(--space-4xl) var(--margin-mobile);
+  }
+  .detail-actions {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* Skeleton loading */
+  .detail-image-skeleton {
+    aspect-ratio: 1;
+    background-color: var(--surface-container);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .detail-info-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .skeleton-line {
+    height: 20px;
+    background-color: var(--surface-container);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .skeleton-line--lg { width: 100%; }
+  .skeleton-line--md { width: 70%; }
+  .skeleton-line--sm { width: 40%; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+</style>

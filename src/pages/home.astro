@@ -2,45 +2,13 @@
 /**
  * Homepage — Sublime E-commerce
  * 
- * Hero section + featured products grid.
+ * Hero section + featured products grid (loaded client-side).
  * Dark theme, CMYK accents, sharp corners.
  */
 
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ProductCard from '../components/ProductCard.astro';
 import Chip from '../components/Chip.astro';
-
-// Placeholder products — will be replaced by D1 data at build time
-const featuredProducts = [
-  {
-    id: '1',
-    name: 'Camiseta Sublime Básica',
-    price: 120000,
-    image: '/placeholder-product.svg',
-    category: 'Ropa',
-  },
-  {
-    id: '2',
-    name: 'Estampa CMYK Edición Limitada',
-    price: 250000,
-    image: '/placeholder-product.svg',
-    category: 'Arte',
-  },
-  {
-    id: '3',
-    name: 'Tote Bag Sublime',
-    price: 85000,
-    image: '/placeholder-product.svg',
-    category: 'Accesorios',
-  },
-  {
-    id: '4',
-    name: 'Poster High Contrast',
-    price: 95000,
-    image: '/placeholder-product.svg',
-    category: 'Arte',
-  },
-];
 ---
 
 <BaseLayout title="Sublime E-commerce — Arte & Diseño">
@@ -80,89 +48,180 @@ const featuredProducts = [
         <a href="/" class="label-sm section-link">Ver todo →</a>
       </div>
 
-      <div class="products-grid grid">
-        {featuredProducts.map((product) => (
-          <ProductCard
-            id={product.id}
-            name={product.name}
-            price={product.price}
-            image={product.image}
-            category={product.category}
-          />
+      <!-- Loading state -->
+      <div id="featured-loading" class="products-grid grid">
+        {[1,2,3,4].map((i) => (
+          <div class="product-skeleton" key={i}>
+            <div class="skeleton-image"></div>
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text skeleton-text--short"></div>
+          </div>
         ))}
+      </div>
+
+      <!-- Featured grid rendered by JS -->
+      <div id="featured-grid" class="products-grid grid" style="display: none;"></div>
+
+      <!-- Error state -->
+      <div id="featured-error" style="display: none; text-align: center; padding: 48px 0;">
+        <p class="body-lg" style="color: var(--on-surface-variant); margin-bottom: 16px;">
+          Error al cargar productos destacados
+        </p>
+        <button class="btn btn--primary" id="retry-featured">Reintentar</button>
+      </div>
+
+      <!-- Empty state -->
+      <div id="featured-empty" style="display: none; text-align: center; padding: 48px 0;">
+        <p class="body-lg" style="color: var(--on-surface-variant);">No hay productos destacados</p>
       </div>
     </div>
   </section>
 </BaseLayout>
 
+<script>
+  import {
+    fetchFeaturedProducts,
+    formatPrice,
+    getProductImageUrl,
+  } from '../lib/public-api';
+
+  const $loading = document.getElementById('featured-loading');
+  const $grid = document.getElementById('featured-grid');
+  const $error = document.getElementById('featured-error');
+  const $empty = document.getElementById('featured-empty');
+  const $retry = document.getElementById('retry-featured');
+
+  async function loadFeatured() {
+    try {
+      $loading.style.display = '';
+      $grid.style.display = 'none';
+      $error.style.display = 'none';
+      $empty.style.display = 'none';
+
+      const products = await fetchFeaturedProducts();
+
+      $loading.style.display = 'none';
+
+      if (!products || products.length === 0) {
+        $empty.style.display = '';
+        return;
+      }
+
+      let html = '';
+      for (const product of products) {
+        const imageUrl = getProductImageUrl(product.image_url);
+        const price = formatPrice(product.base_price);
+        const category = product.section_name || '';
+
+        html += `<article class="product-card">
+          <a href="/producto/${product.id}" class="product-link">
+            <div class="product-image-wrapper">
+              <img src="${imageUrl}" alt="${product.name}" class="product-image" loading="lazy" width="400" height="400" />
+            </div>
+            <div class="product-info">
+              ${category ? `<span class="product-category label-sm">${category}</span>` : ''}
+              <h3 class="product-name body-lg">${product.name}</h3>
+              <p class="product-price body-lg">Gs. ${price}</p>
+            </div>
+          </a>
+          <button class="product-add-btn btn btn--secondary"
+            data-product-id="${product.id}"
+            data-product-name="${product.name}"
+            data-product-price="${product.base_price}"
+            data-product-image="${imageUrl}"
+            aria-label="Agregar ${product.name} al carrito">
+            Agregar al carrito
+          </button>
+        </article>`;
+      }
+      $grid.innerHTML = html;
+      $grid.style.display = '';
+
+      // Attach cart handlers
+      $grid.querySelectorAll('[data-product-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const el = btn;
+          const product = {
+            id: el.dataset.productId,
+            name: el.dataset.productName,
+            price: Number(el.dataset.productPrice),
+            image: el.dataset.productImage,
+            quantity: 1,
+          };
+          const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+          const existing = cart.find((item: any) => item.id === product.id);
+          if (existing) { existing.quantity += 1; }
+          else { cart.push(product); }
+          localStorage.setItem('cart', JSON.stringify(cart));
+          const badge = document.querySelector('.cart-badge');
+          if (badge) {
+            badge.textContent = cart.reduce((sum: number, item: any) => sum + item.quantity, 0).toString();
+          }
+          btn.textContent = '¡Agregado!';
+          setTimeout(() => { btn.textContent = 'Agregar al carrito'; }, 1500);
+        });
+      });
+    } catch (err) {
+      $loading.style.display = 'none';
+      $error.style.display = '';
+      console.error('Error loading featured:', err);
+    }
+  }
+
+  $retry?.addEventListener('click', loadFeatured);
+  loadFeatured();
+</script>
+
 <style>
   /* Hero */
-  .hero {
-    padding: var(--space-4xl) 0 var(--space-3xl);
-  }
-
-  .hero-content {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-lg);
-    max-width: 600px;
-  }
-
-  .hero-title {
-    color: var(--on-surface);
-    margin: var(--space-md) 0;
-  }
-
-  .hero-subtitle {
-    color: var(--on-surface-variant);
-  }
-
-  .hero-actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
-    margin-top: var(--space-md);
-  }
-
-  @media (min-width: 768px) {
-    .hero-actions {
-      flex-direction: row;
-    }
-  }
-
-  .hero-cmyk {
-    margin-top: var(--space-3xl);
-  }
-
-  .cmyk-bar--lg {
-    height: 8px;
-  }
+  .hero { padding: var(--space-4xl) 0 var(--space-3xl); }
+  .hero-content { display: flex; flex-direction: column; gap: var(--space-lg); max-width: 600px; }
+  .hero-title { color: var(--on-surface); margin: var(--space-md) 0; }
+  .hero-subtitle { color: var(--on-surface-variant); }
+  .hero-actions { display: flex; flex-direction: column; gap: var(--space-md); margin-top: var(--space-md); }
+  @media (min-width: 768px) { .hero-actions { flex-direction: row; } }
+  .hero-cmyk { margin-top: var(--space-3xl); }
+  .cmyk-bar--lg { height: 8px; }
 
   /* Featured Section */
-  .section-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: var(--space-xl);
+  .section-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--space-xl); }
+  .section-link { color: var(--primary); text-decoration: none; }
+  .section-link:hover { text-decoration: underline; }
+  .products-grid { grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 768px) { .products-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  /* Loading skeletons */
+  .product-skeleton { border: var(--border-width) solid var(--outline-variant); }
+  .skeleton-image {
+    aspect-ratio: 1;
+    background-color: var(--surface-container);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .skeleton-text {
+    height: 16px; margin: var(--space-sm);
+    background-color: var(--surface-container);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .skeleton-text--short { width: 60%; }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
   }
 
-  .section-link {
-    color: var(--primary);
-    text-decoration: none;
+  /* Product card styles for dynamic rendering */
+  .product-card {
+    display: flex; flex-direction: column;
+    border: var(--border-width) solid var(--on-surface);
+    transition: border-color 0.2s ease;
   }
-
-  .section-link:hover {
-    text-decoration: underline;
-  }
-
-  /* Products Grid */
-  .products-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  @media (min-width: 768px) {
-    .products-grid {
-      grid-template-columns: repeat(4, 1fr);
-    }
-  }
+  .product-card:hover { border-color: var(--primary); }
+  .product-link { text-decoration: none; color: inherit; display: flex; flex-direction: column; flex: 1; }
+  .product-image-wrapper { aspect-ratio: 1; overflow: hidden; background-color: var(--surface-container); }
+  .product-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+  .product-card:hover .product-image { transform: scale(1.05); }
+  .product-info { padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-xs); flex: 1; }
+  .product-category { color: var(--secondary); }
+  .product-name { color: var(--on-surface); font-weight: 600; }
+  .product-price { color: var(--primary); font-weight: 700; }
+  .product-add-btn { width: 100%; border-top: var(--border-width) solid var(--outline-variant); border-radius: 0; padding: var(--space-md); }
 </style>
