@@ -14,12 +14,12 @@ import { generateWhatsAppUrl, formatGuaranies, buildCartMessage } from "./whatsa
 
 // Mock cart data
 const mockCart = [
-  { id: "1", name: "Camiseta Básica", price: 120000, quantity: 2, image: "" },
+  { id: "1", name: "Camiseta Basica", price: 120000, quantity: 2, image: "" },
   { id: "2", name: "Tote Bag", price: 85000, quantity: 1, image: "" },
 ];
 
 describe("formatGuaranies", () => {
-  it("formats number as Guaraníes without decimals", () => {
+  it("formats number as Guaranies without decimals", () => {
     expect(formatGuaranies(120000)).toBe("120.000");
   });
 
@@ -40,7 +40,7 @@ describe("buildCartMessage", () => {
   it("builds readable message with products", () => {
     const message = buildCartMessage(mockCart);
 
-    expect(message).toContain("Camiseta Básica");
+    expect(message).toContain("Camiseta Basica");
     expect(message).toContain("Tote Bag");
   });
 
@@ -76,6 +76,43 @@ describe("buildCartMessage", () => {
 
     expect(message).toContain("Pedido");
   });
+
+  it("uses tier price and shows tier info when selected_tier_price is set", () => {
+    const cartWithTier = [
+      { id: "1", name: "Producto Volumen", price: 100000, quantity: 10, selected_tier_id: "tier-10", selected_tier_price: 90000, selected_tier_min_qty: 10 },
+    ];
+    const message = buildCartMessage(cartWithTier);
+    expect(message).toContain("90.000"); // tier price
+    expect(message).toContain("Precio por volumen");
+    expect(message).toContain("10+ unds");
+  });
+
+  it("shows warning when qty < tier min_qty", () => {
+    const cartWithTier = [
+      { id: "1", name: "Producto Volumen", price: 100000, quantity: 5, selected_tier_id: "tier-10", selected_tier_price: 90000, selected_tier_min_qty: 10 },
+    ];
+    const message = buildCartMessage(cartWithTier);
+    expect(message).toContain("\u26A0\uFE0F");
+    expect(message).toContain("Precio v\u00E1lido para 10+ unidades");
+    expect(message).toContain("Cantidad actual: 5");
+  });
+
+  it("does not show warning when qty >= tier min_qty", () => {
+    const cartWithTier = [
+      { id: "1", name: "Producto Volumen", price: 100000, quantity: 10, selected_tier_id: "tier-10", selected_tier_price: 90000, selected_tier_min_qty: 10 },
+    ];
+    const message = buildCartMessage(cartWithTier);
+    expect(message).not.toContain("\u26A0\uFE0F");
+    expect(message).not.toContain("Precio v\u00E1lido");
+  });
+
+  it("works with legacy items without tier fields (backward compat)", () => {
+    const legacyCart = [{ id: "1", name: "Legado", price: 50000, quantity: 3 }];
+    const message = buildCartMessage(legacyCart);
+    expect(message).toContain("50.000");
+    expect(message).toContain("150.000"); // 3 * 50000
+    expect(message).not.toContain("Precio por volumen");
+  });
 });
 
 describe("generateWhatsAppUrl", () => {
@@ -103,7 +140,7 @@ describe("generateWhatsAppUrl", () => {
     const url = generateWhatsAppUrl(mockCart, "595991969608");
     const textParam = decodeURIComponent(url.split("text=")[1]);
 
-    expect(textParam).toContain("Camiseta Básica");
+    expect(textParam).toContain("Camiseta Basica");
     expect(textParam).toContain("Tote Bag");
   });
 });

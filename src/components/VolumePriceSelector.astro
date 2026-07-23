@@ -1,0 +1,203 @@
+---
+/**
+ * VolumePriceSelector — Interactive tier selector for product detail
+ * 
+ * Native <select> with aria-describedby pointing to PriceTierList.
+ * Emits 'volume-tier-change' CustomEvent with { tier, qty, price } on change.
+ * Client island for interactivity.
+ */
+
+import { getTierPrice, formatTierOption, getTierForQuantity } from "../lib/price-utils";
+
+interface Props {
+  priceTiers?: Array<{
+    id: string;
+    branch_id: string;
+    branch_name: string;
+    min_quantity: number;
+    price: number;
+  }>;
+  initialQty?: number;
+}
+
+const { priceTiers, initialQty = 1 } = Astro.props;
+
+const tiers = priceTiers || [];
+const sortedTiers = [...tiers].sort((a, b) => a.min_quantity - b.min_quantity);
+
+const initialTier = getTierForQuantity(tiers, initialQty);
+const initialPrice = getTierPrice(tiers, initialQty);
+
+const tierOptions = sortedTiers.map((tier) => {
+  const isBase = tier.min_quantity === 1;
+  const label = isBase 
+    ? `1 und (base) — Gs. ${new Intl.NumberFormat("es-PY", { style: "decimal", maximumFractionDigits: 0 }).format(tier.price)}/u`
+    : formatTierOption(tier);
+  
+  return `<option value="${tier.id}" ${tier.id === initialTier?.id ? "selected" : ""} data-qty="${tier.min_quantity}" data-price="${tier.price}">
+    ${label}
+  </option>`;
+}).join("");
+
+const tierListId = `tier-list-${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<div class="volume-selector">
+  <label for={tierListId} class="volume-selector-label label-sm">
+    Precio por volumen
+  </label>
+  
+  <select 
+    id={tierListId}
+    class="volume-selector-select"
+    aria-describedby={tierListId + "-desc"}
+    data-initial-qty={initialQty}
+  >
+    {tierOptions}
+  </select>
+  
+  <span id={tierListId + "-desc"} class="volume-selector-hint body-sm" aria-live="polite">
+    Seleccioná la cantidad para ver el precio unitario correspondiente
+  </span>
+  
+  <div class="volume-selector-price-display">
+    <span class="volume-price-label label-sm">Precio unitario:</span>
+    <span class="volume-price-value display-lg" data-price>{`Gs. ${new Intl.NumberFormat("es-PY", { style: "decimal", maximumFractionDigits: 0 }).format(initialPrice)}`}</span>
+  </div>
+</div>
+
+<script>
+  // Client-side interactivity
+  const select = document.querySelector('.volume-selector-select');
+  const priceDisplay = document.querySelector('.volume-price-value[data-price]');
+  const hint = document.querySelector('.volume-selector-hint');
+  
+  if (select && priceDisplay) {
+    select.addEventListener('change', (e) => {
+      const target = e.target as HTMLSelectElement;
+      const selectedOption = target.options[target.selectedIndex];
+      const tierId = selectedOption.value;
+      const qty = parseInt(selectedOption.dataset.qty || '1', 10);
+      const price = parseInt(selectedOption.dataset.price || '0', 10);
+      
+      // Update price display
+      const formattedPrice = new Intl.NumberFormat("es-PY", { 
+        style: "decimal", 
+        maximumFractionDigits: 0 
+      }).format(price);
+      priceDisplay.textContent = `Gs. ${formattedPrice}`;
+      
+      // Update hint
+      if (hint) {
+        if (qty > 1) {
+          hint.textContent = `Precio válido para ${qty}+ unidades`;
+        } else {
+          hint.textContent = 'Seleccioná la cantidad para ver el precio unitario correspondiente';
+        }
+      }
+      
+      // Emit custom event for parent components (cart integration, WhatsApp)
+      window.dispatchEvent(new CustomEvent('volume-tier-change', {
+        detail: { 
+          tierId, 
+          qty, 
+          price,
+          tier: { id: tierId, min_quantity: qty, price }
+        }
+      }));
+    });
+  }
+</script>
+
+<style>
+  .volume-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+  }
+
+  .volume-selector-label {
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .volume-selector-select {
+    width: 100%;
+    padding: var(--space-md);
+    background-color: var(--surface-container-high);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    font-family: var(--font-body);
+    font-size: 16px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2382cfff' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-md) center;
+    background-size: 20px;
+    padding-right: var(--space-2xl);
+  }
+
+  .volume-selector-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-container);
+  }
+
+  .volume-selector-select:hover {
+    border-color: var(--outline);
+  }
+
+  .volume-selector-hint {
+    color: var(--on-surface-variant);
+    font-size: 12px;
+  }
+
+  .volume-selector-price-display {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-md);
+    padding-top: var(--space-sm);
+    border-top: var(--border-width) solid var(--outline-variant);
+  }
+
+  .volume-price-label {
+    color: var(--on-surface-variant);
+  }
+
+  .volume-price-value {
+    color: var(--primary);
+    font-weight: 700;
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+  }
+
+  @media (min-width: 768px) {
+    .volume-selector {
+      flex-direction: row;
+      align-items: flex-end;
+    }
+    
+    .volume-selector-select {
+      min-width: 280px;
+      flex: 1;
+    }
+    
+    .volume-selector-price-display {
+      border-top: none;
+      border-left: var(--border-width) solid var(--outline-variant);
+      padding-top: 0;
+      padding-left: var(--space-md);
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-xs);
+    }
+  }
+</style>

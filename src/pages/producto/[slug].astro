@@ -1,0 +1,540 @@
+---
+/**
+ * Product Detail — /producto/[slug]
+ *
+ * Client-side data loading from the public API.
+ * Shows product image, name, price, description, category path.
+ * Volume price selector with tier table.
+ * Add-to-cart button using the existing LocalStorage pattern.
+ * WhatsApp checkout with tier info and warning if qty < tier min.
+ *
+ * This page uses on-demand rendering (prerender = false)
+ * because product slugs are not known at build time.
+ * The Cloudflare Worker handles the request at runtime.
+ */
+
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import VolumePriceSelector from '../../components/VolumePriceSelector.astro';
+import PriceTierList from '../../components/PriceTierList.astro';
+---
+
+<BaseLayout title="Producto — Sublime">
+  <!-- Loading state -->
+  <div id="detail-loading" class="detail-section">
+    <div class="detail-layout">
+      <div class="detail-image-skeleton"></div>
+      <div class="detail-info-skeleton">
+        <div class="skeleton-line skeleton-line--lg"></div>
+        <div class="skeleton-line skeleton-line--md"></div>
+        <div class="skeleton-line skeleton-line--sm"></div>
+        <div class="skeleton-line skeleton-line--lg"></div>
+        <div class="skeleton-line skeleton-line--md"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error state -->
+  <div id="detail-error" class="detail-state" style="display: none;">
+    <h1 class="headline-lg-mobile" style="color: var(--error);">Producto no encontrado</h1>
+    <p class="body-lg" id="detail-error-message" style="color: var(--on-surface-variant); margin: var(--space-lg) 0;">
+      El producto que buscás no existe o fue eliminado.
+    </p>
+    <div class="detail-actions">
+      <a href="/" class="btn btn--primary">Ver Catálogo</a>
+      <button class="btn btn--secondary" id="retry-detail">Reintentar</button>
+    </div>
+  </div>
+
+  <!-- Product detail (rendered by JS) -->
+  <div id="detail-content" class="detail-section" style="display: none;">
+    <div class="detail-layout">
+      <!-- Image -->
+      <div class="detail-image-container">
+        <img id="detail-image" class="detail-image" src="/placeholder-product.svg" alt="" width="600" height="600" />
+      </div>
+
+      <!-- Info -->
+      <div class="detail-info">
+        <!-- Breadcrumb -->
+        <nav class="detail-breadcrumb body-sm" id="detail-breadcrumb"></nav>
+
+        <h1 class="detail-name headline-lg-mobile" id="detail-name"></h1>
+        <p class="detail-price headline-xl" id="detail-price"></p>
+        
+        <!-- Volume Price Selector + Tier List -->
+        <div id="volume-price-section"></div>
+        
+        <!-- Quantity Stepper (shows when tier selected) -->
+        <div id="quantity-stepper-section" class="quantity-stepper-section" style="display: none;">
+          <label class="quantity-label label-sm">Cantidad</label>
+          <div class="quantity-control">
+            <button class="qty-btn" data-action="decrease" aria-label="Disminuir cantidad">−</button>
+            <input type="number" class="qty-input" id="detail-qty" value="1" min="1" max="999" readonly />
+            <button class="qty-btn" data-action="increase" aria-label="Aumentar cantidad">+</button>
+          </div>
+        </div>
+
+        <div class="detail-description body-lg" id="detail-description"></div>
+
+        <div class="detail-actions">
+          <button class="btn btn--primary detail-add-btn" id="detail-add-cart">
+            Agregar al carrito
+          </button>
+          <a class="btn btn--secondary" id="detail-whatsapp" target="_blank" rel="noopener">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
+              <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
+            </svg>
+            Comprar por WhatsApp
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    fetchProductBySlug,
+    formatPrice,
+    getProductImageUrl,
+  } from '../../lib/public-api';
+  import { getTierPrice, getTierForQuantity } from '../../lib/price-utils';
+  import { buildCartMessage, getCartFromStorage, calculateCartTotals } from '../../lib/whatsapp';
+
+  const $loading = document.getElementById('detail-loading');
+  const $error = document.getElementById('detail-error');
+  const $content = document.getElementById('detail-content');
+  const $errorMessage = document.getElementById('detail-error-message');
+  const $retry = document.getElementById('retry-detail');
+  const $volumeSection = document.getElementById('volume-price-section');
+  const $qtySection = document.getElementById('quantity-stepper-section');
+  const $detailQty = document.getElementById('detail-qty');
+  const $addCart = document.getElementById('detail-add-cart');
+  const $whatsappBtn = document.getElementById('detail-whatsapp');
+
+  // Detail elements
+  const $image = document.getElementById('detail-image');
+  const $name = document.getElementById('detail-name');
+  const $price = document.getElementById('detail-price');
+  const $description = document.getElementById('detail-description');
+  const $breadcrumb = document.getElementById('detail-breadcrumb');
+
+  // Get product slug from URL
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  const productSlug = pathParts[pathParts.length - 1];
+
+  let currentProduct: any = null;
+  let currentTiers: any[] = [];
+  let selectedTier: any = null;
+  let selectedQty = 1;
+
+  async function loadProduct(slug: string) {
+    try {
+      $loading.style.display = '';
+      $error.style.display = 'none';
+      $content.style.display = 'none';
+
+      const product = await fetchProductBySlug(slug);
+      currentProduct = product;
+      currentTiers = product.price_tiers || [];
+
+      $loading.style.display = 'none';
+      renderProduct(product);
+      $content.style.display = '';
+
+    } catch (err: any) {
+      $loading.style.display = 'none';
+      $error.style.display = '';
+
+      if (err.message === 'Not found') {
+        $errorMessage.textContent = 'El producto que buscás no existe o fue eliminado.';
+      } else {
+        $errorMessage.textContent = 'Error al cargar el producto. Verificá tu conexión.';
+      }
+    }
+  }
+
+  function renderProduct(product: any) {
+    // Image
+    const primaryImage = product.images && product.images.length > 0
+      ? product.images.find((img: any) => img.is_primary) || product.images[0]
+      : null;
+    $image.src = getProductImageUrl(primaryImage?.url);
+    $image.alt = product.name;
+
+    // Name
+    $name.textContent = product.name;
+
+    // Breadcrumb
+    const crumbs = [];
+    if (product.section_name) crumbs.push(product.section_name);
+    if (product.category_name) crumbs.push(product.category_name);
+    if (product.subcategory_name) crumbs.push(product.subcategory_name);
+    $breadcrumb.textContent = crumbs.join(' / ') || 'Producto';
+
+    // Description
+    if (product.description) {
+      $description.textContent = product.description;
+      $description.style.display = '';
+    } else {
+      $description.style.display = 'none';
+    }
+
+    // Render volume price section if tiers exist
+    if (currentTiers.length > 0) {
+      renderVolumeSection(currentTiers);
+    } else {
+      // No tiers - just show base price
+      $price.textContent = `Gs. ${formatPrice(product.base_price)}`;
+      $volumeSection.innerHTML = '';
+      $qtySection.style.display = 'none';
+    }
+  }
+
+  function renderVolumeSection(tiers: any[]) {
+    // Sort tiers by min_quantity
+    const sortedTiers = [...tiers].sort((a, b) => a.min_quantity - b.min_quantity);
+    const baseTier = sortedTiers.find(t => t.min_quantity === 1);
+    
+    // Render VolumePriceSelector and PriceTierList via hydration
+    $volumeSection.innerHTML = `
+      <volume-price-selector price-tiers="${encodeURIComponent(JSON.stringify(sortedTiers))}"></volume-price-selector>
+      <price-tier-list price-tiers="${encodeURIComponent(JSON.stringify(sortedTiers))}" selected-qty="${selectedQty}"></price-tier-list>
+    `;
+    
+    // Initialize quantity stepper
+    $qtySection.style.display = 'block';
+    selectedQty = 1;
+    $detailQty.value = '1';
+    
+    // Listen for tier changes
+    window.addEventListener('volume-tier-change', (e: CustomEvent) => {
+      const { tier, qty } = e.detail;
+      selectedTier = tier;
+      selectedQty = qty;
+      $detailQty.value = qty.toString();
+      updatePriceDisplay();
+    });
+    
+    // Quantity stepper
+    $qtySection.querySelectorAll('[data-action]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const action = (btn as HTMLElement).dataset.action;
+        let value = parseInt($detailQty.value) || 1;
+        if (action === 'increase') value = Math.min(value + 1, 999);
+        if (action === 'decrease') value = Math.max(value - 1, 1);
+        $detailQty.value = value.toString();
+        selectedQty = value;
+        updatePriceDisplay();
+      });
+    });
+    
+    // Initial price display
+    updatePriceDisplay();
+  }
+
+  function updatePriceDisplay() {
+    if (currentTiers.length === 0) return;
+    
+    const tierPrice = getTierPrice(currentTiers, selectedQty);
+    const applicableTier = getTierForQuantity(currentTiers, selectedQty);
+    
+    // Update price display
+    $price.textContent = `Gs. ${formatPrice(tierPrice)}`;
+    
+    // Update PriceTierList highlight
+    const tierList = $volumeSection.querySelector('price-tier-list');
+    if (tierList) {
+      tierList.setAttribute('selected-qty', selectedQty.toString());
+    }
+    
+    // Update WhatsApp link
+    updateWhatsAppLink(applicableTier);
+  }
+
+  function updateWhatsAppLink(tier: any) {
+    if (!$whatsappBtn) return;
+    
+    const cartItem = {
+      id: currentProduct.id,
+      name: currentProduct.name,
+      price: tier ? tier.price : currentProduct.base_price,
+      quantity: selectedQty,
+      image: getProductImageUrl(
+        currentProduct.images && currentProduct.images.length > 0
+          ? currentProduct.images[0]?.url
+          : null
+      ),
+      selected_tier_id: tier?.id,
+      selected_tier_price: tier?.price,
+      selected_tier_min_qty: tier?.min_quantity,
+    };
+    
+    const message = buildCartMessage([cartItem]);
+    const encoded = encodeURIComponent(message);
+    const phone = '595991969608'; // From config
+    $whatsappBtn.href = `https://wa.me/${phone}?text=${encoded}`;
+  }
+
+  // Add to cart
+  $addCart?.addEventListener('click', () => {
+    if (!currentProduct) return;
+    
+    // Use tier price if available
+    const tierPrice = selectedTier ? selectedTier.price : currentProduct.base_price;
+    const tierMinQty = selectedTier?.min_quantity || 1;
+    
+    const product = {
+      id: currentProduct.id,
+      name: currentProduct.name,
+      price: tierPrice,
+      image: getProductImageUrl(
+        currentProduct.images && currentProduct.images.length > 0
+          ? currentProduct.images[0]?.url
+          : null
+      ),
+      quantity: selectedQty,
+      // Store tier info for WhatsApp
+      selected_tier_id: selectedTier?.id,
+      selected_tier_price: tierPrice,
+      selected_tier_min_qty: tierMinQty,
+    };
+    
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const existing = cart.find((item: any) => item.id === product.id);
+    if (existing) { 
+      existing.quantity += selectedQty; 
+      // Update tier info if same tier
+      if (existing.selected_tier_id === product.selected_tier_id) {
+        // Keep existing tier
+      } else {
+        // New tier selected
+        existing.selected_tier_id = product.selected_tier_id;
+        existing.selected_tier_price = product.selected_tier_price;
+        existing.selected_tier_min_qty = product.selected_tier_min_qty;
+      }
+    } else { 
+      cart.push(product); 
+    }
+    localStorage.setItem('cart', JSON.stringify(cart));
+    
+    const badge = document.query('.cart-badge');
+    if (badge) {
+      const total = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      badge.textContent = total.toString();
+    }
+    
+    $addCart.textContent = '¡Agregado!';
+    setTimeout(() => { $addCart.textContent = 'Agregar al carrito'; }, 1500);
+    
+    // Update WhatsApp link
+    updateWhatsAppLink(selectedTier);
+  });
+
+  // Retry
+  $retry?.addEventListener('click', () => loadProduct(productSlug));
+
+  // Init
+  if (productSlug) {
+    loadProduct(productSlug);
+  } else {
+    $loading.style.display = 'none';
+    $error.style.display = '';
+    $errorMessage.textContent = 'Slug de producto no válido.';
+  }
+</script>
+
+<style>
+  .detail-section {
+    padding: var(--space-2xl) var(--margin-mobile);
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  @media (min-width: 768px) {
+    .detail-section { padding: var(--space-3xl) var(--margin-desktop); }
+  }
+
+  .detail-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-2xl);
+  }
+  @media (min-width: 768px) {
+    .detail-layout { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* Image */
+  .detail-image-container {
+    border: var(--border-width) solid var(--outline-variant);
+    background-color: var(--surface-container);
+    aspect-ratio: 1;
+    overflow: hidden;
+  }
+  .detail-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Info */
+  .detail-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+  .detail-breadcrumb {
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .detail-name {
+    color: var(--on-surface);
+  }
+  .detail-price {
+    color: var(--primary);
+    font-weight: 700;
+  }
+  .detail-description {
+    color: var(--on-surface-variant);
+    line-height: 1.6;
+  }
+
+  /* Volume price section */
+  .volume-selector {
+    margin-bottom: var(--space-md);
+  }
+
+  /* Quantity stepper */
+  .quantity-stepper-section {
+    padding: var(--space-md);
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-lg);
+  }
+
+  .quantity-label {
+    display: block;
+    margin-bottom: var(--space-sm);
+    color: var(--on-surface-variant);
+  }
+
+  .quantity-control {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    max-width: 200px;
+  }
+
+  .qty-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background-color: var(--surface-container-high);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    cursor: pointer;
+    font-size: 20px;
+    transition: all 0.15s ease;
+  }
+
+  .qty-btn:hover {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-primary);
+  }
+
+  .qty-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .qty-input {
+    width: 60px;
+    height: 40px;
+    text-align: center;
+    background-color: var(--surface-container-high);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .qty-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  /* Detail actions */
+  .detail-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+  }
+
+  @media (min-width: 768px) {
+    .detail-actions {
+      flex-direction: row;
+      align-items: center;
+    }
+  }
+
+  .detail-add-btn,
+  #detail-whatsapp {
+    flex: 1;
+    padding: var(--space-lg) var(--space-2xl);
+    text-align: center;
+  }
+
+  #detail-whatsapp {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* Error / Loading states */
+  .detail-state {
+    text-align: center;
+    padding: var(--space-4xl) var(--margin-mobile);
+  }
+  .detail-actions {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* Skeleton loading */
+  .detail-image-skeleton {
+    aspect-ratio: 1;
+    background-color: var(--surface-container);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .detail-info-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .skeleton-line {
+    height: 20px;
+    background-color: var(--surface-container);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .skeleton-line--lg { width: 100%; }
+  .skeleton-line--md { width: 70%; }
+  .skeleton-line--sm { width: 40%; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+</style>

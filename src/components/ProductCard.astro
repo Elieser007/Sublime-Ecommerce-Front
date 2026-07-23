@@ -6,18 +6,31 @@
  * On hover, border transitions to CMYK brand colors.
  * Sharp corners (0px radius).
  * 
- * Shows: product image, name, price, category chip.
+ * Shows: product image, name, price, category chip, volume price badge.
  */
+
+import VolumePriceBadge from './VolumePriceBadge.astro';
+import Button from './Button.astro';
+
+interface PriceTier {
+  id: string;
+  branch_id: string;
+  branch_name: string;
+  min_quantity: number;
+  price: number;
+}
 
 interface Props {
   id: string;
+  slug: string;
   name: string;
   price: number;
   image: string;
   category?: string;
+  price_tiers?: PriceTier[];
 }
 
-const { id, name, price, image, category } = Astro.props;
+const { id, slug, name, price, image, category, price_tiers } = Astro.props;
 
 // Format price in Guaraníes (no decimals)
 const formattedPrice = new Intl.NumberFormat('es-PY', {
@@ -27,7 +40,7 @@ const formattedPrice = new Intl.NumberFormat('es-PY', {
 ---
 
 <article class="product-card">
-  <a href={`/producto/${id}`} class="product-link">
+  <a href={`/producto/${slug}`} class="product-link">
     <!-- Image container -->
     <div class="product-image-wrapper">
       <img
@@ -46,21 +59,26 @@ const formattedPrice = new Intl.NumberFormat('es-PY', {
         <span class="product-category label-sm">{category}</span>
       )}
       <h3 class="product-name body-lg">{name}</h3>
-      <p class="product-price body-lg">Gs. {formattedPrice}</p>
+      <div class="product-price-row">
+        <p class="product-price body-lg">Gs. {formattedPrice}</p>
+        <VolumePriceBadge priceTiers={price_tiers} />
+      </div>
     </div>
   </a>
 
   <!-- Add to cart button (client-side) -->
-  <button
-    class="product-add-btn btn btn--secondary"
+  <Button
+    variant="secondary"
+    class="product-add-btn"
     data-product-id={id}
     data-product-name={name}
     data-product-price={price}
     data-product-image={image}
+    data-product-tiers={JSON.stringify(price_tiers || [])}
     aria-label={`Agregar ${name} al carrito`}
   >
     Agregar al carrito
-  </button>
+  </Button>
 </article>
 
 <style>
@@ -123,13 +141,21 @@ const formattedPrice = new Intl.NumberFormat('es-PY', {
     font-weight: 600;
   }
 
+  .product-price-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-xs);
+  }
+
   .product-price {
     color: var(--primary);
     font-weight: 700;
   }
 
   /* Add to cart button */
-  .product-add-btn {
+  :global(.product-add-btn) {
     width: 100%;
     border-top: var(--border-width) solid var(--outline-variant);
     border-radius: 0;
@@ -142,12 +168,36 @@ const formattedPrice = new Intl.NumberFormat('es-PY', {
   document.querySelectorAll('[data-product-id]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const el = btn as HTMLElement;
+      
+      // Parse price tiers
+      let priceTiers: any[] = [];
+      try {
+        priceTiers = JSON.parse(el.dataset.productTiers || '[]');
+      } catch {
+        priceTiers = [];
+      }
+      
+      // Get the best price (lowest tier for the quantity, default 1)
+      // For grid add-to-cart, we add 1 unit at a time
+      const basePrice = Number(el.dataset.productPrice);
+      let unitPrice = basePrice;
+      
+      // Check if there's a tier for quantity 1 (base tier)
+      const baseTier = priceTiers.find((t: any) => t.min_quantity === 1);
+      if (baseTier) {
+        unitPrice = baseTier.price;
+      }
+      
       const product = {
         id: el.dataset.productId,
         name: el.dataset.productName,
-        price: Number(el.dataset.productPrice),
+        price: unitPrice,
         image: el.dataset.productImage,
         quantity: 1,
+        // Store tier info for WhatsApp message
+        selected_tier_id: baseTier?.id,
+        selected_tier_price: baseTier?.price,
+        selected_tier_min_qty: baseTier?.min_quantity,
       };
 
       // Read existing cart from LocalStorage

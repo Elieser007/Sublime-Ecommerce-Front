@@ -20,6 +20,7 @@ export interface PublicProduct {
   subcategory_name: string | null;
   image_url: string | null;
   created_at: number;
+  price_tiers?: PriceTier[];
 }
 
 export interface ProductImage {
@@ -41,6 +42,17 @@ export interface ProductVariant {
 export interface ProductDetail extends PublicProduct {
   images: ProductImage[];
   variants: ProductVariant[];
+  price_tiers?: PriceTier[];
+}
+
+// ─── PRICE TIERS ────────────────────────────────────────────
+
+export interface PriceTier {
+  id: string;
+  branch_id: string;
+  branch_name: string;
+  min_quantity: number;
+  price: number;
 }
 
 export interface CategoryNode {
@@ -123,6 +135,19 @@ export async function fetchProductById(
 ): Promise<ProductDetail> {
   const data = await fetchJson<{ product: ProductDetail }>(
     `${API_URL}/api/public/products/${encodeURIComponent(id)}`
+  );
+  return data.product;
+}
+
+/**
+ * Fetch a single product by slug with full details.
+ * For SEO-friendly URLs.
+ */
+export async function fetchProductBySlug(
+  slug: string
+): Promise<ProductDetail> {
+  const data = await fetchJson<{ product: ProductDetail }>(
+    `${API_URL}/api/public/products/slug/${encodeURIComponent(slug)}`
   );
   return data.product;
 }

@@ -114,7 +114,7 @@ import Chip from '../components/Chip.astro';
         const category = product.section_name || '';
 
         html += `<article class="product-card">
-          <a href="/producto/${product.id}" class="product-link">
+          <a href="/producto/${product.slug}" class="product-link">
             <div class="product-image-wrapper">
               <img src="${imageUrl}" alt="${product.name}" class="product-image" loading="lazy" width="400" height="400" />
             </div>

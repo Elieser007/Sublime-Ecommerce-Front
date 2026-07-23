@@ -60,7 +60,7 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
 
         <!-- Category Tree Section -->
         <div class="sidebar-section">
-          <h2 class="sidebar-title label-sm">Categorías</h2>
+          <h2 class="sidebar-title">Categorías</h2>
           <!-- Loading state for category tree -->
           <div id="category-tree-loading" class="sidebar-loading">
             <div class="skeleton-line"></div>
@@ -77,27 +77,27 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
         </div>
 
         <!-- Desktop Filters -->
-        <div class="sidebar-section sidebar-filters">
-          <h2 class="sidebar-title label-sm">Filtros</h2>
+        <div class="sidebar-section">
+          <h2 class="sidebar-title">Filtros</h2>
 
           <!-- Sort -->
           <div class="filter-group">
-            <h3 class="filter-group-title label-sm">Ordenar por</h3>
+            <h3 class="filter-group-title">Ordenar por</h3>
             <div class="filter-options">
-              <button class="filter-option body-md active" data-sort="default">Destacados</button>
-              <button class="filter-option body-md" data-sort="price-asc">Menor precio</button>
-              <button class="filter-option body-md" data-sort="price-desc">Mayor precio</button>
-              <button class="filter-option body-md" data-sort="name">Nombre A-Z</button>
+              <button class="filter-option active" data-sort="default">Destacados</button>
+              <button class="filter-option" data-sort="price-asc">Menor precio</button>
+              <button class="filter-option" data-sort="price-desc">Mayor precio</button>
+              <button class="filter-option" data-sort="name">Nombre A-Z</button>
             </div>
           </div>
 
           <!-- Price Range -->
           <div class="filter-group">
-            <h3 class="filter-group-title label-sm">Precio</h3>
+            <h3 class="filter-group-title">Precio</h3>
             <div class="price-range">
-              <input type="number" class="price-input body-md" placeholder="Mín" id="price-min-desktop" />
+              <input type="number" class="price-input" placeholder="Mín" id="price-min-desktop" />
               <span class="price-separator">—</span>
-              <input type="number" class="price-input body-md" placeholder="Máx" id="price-max-desktop" />
+              <input type="number" class="price-input" placeholder="Máx" id="price-max-desktop" />
             </div>
           </div>
 
@@ -210,7 +210,7 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
         html += `<li class="tree-item tree-item--root" data-filter="${section.slug}">
           <div class="tree-row">
             ${hasCategories ? `<button class="tree-toggle" data-toggle="${section.slug}" aria-label="Expandir">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <polyline points="6 9 12 15 18 9"/>
               </svg>
             </button>` : `<span class="tree-spacer"></span>`}
@@ -225,7 +225,7 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
             html += `<li class="tree-item tree-item--cat" data-filter="${cat.slug}">
               <div class="tree-row">
                 ${hasSubcategories ? `<button class="tree-toggle tree-toggle--sm" data-toggle="${cat.slug}" aria-label="Expandir">
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <polyline points="6 9 12 15 18 9"/>
                   </svg>
                 </button>` : `<span class="tree-spacer tree-spacer--sm"></span>`}
@@ -255,37 +255,35 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
 
       $catTreeContainer.innerHTML = html;
 
-      // Toggle expand/collapse
-      $catTreeContainer.querySelectorAll('.tree-toggle').forEach((btn) => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const el = btn as HTMLElement;
-          const id = el.dataset.toggle;
-          const sublist = document.getElementById(`tree-sublist-${id}`);
-          if (sublist) {
-            sublist.classList.toggle('expanded');
-            el.classList.toggle('expanded');
-          }
-        });
-      });
 
-      // Category filter selection
-      $catTreeContainer.querySelectorAll('.tree-label').forEach((el) => {
-        el.addEventListener('click', () => {
-          const filter = (el as HTMLElement).dataset.filter;
-          // Update active state
-          $catTreeContainer.querySelectorAll('.tree-label').forEach((l) => l.classList.remove('active'));
-          el.classList.add('active');
-          // Dispatch event for product filter
-          window.dispatchEvent(new CustomEvent('category-select', { detail: { category: filter } }));
-        });
-      });
-    } catch (err) {
-      $catTreeLoading.style.display = 'none';
-      $catTreeError.style.display = '';
-      console.error('Error loading category tree:', err);
-    }
-  }
+          // Toggle expand/collapse
+          $catTreeContainer.querySelectorAll('.tree-toggle').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const el = btn as HTMLElement;
+              const id = el.dataset.toggle;
+              const sublist = document.getElementById(`tree-sublist-${id}`);
+              if (sublist) {
+                sublist.classList.toggle('expanded');
+                el.classList.toggle('expanded');
+              }
+            });
+          });
+
+          // Category filter selection
+          $catTreeContainer.querySelectorAll('.tree-label').forEach((el) => {
+            el.addEventListener('click', () => {
+              const filter = (el as HTMLElement).dataset.filter;
+              $catTreeContainer.querySelectorAll('.tree-label').forEach((l) => l.classList.remove('active'));
+                  window.dispatchEvent(new CustomEvent('category-select', { detail: { category: filter } }));
+                });
+              });
+            } catch (err) {
+              $catTreeLoading.style.display = 'none';
+              $catTreeError.style.display = '';
+              console.error('Error loading category tree:', err);
+            }
+          }
 
   // ─── RENDER PRODUCTS ───────────────────────────────────
   async function loadProducts(params?: URLSearchParams) {
@@ -309,19 +307,24 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
         const imageUrl = getProductImageUrl(product.image_url);
         const price = formatPrice(product.base_price);
         const category = product.section_name || '';
+        // Include price_tiers for VolumePriceBadge
+        const priceTiers = product.price_tiers || [];
 
         const secSlug = slugify(product.section_name);
         const catSlug = slugify(product.category_name);
         html += `<div class="product-wrapper" data-category="${secSlug}" data-section-slug="${secSlug}" data-category-slug="${catSlug}" data-product-name="${product.name}" data-product-category="${secSlug}">
           <article class="product-card">
-            <a href="/producto/${product.id}" class="product-link">
+            <a href="/producto/${product.slug}" class="product-link">
               <div class="product-image-wrapper">
                 <img src="${imageUrl}" alt="${product.name}" class="product-image" loading="lazy" width="400" height="400" />
               </div>
               <div class="product-info">
                 ${category ? `<span class="product-category label-sm">${category}</span>` : ''}
                 <h3 class="product-name body-lg">${product.name}</h3>
-                <p class="product-price body-lg">Gs. ${price}</p>
+                <div class="product-price-row">
+                  <p class="product-price body-lg">Gs. ${price}</p>
+                  <span class="volume-badge" data-tiers='${JSON.stringify(priceTiers).replace(/'/g, "\\'")}'></span>
+                </div>
               </div>
             </a>
             <button class="product-add-btn btn btn--secondary"
@@ -329,6 +332,7 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
               data-product-name="${product.name}"
               data-product-price="${product.base_price}"
               data-product-image="${imageUrl}"
+              data-product-tiers='${JSON.stringify(priceTiers).replace(/'/g, "\\'")}'
               aria-label="Agregar ${product.name} al carrito">
               Agregar al carrito
             </button>
@@ -337,6 +341,25 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
       }
       $grid.innerHTML = html;
       $container.style.display = '';
+
+      // Render volume badges for products with tiers
+      $grid.querySelectorAll('.volume-badge[data-tiers]').forEach((badge) => {
+        try {
+          const tiers = JSON.parse(badge.getAttribute('data-tiers') || '[]');
+          if (tiers.length > 0) {
+            // Find best volume tier (lowest price with min_qty > 1)
+            const volumeTiers = tiers.filter((t: any) => t.min_quantity > 1);
+            if (volumeTiers.length > 0) {
+              const best = volumeTiers.reduce((a: any, b: any) => b.price < a.price ? b : a);
+              const formatted = new Intl.NumberFormat('es-PY', { style: 'decimal', maximumFractionDigits: 0 }).format(best.price);
+              badge.textContent = `Desde ${best.min_quantity} unds: Gs. ${formatted}`;
+              badge.style.display = 'inline-flex';
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to render volume badge', e);
+        }
+      });
 
       // Attach cart handlers
       $grid.querySelectorAll('[data-product-id]').forEach((btn) => {
@@ -383,23 +406,12 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
   // Handle category selection filter
   window.addEventListener('category-select', ((e: CustomEvent) => {
     const category = e.detail.category;
-    // Update active states
-    document.querySelectorAll('.filter-btn, .tree-label').forEach((btn) => {
-      const el = btn;
-      if (el.dataset.filter === category || el.dataset.filter === 'all') {
-        el.closest('.category-tree-row, .filter-btn, .tree-item')?.classList.add('active');
+    document.querySelectorAll('.product-wrapper').forEach((el) => {
+      const card = el as HTMLElement;
+      if (!category || card.dataset.category === category) {
+        card.style.display = '';
       } else {
-        el.closest('.category-tree-row, .filter-btn, .tree-item')?.classList.remove('active');
-      }
-    });
-
-    // Filter products client-side
-    document.querySelectorAll('.product-wrapper').forEach((wrapper) => {
-      const el = wrapper;
-      if (category === 'all' || el.dataset.category === category) {
-        el.style.display = '';
-      } else {
-        el.style.display = 'none';
+        card.style.display = 'none';
       }
     });
   }) as EventListener);
@@ -496,6 +508,8 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
     color: var(--on-surface);
     cursor: pointer;
     transition: all 0.15s ease;
+    font-family: var(--font-body);
+    font-size: 14px;
   }
 
   .mobile-action-btn:hover {
@@ -512,110 +526,144 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
     grid-template-columns: 1fr;
     gap: var(--space-2xl);
   }
-  @media (min-width: 768px) { .shop-grid { grid-template-columns: 260px 1fr; } }
+  @media (min-width: 768px) { .shop-grid { grid-template-columns: 280px 1fr; } }
 
   /* Sidebar */
   .shop-sidebar { display: none; }
   @media (min-width: 768px) {
     .shop-sidebar {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-xl);
-      background-color: var(--surface-container);
-      padding: var(--space-lg);
+      display: block;
+      background-color: var(--surface);
       border: var(--border-width) solid var(--outline-variant);
+      border-radius: var(--border-radius);
       height: fit-content;
       position: sticky;
       top: 100px;
+      overflow: hidden;
     }
   }
 
   .sidebar-section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
+    padding: var(--space-lg);
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+
+  .sidebar-section:last-child {
+    border-bottom: none;
   }
 
   .sidebar-title {
-    color: var(--primary);
+    color: var(--on-surface);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
     text-transform: uppercase;
-    padding-bottom: var(--space-sm);
-    border-bottom: var(--border-width) solid var(--outline-variant);
+    letter-spacing: 0.08em;
+    margin-bottom: var(--space-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .sidebar-title::before {
+    content: '';
+    display: block;
+    width: 4px;
+    height: 16px;
+    background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 100%);
   }
 
   .sidebar-loading { display: flex; flex-direction: column; gap: 8px; }
   .sidebar-error { color: var(--error); }
   .sidebar-error p { margin-bottom: var(--space-sm); }
 
-  /* ====== CATEGORY TREE (3 levels) ====== */
-  .tree-list {
+  /* ====== CATEGORY ACCORDION (GLOBAL - dynamically generated) ====== */
+  :global(.tree-list) {
     list-style: none;
     padding: 0;
     margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
   }
 
-  .tree-item {
-    /* no special styling needed */
+  :global(.tree-item) {
+    border-bottom: 1px solid var(--outline-variant);
   }
 
-  .tree-row {
+  :global(.tree-item:last-child) {
+    border-bottom: none;
+  }
+
+  :global(.tree-row) {
     display: flex;
     align-items: center;
-    gap: var(--space-xs);
-    padding: 6px var(--space-sm);
-    border-radius: var(--border-radius);
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-sm);
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: all 0.15s ease;
+    position: relative;
   }
 
-  .tree-row:hover {
-    background-color: var(--surface-container-high);
+  :global(.tree-row:hover) {
+    background-color: var(--surface-container);
   }
 
-  .tree-item--root > .tree-row {
-    padding: 8px var(--space-sm);
+  :global(.tree-row:hover::before) {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--primary);
   }
 
-  .tree-toggle {
+  :global(.tree-item--root > .tree-row) {
+    padding: var(--space-md);
+    font-weight: 500;
+  }
+
+  :global(.tree-toggle) {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     background: none;
-    border: none;
-    color: var(--outline);
+    border: 1px solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface-variant);
     cursor: pointer;
-    transition: transform 0.2s ease, color 0.15s ease;
+    transition: all 0.2s ease;
     flex-shrink: 0;
   }
 
-  .tree-toggle:hover {
+  :global(.tree-toggle:hover) {
+    border-color: var(--primary);
     color: var(--primary);
+    background-color: var(--surface-container);
   }
 
-  .tree-toggle.expanded {
+  :global(.tree-toggle.expanded) {
     transform: rotate(180deg);
+    border-color: var(--primary);
+    color: var(--primary);
+    background-color: var(--primary-container);
   }
 
-  .tree-toggle--sm {
-    width: 14px;
-    height: 14px;
+  :global(.tree-toggle--sm) {
+    width: 16px;
+    height: 16px;
   }
 
-  .tree-spacer {
-    width: 18px;
+  :global(.tree-spacer) {
+    width: 20px;
     flex-shrink: 0;
   }
 
-  .tree-spacer--sm {
-    width: 14px;
+  :global(.tree-spacer--sm) {
+    width: 16px;
   }
 
-  .tree-label {
+  :global(.tree-label) {
     flex: 1;
     text-align: left;
     background: none;
@@ -625,77 +673,83 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
     padding: 0;
     font-family: var(--font-body);
     transition: color 0.15s ease;
-    font-size: 14px;
     line-height: 1.4;
+    user-select: none;
   }
 
-  .tree-label:hover {
-    color: var(--primary);
+  :global(.tree-label:hover) {
+    color: var(--on-surface);
   }
 
-  .tree-label.active {
+  :global(.tree-label.active) {
     color: var(--primary);
     font-weight: 600;
   }
 
-  .tree-label--root {
+  :global(.tree-label--root) {
     font-weight: 500;
     font-size: 14px;
+    color: var(--on-surface);
   }
 
-  .tree-label--cat {
+  :global(.tree-label--cat) {
     font-size: 13px;
-    padding-left: 2px;
+    padding-left: var(--space-sm);
   }
 
-  .tree-label--sub {
+  :global(.tree-label--sub) {
     font-size: 12px;
+    padding-left: var(--space-md);
     color: var(--outline);
-    padding-left: 2px;
   }
 
-  .tree-label--sub:hover {
+  :global(.tree-label--sub:hover) {
     color: var(--primary);
   }
 
-  .tree-sublist {
+  :global(.tree-sublist) {
     list-style: none;
-    padding-left: 12px;
+    padding: 0;
     margin: 0;
-    overflow: hidden;
     max-height: 0;
-    transition: max-height 0.3s ease, opacity 0.2s ease;
-    opacity: 0;
-    border-left: 1px solid var(--outline-variant);
-    margin-left: 9px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    background-color: var(--surface-container-low);
   }
 
-  .tree-sublist.expanded {
+  :global(.tree-sublist.expanded) {
     max-height: 2000px;
-    opacity: 1;
   }
 
-  .tree-sublist--sub {
-    padding-left: 10px;
-    margin-left: 7px;
+  :global(.tree-sublist--sub) {
+    background-color: var(--surface-container-lowest);
   }
+
+  :global(.tree-item--cat > .tree-sublist) {
+    padding-left: var(--space-md);
+  }
+
+  :global(.tree-item--sub > .tree-row) {
+    padding-left: var(--space-xl);
+  }
+
 
   /* ====== DESKTOP FILTERS ====== */
-  .sidebar-filters {
-    padding-top: var(--space-lg);
-    border-top: var(--border-width) solid var(--outline-variant);
+  .filter-group {
+    margin-bottom: var(--space-lg);
   }
 
-  .filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
+  .filter-group:last-of-type {
+    margin-bottom: var(--space-md);
   }
 
   .filter-group-title {
     color: var(--on-surface-variant);
+    font-family: var(--font-mono);
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    margin-bottom: var(--space-sm);
   }
 
   .filter-options {
@@ -705,27 +759,27 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
   }
 
   .filter-option {
-    padding: 8px var(--space-md);
+    padding: var(--space-sm) var(--space-md);
     background: none;
     border: none;
+    border-left: 3px solid transparent;
     color: var(--on-surface-variant);
     cursor: pointer;
     text-align: left;
     transition: all 0.15s ease;
-    font-family: var(--font-body);
-    font-size: 14px;
-    border-left: 2px solid transparent;
   }
 
   .filter-option:hover {
-    background-color: var(--surface-container-high);
+    background-color: var(--surface-container);
     color: var(--on-surface);
+    border-left-color: var(--outline-variant);
   }
 
   .filter-option.active {
     color: var(--primary);
     border-left-color: var(--primary);
-    background-color: var(--surface-container-high);
+    background-color: var(--primary-container);
+    font-weight: 500;
   }
 
   .price-range {
@@ -736,19 +790,21 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
 
   .price-input {
     flex: 1;
-    padding: 8px var(--space-sm);
-    background-color: var(--surface-container-high);
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--surface-container);
     border: var(--border-width) solid var(--outline-variant);
     border-radius: var(--border-radius);
     color: var(--on-surface);
     font-family: var(--font-body);
     font-size: 14px;
     min-width: 0;
+    transition: border-color 0.15s ease;
   }
 
   .price-input:focus {
     outline: none;
     border-color: var(--primary);
+    background-color: var(--surface);
   }
 
   .price-input::placeholder {
@@ -762,7 +818,7 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
 
   .apply-filters-btn {
     width: 100%;
-    margin-top: var(--space-sm);
+    margin-top: var(--space-md);
   }
 
   /* Products Grid */

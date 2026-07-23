@@ -1,9 +1,11 @@
 ---
 /**
- * MobileCategoryPanel — Slide-in from Left
+ * MobileCategoryPanel — Slide-in from Left (3-Level Nested Accordion)
  * 
  * Shows category tree in a slide-in panel from the left side.
  * Triggered by "Categorías" button on mobile.
+ * Supports 3 levels: Section → Category → Subcategory
+ * Uses native accordion behavior with accessibility.
  */
 
 interface Category {
@@ -21,13 +23,13 @@ const { categories } = Astro.props;
 ---
 
 <!-- Overlay -->
-<div class="panel-overlay" id="category-overlay"></div>
+<div class="panel-overlay" id="category-overlay" hidden></div>
 
 <!-- Panel -->
-<div class="panel panel--left" id="category-panel">
+<div class="panel panel--left" id="category-panel" hidden>
   <div class="panel-header">
     <h2 class="headline-lg-mobile">Categorías</h2>
-    <button class="panel-close" id="category-close" aria-label="Cerrar">
+    <button class="panel-close" id="category-close" aria-label="Cerrar panel">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <line x1="18" y1="6" x2="6" y2="18"/>
         <line x1="6" y1="6" x2="18" y2="18"/>
@@ -36,21 +38,73 @@ const { categories } = Astro.props;
   </div>
 
   <div class="panel-content">
-    <button class="filter-btn body-md active" data-filter="all">Todos</button>
-    {categories.map((cat) => (
+    <button class="filter-btn body-md active" data-filter="all" data-level="0">
+      <span>Todos</span>
+    </button>
+    
+    {categories.map((section) => (
       <div class="filter-group">
-        <button class="filter-btn body-md" data-filter={cat.id}>
-          {cat.name}
-          {cat.children && cat.children.length > 0 && (
-            <span class="filter-count label-sm">{cat.children.length}</span>
+        <!-- Section (Level 1) -->
+        <button 
+          class="filter-btn filter-btn--section body-md" 
+          data-filter={section.slug}
+          data-level="1"
+          data-toggle={section.id}
+          aria-expanded="false"
+          aria-controls={`sub-${section.id}`}
+          type="button"
+        >
+          <span>{section.name}</span>
+          {section.children && section.children.length > 0 && (
+            <>
+              <span class="filter-count label-sm">{section.children.length}</span>
+              <svg class="filter-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </>
           )}
         </button>
-        {cat.children && cat.children.length > 0 && (
-          <div class="filter-children">
-            {cat.children.map((child) => (
-              <button class="filter-btn filter-btn--child body-md" data-filter={child.id}>
-                {child.name}
-              </button>
+        
+        {section.children && section.children.length > 0 && (
+          <div class="filter-children" id={`sub-${section.id}`} hidden>
+            {section.children.map((category) => (
+              <div class="filter-group">
+                <!-- Category (Level 2) -->
+                <button 
+                  class="filter-btn filter-btn--category body-md" 
+                  data-filter={category.slug}
+                  data-level="2"
+                  data-toggle={category.id}
+                  aria-expanded="false"
+                  aria-controls={`sub-${category.id}`}
+                  type="button"
+                >
+                  <span>{category.name}</span>
+                  {category.children && category.children.length > 0 && (
+                    <>
+                      <span class="filter-count label-sm">{category.children.length}</span>
+                      <svg class="filter-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </>
+                  )}
+                </button>
+                
+                {category.children && category.children.length > 0 && (
+                  <div class="filter-children" id={`sub-${category.id}`} hidden>
+                    {category.children.map((subcategory) => (
+                      <button 
+                        class="filter-btn filter-btn--subcategory body-md" 
+                        data-filter={subcategory.slug}
+                        data-level="3"
+                        type="button"
+                      >
+                        <span>{subcategory.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -62,32 +116,98 @@ const { categories } = Astro.props;
 <script>
   // Open panel
   document.getElementById('open-categories')?.addEventListener('click', () => {
-    document.getElementById('category-panel')?.classList.add('open');
-    document.getElementById('category-overlay')?.classList.add('open');
-    document.body.style.overflow = 'hidden';
+    const panel = document.getElementById('category-panel');
+    const overlay = document.getElementById('category-overlay');
+    if (panel && overlay) {
+      panel.hidden = false;
+      overlay.hidden = false;
+      // Force reflow for animation
+      requestAnimationFrame(() => {
+        panel.classList.add('open');
+        overlay.classList.add('open');
+      });
+      document.body.style.overflow = 'hidden';
+      
+      // Focus first button for accessibility
+      const firstBtn = panel.querySelector('.filter-btn');
+      firstBtn?.focus();
+    }
   });
 
   // Close panel
   function closePanel() {
-    document.getElementById('category-panel')?.classList.remove('open');
-    document.getElementById('category-overlay')?.classList.remove('open');
-    document.body.style.overflow = '';
+    const panel = document.getElementById('category-panel');
+    const overlay = document.getElementById('category-overlay');
+    if (panel && overlay) {
+      panel.classList.remove('open');
+      overlay.classList.remove('open');
+      // Wait for transition
+      setTimeout(() => {
+        panel.hidden = true;
+        overlay.hidden = true;
+      }, 300);
+      document.body.style.overflow = '';
+    }
   }
 
   document.getElementById('category-close')?.addEventListener('click', closePanel);
   document.getElementById('category-overlay')?.addEventListener('click', closePanel);
 
+  // Escape key to close
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const panel = document.getElementById('category-panel');
+      if (panel && !panel.hidden && panel.classList.contains('open')) {
+        closePanel();
+      }
+    }
+  });
+
+  // Accordion toggle for sections and categories
+  document.querySelectorAll('#category-panel [data-toggle]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const toggleBtn = e.currentTarget as HTMLButtonElement;
+      const targetId = toggleBtn.dataset.toggle;
+      const target = document.getElementById(`sub-${targetId}`);
+      const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+      
+      if (target) {
+        target.hidden = isExpanded;
+        toggleBtn.setAttribute('aria-expanded', (!isExpanded).toString());
+        target.querySelectorAll('.filter-btn').forEach(b => b.removeAttribute('disabled'));
+        if (isExpanded) {
+          target.querySelectorAll('.filter-btn').forEach(b => b.setAttribute('disabled', 'true'));
+        }
+      }
+    });
+  });
+
   // Filter selection
   document.querySelectorAll('#category-panel [data-filter]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const filter = (btn as HTMLElement).dataset.filter;
+    btn.addEventListener('click', (e) => {
+      const filterBtn = e.currentTarget as HTMLButtonElement;
+      const filter = filterBtn.dataset.filter;
+      const level = parseInt(filterBtn.dataset.level || '0', 10);
+      
+      // Only close panel for leaf nodes (level 3) or "all" (level 0)
+      // For level 1 and 2, just toggle accordion
+      const isLeaf = level === 0 || level === 3;
+      
       // Update active state
-      document.querySelectorAll('#category-panel .filter-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
+      document.querySelectorAll('#category-panel .filter-btn').forEach((b) => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      filterBtn.classList.add('active');
+      filterBtn.setAttribute('aria-selected', 'true');
+      
       // Dispatch event
       window.dispatchEvent(new CustomEvent('category-select', { detail: { category: filter } }));
-      // Close panel
-      closePanel();
+      
+      if (isLeaf) {
+        closePanel();
+      }
     });
   });
 </script>
@@ -130,6 +250,14 @@ const { categories } = Astro.props;
     transform: translateX(0);
   }
 
+  .panel[hidden] {
+    display: none;
+  }
+
+  .panel-overlay[hidden] {
+    display: none;
+  }
+
   .panel-header {
     display: flex;
     align-items: center;
@@ -153,6 +281,16 @@ const { categories } = Astro.props;
     border: none;
     color: var(--on-surface);
     cursor: pointer;
+    border-radius: var(--border-radius);
+  }
+
+  .panel-close:hover {
+    background-color: var(--surface-container);
+  }
+
+  .panel-close:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 
   .panel-content {
@@ -174,6 +312,7 @@ const { categories } = Astro.props;
     cursor: pointer;
     text-align: left;
     transition: all 0.15s ease;
+    font-family: var(--font-body);
   }
 
   .filter-btn:hover {
@@ -186,15 +325,74 @@ const { categories } = Astro.props;
     background-color: var(--surface-container);
   }
 
+  .filter-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+  }
+
+  .filter-btn[aria-selected="true"] {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  .filter-btn[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
   .filter-count {
     color: var(--outline);
+    flex-shrink: 0;
+  }
+
+  .filter-chevron {
+    color: var(--outline);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+    margin-left: var(--space-sm);
+  }
+
+  .filter-btn[data-toggle][aria-expanded="true"] .filter-chevron {
+    transform: rotate(180deg);
   }
 
   .filter-children {
     padding-left: var(--space-lg);
+    border-left: var(--border-width) solid var(--outline-variant);
+    margin-left: 4px;
   }
 
-  .filter-btn--child {
+  .filter-btn--section {
+    color: var(--primary);
+    font-weight: 500;
+    font-size: 16px;
+  }
+
+  .filter-btn--category {
     font-size: 14px;
+    padding-left: calc(var(--space-md) + var(--space-lg));
+  }
+
+  .filter-btn--subcategory {
+    font-size: 13px;
+    color: var(--on-surface-variant);
+    padding-left: calc(var(--space-md) + 2 * var(--space-lg));
+  }
+
+  .filter-btn--subcategory:hover {
+    color: var(--primary);
+  }
+
+  /* Level indicator spacing */
+  .filter-btn[data-level="1"] {
+    padding-left: var(--space-md);
+  }
+
+  .filter-btn[data-level="2"] {
+    padding-left: calc(var(--space-md) + 20px);
+  }
+
+  .filter-btn[data-level="3"] {
+    padding-left: calc(var(--space-md) + 40px);
   }
 </style>

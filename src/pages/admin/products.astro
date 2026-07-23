@@ -2,8 +2,7 @@
 /**
  * Admin Products — Product Management
  * Cascade: Section → Category → Subcategory
- * Multi-branch assignment
- * Pricing per branch with volume discounts
+ * Auto-slug from name
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
@@ -11,11 +10,11 @@ import DataTable from '../../components/admin/DataTable.astro';
 
 const columns = [
   { key: 'name', label: 'Nombre' },
+  { key: 'slug', label: 'Slug' },
   { key: 'section', label: 'Sección' },
   { key: 'category', label: 'Categoría' },
   { key: 'subcategory', label: 'Subcategoría' },
   { key: 'price', label: 'Precio Base' },
-  { key: 'branches', label: 'Sucursales' },
   { key: 'status', label: 'Estado' },
   { key: 'actions', label: 'Acciones', width: '120px' },
 ];
@@ -27,16 +26,15 @@ const columns = [
     <main class="admin-main">
       <div class="admin-header">
         <h1 class="headline-lg-mobile">Productos</h1>
-        <p class="body-md admin-subtitle">Gestiona el catálogo, precios y sucursales</p>
+        <p class="body-md admin-subtitle">Gestiona el catálogo y precios por volumen</p>
       </div>
 
       <div class="content-header">
         <div class="toolbar">
-          <input type="text" id="search" class="form-input body-md" placeholder="Buscar nombre..." />
+          <input type="text" id="search" class="form-input body-md" placeholder="Buscar nombre o slug..." />
           <select id="section-filter" class="form-select body-md"><option value="">Todas las secciones</option></select>
           <select id="category-filter" class="form-select body-md"><option value="">Todas las categorías</option></select>
           <select id="subcategory-filter" class="form-select body-md"><option value="">Todas las subcategorías</option></select>
-          <select id="branch-filter" class="form-select body-md"><option value="">Todas las sucursales</option></select>
           <select id="limit" class="form-select body-md">
             <option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option>
           </select>
@@ -69,7 +67,10 @@ const columns = [
       <form class="modal-form" id="modal-form">
         <input type="hidden" id="modal-id" />
         <div class="form-row">
-          <div class="form-group"><label class="label-sm">Nombre *</label><input type="text" name="name" class="form-input body-md" required /></div>
+          <div class="form-group"><label class="label-sm">Nombre *</label><input type="text" name="name" id="modal-name" class="form-input body-md" required /></div>
+          <div class="form-group"><label class="label-sm">Slug (URL)</label><input type="text" name="slug" id="modal-slug" class="form-input body-md" placeholder="auto-generado" /></div>
+        </div>
+        <div class="form-row">
           <div class="form-group"><label class="label-sm">Precio Base (Gs.) *</label><input type="number" name="basePrice" class="form-input body-md" min="0" step="1" required /></div>
         </div>
         <div class="form-group"><label class="label-sm">Descripción</label><textarea name="description" class="form-textarea body-md" rows="2"></textarea></div>
@@ -77,10 +78,6 @@ const columns = [
           <div class="form-group"><label class="label-sm">Sección *</label><select name="sectionId" id="section-select" class="form-select body-md" required><option value="">Seleccionar...</option></select></div>
           <div class="form-group"><label class="label-sm">Categoría *</label><select name="categoryId" id="category-select" class="form-select body-md" required><option value="">Seleccionar sección primero</option></select></div>
           <div class="form-group"><label class="label-sm">Subcategoría</label><select name="subcategoryId" id="subcategory-select" class="form-select body-md"><option value="">Seleccionar categoría primero</option></select></div>
-        </div>
-        <div class="form-group">
-          <label class="label-sm">Sucursales *</label>
-          <div class="checkbox-group" id="branch-checkboxes"></div>
         </div>
         <div class="form-error" id="form-error"></div>
         <div class="form-actions">
@@ -95,19 +92,18 @@ const columns = [
   <div class="modal-overlay" id="price-overlay" style="display: none;">
     <div class="modal modal--wide">
       <div class="modal-header">
-        <h3 class="headline-lg-mobile" id="price-modal-title">Precios</h3>
+        <h3 class="headline-lg-mobile" id="price-modal-title">Precios por Volumen</h3>
         <button class="modal-close" id="price-modal-close">✕</button>
       </div>
       <div class="modal-body">
         <div class="price-product-info" id="price-product-info"></div>
         <div class="price-form-row">
-          <select id="price-branch-select" class="form-select body-md"><option value="">Sucursal...</option></select>
           <input type="number" id="price-min-qty" class="form-input body-md" placeholder="Cant. mín." min="1" value="1" />
           <input type="number" id="price-value" class="form-input body-md" placeholder="Precio (Gs.)" min="0" />
           <button class="btn btn--primary" id="add-price-btn"><span class="btn-icon">+</span> Agregar</button>
         </div>
         <table class="prices-table">
-          <thead><tr><th class="label-sm">Sucursal</th><th class="label-sm">Desde Cant.</th><th class="label-sm">Precio</th><th class="label-sm">Acciones</th></tr></thead>
+          <thead><tr><th class="label-sm">Desde Cant.</th><th class="label-sm">Precio</th><th class="label-sm">Acciones</th></tr></thead>
           <tbody id="prices-tbody"></tbody>
         </table>
         <div class="form-actions"><button type="button" class="btn btn--secondary" id="price-modal-cancel">Cerrar</button></div>
@@ -122,29 +118,48 @@ const columns = [
 
   let items: any[] = [];
   let currentPage = 1, limit = 25, totalItems = 0, totalPages = 0;
-  let currentSearch = '', currentSection = '', currentCategory = '', currentSubcategory = '', currentBranch = '';
-  let sections: any[] = [], categories: any[] = [], subcategories: any[] = [], branches: any[] = [];
+  let currentSearch = '', currentSection = '', currentCategory = '', currentSubcategory = '';
+  let sections: any[] = [], categories: any[] = [], subcategories: any[] = [];
   let editingProductId: string | null = null;
   let pricingProductId: string | null = null;
 
   const $ = (id: string) => document.getElementById(id);
 
+  // ─── SLUG GENERATION ──────────────────────────────────
+  function generateSlug(name: string): string {
+    return name.toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+  }
+
+  // Auto-generate slug from name
+  $('modal-name')?.addEventListener('input', (e) => {
+    const name = (e.target as HTMLInputElement).value;
+    const slugInput = $('modal-slug') as HTMLInputElement;
+    // Only auto-generate if slug is empty or was auto-generated
+    if (!slugInput.dataset.manual || slugInput.dataset.manual !== 'true') {
+      slugInput.value = generateSlug(name);
+    }
+  });
+
+  $('modal-slug')?.addEventListener('input', (e) => {
+    (e.target as HTMLInputElement).dataset.manual = 'true';
+  });
+
   // ─── LOAD DEPENDENCIES ────────────────────────────────
   async function loadDependencies() {
-    const [sec, cats, subs, brs] = await Promise.all([
+    const [sec, cats, subs] = await Promise.all([
       fetch(`${API_URL}/api/sections`, { credentials: 'include' }).then(r => r.ok ? r.json() : { sections: [] }),
       fetch(`${API_URL}/api/categories`, { credentials: 'include' }).then(r => r.ok ? r.json() : { categories: [] }),
       fetch(`${API_URL}/api/subcategories`, { credentials: 'include' }).then(r => r.ok ? r.json() : { subcategories: [] }),
-      fetch(`${API_URL}/api/branches`, { credentials: 'include' }).then(r => r.ok ? r.json() : { branches: [] }),
     ]);
     sections = sec.sections || [];
     categories = cats.categories || [];
     subcategories = subs.subcategories || [];
-    branches = brs.branches || [];
 
     // Populate filter selects
     populateSelect('section-filter', sections, 'Todas las secciones');
-    populateSelect('branch-filter', branches, 'Todas las sucursales');
 
     // Populate modal section select
     populateSelect('section-select', sections, 'Seleccionar...');
@@ -180,8 +195,6 @@ const columns = [
   function onSectionSelectChange() {
     const sectionId = ($('section-select') as HTMLSelectElement).value;
     const filtered = sectionId ? categories.filter((c: any) => c.section_id === sectionId) : [];
-    populateSelect('category-filter-modal', filtered, 'Seleccionar...', 'id', 'name');
-    // Use the actual element id
     const catSelect = $('category-select') as HTMLSelectElement;
     catSelect.innerHTML = '<option value="">Seleccionar...</option>' + filtered.map((c: any) => `<option value="${c.id}">${c.name}</option>`).join('');
     const subSelect = $('subcategory-select') as HTMLSelectElement;
@@ -206,7 +219,6 @@ const columns = [
     if (currentSection) params.set('section_id', currentSection);
     if (currentCategory) params.set('category_id', currentCategory);
     if (currentSubcategory) params.set('subcategory_id', currentSubcategory);
-    if (currentBranch) params.set('branch_id', currentBranch);
     try {
       const res = await fetch(`${API_URL}/api/products?${params.toString()}`, { credentials: 'include' });
       if (res.status === 401) { window.location.href = '/login'; return; }
@@ -225,11 +237,11 @@ const columns = [
     else {
       tbody.innerHTML = items.map((p: any) => `<tr>
         <td><strong>${p.name}</strong></td>
+        <td><code class="slug-display">${p.slug || '—'}</code></td>
         <td><span class="tag tag--section">${p.section_name || '—'}</span></td>
         <td>${p.category_name || '—'}</td>
         <td>${p.subcategory_name || '—'}</td>
         <td>${fmt(p.base_price)}</td>
-        <td><span class="branch-list">${p.branch_names || '—'}</span></td>
         <td><span class="badge ${p.is_active ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${p.is_active ? 'Activo' : 'Inactivo'}</span></td>
         <td><div class="cell-actions">
           <button class="ta-btn" onclick="editProduct('${p.id}')" title="Editar">✏️</button>
@@ -251,30 +263,6 @@ const columns = [
   }
 
   // ─── PRODUCT MODAL ────────────────────────────────────
-  function renderBranchCheckboxes(selectedIds: string[] = []) {
-    const container = $('branch-checkboxes')!;
-    const allSelected = selectedIds.length === branches.length;
-    container.innerHTML = `
-      <label class="checkbox-label checkbox-label--all">
-        <input type="checkbox" id="select-all-branches" ${allSelected ? 'checked' : ''} />
-        <span>Seleccionar todas</span>
-      </label>
-      <div class="branch-options">
-        ${branches.map((b: any) => `
-          <label class="checkbox-label">
-            <input type="checkbox" name="branchIds" value="${b.id}" ${selectedIds.includes(b.id) ? 'checked' : ''} />
-            <span>${b.name}</span>
-          </label>
-        `).join('')}
-      </div>
-    `;
-    // Select all toggle
-    $('select-all-branches')?.addEventListener('change', (e) => {
-      const checked = (e.target as HTMLInputElement).checked;
-      document.querySelectorAll('input[name="branchIds"]').forEach((el: any) => { el.checked = checked; });
-    });
-  }
-
   function openModal(isEdit: boolean, product?: any) {
     const form = $('modal-form') as HTMLFormElement;
     form.reset();
@@ -283,12 +271,18 @@ const columns = [
     ($('modal-id') as HTMLInputElement).value = product?.id || '';
     editingProductId = product?.id || null;
 
+    // Reset slug manual flag
+    const slugInput = $('modal-slug') as HTMLInputElement;
+    slugInput.dataset.manual = '';
+
     // Reset cascade
     $('category-select')!.innerHTML = '<option value="">Seleccionar sección primero</option>';
     $('subcategory-select')!.innerHTML = '<option value="">Seleccionar categoría primero</option>';
 
     if (isEdit && product) {
       form.name.value = product.name || '';
+      slugInput.value = product.slug || '';
+      slugInput.dataset.manual = 'true';
       form.description.value = product.description || '';
       form.basePrice.value = product.base_price || '';
       // Set section and cascade
@@ -297,10 +291,6 @@ const columns = [
       ($('category-select') as HTMLSelectElement).value = product.category_id || '';
       onCategorySelectChange();
       ($('subcategory-select') as HTMLSelectElement).value = product.subcategory_id || '';
-      const branchIds = product.branch_ids ? product.branch_ids.split(',') : [];
-      renderBranchCheckboxes(branchIds);
-    } else {
-      renderBranchCheckboxes();
     }
     $('modal-overlay')!.style.display = '';
   }
@@ -313,9 +303,6 @@ const columns = [
     const product = items.find((p: any) => p.id === productId);
     $('price-product-info')!.innerHTML = product ? `<strong>${product.name}</strong> — Precio base: ${fmt(product.base_price)}` : '';
 
-    // Populate branch select
-    populateSelect('price-branch-select', branches, 'Sucursal...');
-
     await loadPrices(productId);
     $('price-overlay')!.style.display = '';
   }
@@ -326,11 +313,10 @@ const columns = [
     const { prices } = await res.json();
     const tbody = $('prices-tbody')!;
     if (!prices || prices.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">Sin precios configurados</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" class="empty-cell">Sin precios configurados</td></tr>';
     } else {
       tbody.innerHTML = prices.map((p: any) => `<tr>
-        <td>${p.branch_name}</td>
-        <td>${p.min_quantity}</td>
+        <td>${p.min_quantity}+ unds</td>
         <td>${fmt(p.price)}</td>
         <td><div class="cell-actions">
           <button class="ta-btn ta-btn--delete" onclick="deletePrice('${p.id}')" title="Eliminar">🗑️</button>
@@ -348,7 +334,6 @@ const columns = [
   $('section-filter')?.addEventListener('change', onSectionFilterChange);
   $('category-filter')?.addEventListener('change', onCategoryFilterChange);
   $('subcategory-filter')?.addEventListener('change', (e) => { currentSubcategory = (e.target as HTMLSelectElement).value; currentPage = 1; loadProducts(); });
-  $('branch-filter')?.addEventListener('change', (e) => { currentBranch = (e.target as HTMLSelectElement).value; currentPage = 1; loadProducts(); });
   $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadProducts(); });
   $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadProducts(); } });
   $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadProducts(); } });
@@ -369,13 +354,16 @@ const columns = [
     const form = e.target as HTMLFormElement;
     const id = ($('modal-id') as HTMLInputElement).value;
     const isEdit = !!id;
-    const branchIds = Array.from(document.querySelectorAll('input[name="branchIds"]:checked')).map((el: any) => el.value);
-    const body = {
-      name: form.name.value, description: form.description.value || null,
-      sectionId: form.sectionId.value, categoryId: form.categoryId.value,
+    const slug = ($('modal-slug') as HTMLInputElement).value.trim();
+    const body: any = {
+      name: form.name.value,
+      description: form.description.value || null,
+      sectionId: form.sectionId.value,
+      categoryId: form.categoryId.value,
       subcategoryId: form.subcategoryId.value || null,
-      basePrice: parseInt(form.basePrice.value) || 0, branchIds,
+      basePrice: parseInt(form.basePrice.value) || 0,
     };
+    if (slug) body.slug = slug;
     const res = await fetch(isEdit ? `${API_URL}/api/products/${id}` : `${API_URL}/api/products`, {
       method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
     });
@@ -390,13 +378,12 @@ const columns = [
 
   $('add-price-btn')?.addEventListener('click', async () => {
     if (!pricingProductId) return;
-    const branchId = ($('price-branch-select') as HTMLSelectElement).value;
     const minQuantity = parseInt(($('price-min-qty') as HTMLInputElement).value) || 1;
     const price = parseInt(($('price-value') as HTMLInputElement).value);
-    if (!branchId || !price) { alert('Selecciona sucursal y precio'); return; }
+    if (!price) { alert('Ingresá un precio'); return; }
     const res = await fetch(`${API_URL}/api/products/${pricingProductId}/prices`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-      body: JSON.stringify({ branchId, minQuantity, price }),
+      body: JSON.stringify({ minQuantity, price }),
     });
     if (res.ok) {
       ($('price-min-qty') as HTMLInputElement).value = '1';
@@ -444,7 +431,7 @@ const columns = [
   .empty-cell { text-align: center; padding: 48px !important; color: #bdc8d1; }
   .cell-actions { display: flex; gap: 6px; justify-content: flex-end; opacity: 0.6; transition: opacity 0.2s ease; }
   tr:hover .cell-actions { opacity: 1; }
-  .branch-list { font-size: 13px; color: #bdc8d1; }
+  .slug-display { font-family: 'Space Mono', monospace; font-size: 12px; color: #82cfff; background: rgba(130, 207, 255, 0.1); padding: 2px 6px; border-radius: 2px; }
   .tag { display: inline-block; padding: 2px 8px; font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
   .tag--section { background: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.3); }
   .pagination-bar { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-xl); flex-wrap: wrap; gap: var(--space-md); }
@@ -461,15 +448,6 @@ const columns = [
   .form-group label { color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
   .form-error { color: #ffb4ab; font-size: 14px; min-height: 20px; }
   .form-actions { display: flex; gap: 12px; justify-content: flex-end; padding-top: 16px; border-top: 1px solid rgba(62, 72, 80, 0.3); }
-  .checkbox-group { background: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; max-height: 200px; overflow-y: auto; }
-  .checkbox-label { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; font-size: 13px; color: #e2e2e2; border-bottom: 1px solid rgba(62, 72, 80, 0.15); transition: background 0.15s; }
-  .checkbox-label:last-child { border-bottom: none; }
-  .checkbox-label:hover { background: rgba(255, 255, 255, 0.03); }
-  .checkbox-label:has(input:checked) { background: rgba(130, 207, 255, 0.08); }
-  .checkbox-label input { accent-color: #82cfff; width: 16px; height: 16px; }
-  .checkbox-label--all { background: rgba(130, 207, 255, 0.05); border-bottom: 1px solid rgba(130, 207, 255, 0.2); font-weight: 600; color: #82cfff; position: sticky; top: 0; z-index: 1; }
-  .checkbox-label--all:has(input:checked) { background: rgba(130, 207, 255, 0.15); }
-  .branch-options { display: flex; flex-direction: column; }
   .price-product-info { padding: 12px; background: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; color: #e2e2e2; }
   .price-form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .price-form-row .form-select, .price-form-row .form-input { min-width: 120px; }

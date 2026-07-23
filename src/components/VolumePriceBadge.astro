@@ -1,0 +1,49 @@
+---
+/**
+ * VolumePriceBadge — Shows "Desde X unds: Gs. Y" badge on product cards
+ * 
+ * Receives price_tiers array, computes best volume tier, renders badge.
+ * Hidden when no discount tiers exist.
+ */
+
+import { getBestVolumeBadge, formatTierLabel } from "../lib/price-utils";
+
+interface Props {
+  priceTiers?: Array<{
+    id: string;
+    branch_id: string;
+    branch_name: string;
+    min_quantity: number;
+    price: number;
+  }>;
+}
+
+const { priceTiers } = Astro.props;
+
+const bestTier = getBestVolumeBadge(priceTiers || []);
+const showBadge = bestTier !== null;
+const label = showBadge ? formatTierLabel(bestTier!) : "";
+---
+
+{showBadge && (
+  <span class="volume-badge" data-tier-id={bestTier!.id}>
+    {label}
+  </span>
+)}
+
+<style>
+  .volume-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-xs) var(--space-sm);
+    background-color: var(--primary-container);
+    color: var(--on-primary-container);
+    border-radius: var(--border-radius);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+</style>

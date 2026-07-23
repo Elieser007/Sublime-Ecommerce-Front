@@ -205,3 +205,106 @@ describe("getProductImageUrl", () => {
     );
   });
 });
+
+describe("PriceTier types", () => {
+  it("PriceTier interface has correct structure", () => {
+    const tier: any = {
+      id: "tier-1",
+      branch_id: "branch-1",
+      branch_name: "Principal",
+      min_quantity: 10,
+      price: 95000,
+    };
+    expect(tier.id).toBeDefined();
+    expect(tier.branch_id).toBeDefined();
+    expect(tier.branch_name).toBeDefined();
+    expect(tier.min_quantity).toBeGreaterThan(0);
+    expect(tier.price).toBeGreaterThanOrEqual(0);
+  });
+
+  it("fetchProducts returns products with price_tiers array", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            id: "prod-1",
+            name: "Producto con tiers",
+            base_price: 100000,
+            price_tiers: [
+              { id: "t1", branch_id: "b1", branch_name: "Principal", min_quantity: 1, price: 100000 },
+              { id: "t2", branch_id: "b1", branch_name: "Principal", min_quantity: 10, price: 90000 },
+              { id: "t3", branch_id: "b1", branch_name: "Principal", min_quantity: 50, price: 80000 },
+            ],
+          },
+        ],
+        total: 1,
+        page: 1,
+        pages: 1,
+        limit: 24,
+      }),
+    });
+
+    const result = await fetchProducts();
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].price_tiers).toBeDefined();
+    expect(result.data[0].price_tiers).toHaveLength(3);
+    expect(result.data[0].price_tiers![0].min_quantity).toBe(1);
+    expect(result.data[0].price_tiers![2].price).toBe(80000);
+  });
+
+  it("fetchFeaturedProducts returns products with price_tiers", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        products: [
+          { id: "f1", name: "Featured", base_price: 50000, price_tiers: [] },
+        ],
+      }),
+    });
+
+    const result = await fetchFeaturedProducts();
+    expect(result[0].price_tiers).toEqual([]);
+  });
+
+  it("fetchProductById returns product with price_tiers", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        product: {
+          id: "detail-1",
+          name: "Detail Product",
+          base_price: 200000,
+          price_tiers: [
+            { id: "t1", branch_id: "b1", branch_name: "Principal", min_quantity: 1, price: 200000 },
+            { id: "t2", branch_id: "b1", branch_name: "Principal", min_quantity: 5, price: 180000 },
+          ],
+          images: [],
+          variants: [],
+        },
+      }),
+    });
+
+    const result = await fetchProductById("detail-1");
+    expect(result.price_tiers).toBeDefined();
+    expect(result.price_tiers).toHaveLength(2);
+    expect(result.price_tiers![1].min_quantity).toBe(5);
+  });
+
+  it("handles missing price_tiers gracefully (backward compat)", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [{ id: "legacy", name: "Old Product", base_price: 50000 }],
+        total: 1,
+        page: 1,
+        pages: 1,
+        limit: 24,
+      }),
+    });
+
+    const result = await fetchProducts();
+    // price_tiers may be undefined in legacy responses
+    expect(result.data[0].price_tiers).toBeUndefined();
+  });
+});

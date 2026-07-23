@@ -10,7 +10,10 @@
  * 4. Generate wa.me link with encodeURIComponent
  * 
  * The message is clean, structured, and seller-friendly.
+ * Supports volume pricing tiers with warning if qty < tier minimum.
  */
+
+import type { PriceTier } from "./public-api";
 
 export interface CartItem {
   id: string;
@@ -18,6 +21,10 @@ export interface CartItem {
   price: number;
   quantity: number;
   image?: string;
+  // Volume pricing tier fields (optional for backward compat)
+  selected_tier_id?: string;
+  selected_tier_price?: number;
+  selected_tier_min_qty?: number;
 }
 
 /**
@@ -35,10 +42,12 @@ export function formatGuaranies(amount: number): string {
 
 /**
  * Build the WhatsApp message from cart items.
+ * Includes volume tier info and warning if quantity < tier minimum.
  * 
  * Structure:
  * - Header: 🛒 Pedido Sublime E-commerce
  * - Items: product name, quantity x price = subtotal
+ *   If item has tier: includes tier line and warning if qty < min
  * - Footer: 💰 Total + confirmation line
  * 
  * @param cart - Array of cart items
@@ -54,15 +63,34 @@ export function buildCartMessage(cart: CartItem[]): string {
   let total = 0;
 
   cart.forEach((item) => {
-    const subtotal = item.price * item.quantity;
+    // Use tier price if available, otherwise base price
+    const unitPrice = item.selected_tier_price ?? item.price;
+    const subtotal = unitPrice * item.quantity;
     total += subtotal;
 
     // Product line: "• Product Name"
     lines.push(`• ${item.name}`);
     // Detail line: "  2xGs. 120.000 = *Gs. 240.000*"
     lines.push(
-      `  ${item.quantity}xGs. ${formatGuaranies(item.price)} = *Gs. ${formatGuaranies(subtotal)}*`
+      `  ${item.quantity}xGs. ${formatGuaranies(unitPrice)} = *Gs. ${formatGuaranies(subtotal)}*`
     );
+
+    // Volume tier info
+    if (item.selected_tier_id && item.selected_tier_min_qty) {
+      const tierMinQty = item.selected_tier_min_qty;
+      const tierPrice = item.selected_tier_price || item.price;
+      
+      lines.push(
+        `  📦 Precio por volumen (${tierMinQty}+ unds): Gs. ${formatGuaranies(tierPrice)}/u`
+      );
+      
+      // Warning if quantity doesn't meet tier minimum
+      if (item.quantity < tierMinQty) {
+        lines.push(
+          `  ⚠️ *Nota: Precio válido para ${tierMinQty}+ unidades. Cantidad actual: ${item.quantity}.*`
+        );
+      }
+    }
   });
 
   const formattedTotal = formatGuaranies(total);
@@ -109,4 +137,23 @@ export function getCartFromStorage(): CartItem[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Calculate cart totals using tier prices when available
+ */
+export function calculateCartTotals(cart: CartItem[]): {
+  subtotal: number;
+  itemCount: number;
+} {
+  let subtotal = 0;
+  let itemCount = 0;
+
+  cart.forEach((item) => {
+    const unitPrice = item.selected_tier_price ?? item.price;
+    subtotal += unitPrice * item.quantity;
+    itemCount += item.quantity;
+  });
+
+  return { subtotal, itemCount };
 }

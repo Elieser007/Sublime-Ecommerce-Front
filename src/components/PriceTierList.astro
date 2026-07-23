@@ -1,0 +1,149 @@
+---
+/**
+ * PriceTierList — Full tier table for product detail page
+ * 
+ * Renders table: Cantidad | Precio/u | Ahorro vs base
+ * Highlights tier applicable to current selectedQty
+ */
+
+import { getTierPrice, getTierSavings, formatTierOption } from "../lib/price-utils";
+
+interface Props {
+  priceTiers?: Array<{
+    id: string;
+    branch_id: string;
+    branch_name: string;
+    min_quantity: number;
+    price: number;
+  }>;
+  selectedQty?: number;
+}
+
+const { priceTiers, selectedQty = 1 } = Astro.props;
+
+const tiers = priceTiers || [];
+const baseTier = tiers.find((t) => t.min_quantity === 1);
+const basePrice = baseTier?.price || 0;
+
+const sortedTiers = [...tiers].sort((a, b) => a.min_quantity - b.min_quantity);
+const currentTierPrice = getTierPrice(tiers, selectedQty);
+const currentTier = sortedTiers.find((t) => t.price === currentTierPrice) || sortedTiers[0];
+---
+
+{tiers.length > 0 && (
+  <div class="tier-list" role="region" aria-label="Precios por volumen">
+    <table class="tier-table">
+      <thead>
+        <tr>
+          <th scope="col" class="tier-col-qty">Cantidad</th>
+          <th scope="col" class="tier-col-price">Precio/u</th>
+          <th scope="col" class="tier-col-savings">Ahorro</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sortedTiers.map((tier) => {
+          const isActive = tier.price === currentTierPrice;
+          const savings = getTierSavings(tier, tiers);
+          const qtyLabel = tier.min_quantity === 1 
+            ? "1 und (base)" 
+            : `${tier.min_quantity}+ unds`;
+          
+          return (
+            <tr class={isActive ? "tier-row--active" : ""} data-tier-id={tier.id}>
+              <td class="tier-col-qty">
+                <span class={isActive ? "tier-qty--active" : ""}>{qtyLabel}</span>
+              </td>
+              <td class="tier-col-price">
+                <span class={isActive ? "tier-price--active" : ""}>
+                  Gs. {new Intl.NumberFormat("es-PY", { style: "decimal", maximumFractionDigits: 0 }).format(tier.price)}
+                </span>
+              </td>
+              <td class="tier-col-savings">
+                {savings > 0 && <span class="tier-savings">{savings}%</span>}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+)}
+
+<style>
+  .tier-list {
+    margin-top: var(--space-md);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+  }
+
+  .tier-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-body);
+    font-size: 14px;
+  }
+
+  .tier-table th {
+    text-align: left;
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--surface-container);
+    color: var(--on-surface-variant);
+    font-weight: 500;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+
+  .tier-table td {
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: var(--border-width) solid var(--outline-variant);
+    font-family: var(--font-mono);
+  }
+
+  .tier-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .tier-row--active {
+    background-color: var(--primary-container);
+  }
+
+  .tier-row--active .tier-qty--active,
+  .tier-row--active .tier-price--active {
+    color: var(--on-primary-container);
+    font-weight: 700;
+  }
+
+  .tier-col-qty {
+    width: 40%;
+  }
+
+  .tier-col-price {
+    width: 40%;
+    text-align: right;
+  }
+
+  .tier-col-savings {
+    width: 20%;
+    text-align: right;
+  }
+
+  .tier-savings {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background-color: var(--secondary-container);
+    color: var(--on-secondary-container);
+    border-radius: var(--border-radius);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .tier-qty--active,
+  .tier-price--active {
+    color: var(--on-primary-container);
+  }
+</style>
