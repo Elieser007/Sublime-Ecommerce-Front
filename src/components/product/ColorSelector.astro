@@ -34,6 +34,7 @@ const { moduleId, moduleName, values, selectedValueId } = Astro.props;
         class={`color-selector__circle ${val.value_id === selectedValueId ? "color-selector__circle--selected" : ""} ${!val.available ? "color-selector__circle--disabled" : ""}`}
         data-module-id={moduleId}
         data-value-id={val.value_id}
+        data-raw-value={val.raw_value}
         data-price-modifier={val.price_modifier}
         role="radio"
         aria-checked={val.value_id === selectedValueId}

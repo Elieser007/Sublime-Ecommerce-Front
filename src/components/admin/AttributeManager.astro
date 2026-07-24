@@ -512,6 +512,13 @@ const { productId, productName } = Astro.props;
 
   const $ = (id: string) => document.getElementById(id);
 
+  // ─── SECURITY: XSS PREVENTION ─────────────────────────
+  function escapeHtml(str: string): string {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
   // ─── TOAST NOTIFICATIONS ────────────────────────────────
   function showToast(message: string, type: 'success' | 'error' = 'success') {
     const toast = document.createElement('div');
@@ -539,14 +546,14 @@ const { productId, productName } = Astro.props;
     const res = await fetch(`${API_URL}/api/admin/attributes/modules`, { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
-    allModules = data.modules || [];
+    allModules = data.data || [];
   }
 
   async function loadProductAttributes() {
     const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes`, { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
-    productAttributes = data.attributes || [];
+    productAttributes = data.data || [];
     renderAssignedModules();
     populateAddModuleSelect();
   }
@@ -555,7 +562,7 @@ const { productId, productName } = Astro.props;
     const res = await fetch(`${API_URL}/api/admin/attributes/dependencies`, { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
-    dependencies = data.dependencies || [];
+    dependencies = data.data || [];
     renderDependencies();
   }
 
@@ -574,7 +581,7 @@ const { productId, productName } = Astro.props;
         <div class="attr-module-header">
           <span class="attr-module-name ${expandedModule === attr.module_id ? 'expanded' : ''}" 
                 onclick="toggleModule('${attr.module_id}')">
-            ${attr.module_name}
+            ${escapeHtml(attr.module_name)}
             <span class="badge badge--sm">${attr.values.length} valores</span>
           </span>
           <div class="attr-module-actions">
@@ -625,9 +632,9 @@ const { productId, productName } = Astro.props;
     container.innerHTML = dependencies.map((dep: any) => `
       <div class="attr-dep-item">
         <span class="attr-dep-info">
-          <strong>${dep.parent_module_name || 'Módulo'}</strong>: ${dep.parent_value_label}
+          <strong>${escapeHtml(dep.parent_module_name || 'Módulo')}</strong>: ${escapeHtml(dep.parent_value_label)}
           <span class="dep-arrow">→</span>
-          <strong>${dep.child_module_name || 'Módulo'}</strong>: ${dep.child_value_label || 'Todos'}
+          <strong>${escapeHtml(dep.child_module_name || 'Módulo')}</strong>: ${escapeHtml(dep.child_value_label || 'Todos')}
         </span>
         <button class="btn btn--danger btn--sm" onclick="deleteDependency('${dep.id}')">✕</button>
       </div>
@@ -675,7 +682,7 @@ const { productId, productName } = Astro.props;
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ moduleId }),
+      body: JSON.stringify({ module_id: moduleId }),
     });
 
     if (res.ok) {
@@ -701,11 +708,33 @@ const { productId, productName } = Astro.props;
       return;
     }
 
+    // Step 1: Create the attribute value
+    const createRes = await fetch(`${API_URL}/api/admin/attributes/values`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ 
+        module_id: moduleId,
+        value: label.toLowerCase(),
+        display_label: label,
+        sort_order: 0
+      })
+    });
+    
+    if (!createRes.ok) {
+      showToast('Error al crear valor', 'error');
+      return;
+    }
+    
+    const createData = await createRes.json();
+    const newValueId = createData.data.id;
+
+    // Step 2: Assign value to product with price modifier
     const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ label, raw_value: label.toLowerCase(), price_modifier: priceModifier }),
+      body: JSON.stringify({ value_id: newValueId, price_modifier: priceModifier }),
     });
 
     if (res.ok) {
@@ -856,7 +885,12 @@ const { productId, productName } = Astro.props;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ parentModuleId, parentValueId, childModuleId, childValueId }),
+        body: JSON.stringify({ 
+          parent_module_id: parentModuleId, 
+          parent_value_id: parentValueId, 
+          child_module_id: childModuleId, 
+          child_value_id: childValueId 
+        }),
       });
     }
 

@@ -39,6 +39,7 @@ function formatModifier(mod: number): string {
         class={`size-selector__btn ${val.value_id === selectedValueId ? "size-selector__btn--selected" : ""} ${!val.available ? "size-selector__btn--disabled" : ""}`}
         data-module-id={moduleId}
         data-value-id={val.value_id}
+        data-raw-value={val.raw_value}
         data-price-modifier={val.price_modifier}
         role="radio"
         aria-checked={val.value_id === selectedValueId}

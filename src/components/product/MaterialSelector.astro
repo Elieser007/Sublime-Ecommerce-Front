@@ -44,6 +44,7 @@ const selectId = `material-${moduleId}`;
         value={val.value_id}
         selected={val.value_id === selectedValueId}
         disabled={!val.available}
+        data-raw-value={val.raw_value}
         data-price-modifier={val.price_modifier}
       >
         {val.label}{formatModifier(val.price_modifier)}

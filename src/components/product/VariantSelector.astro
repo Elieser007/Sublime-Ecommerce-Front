@@ -152,7 +152,7 @@ const sortedModules = [...modules].sort((a, b) => a.sort_order - b.sort_order);
       mod.values.push({
         value_id: (btn as HTMLElement).dataset.valueId!,
         label: btn.textContent?.trim() || "",
-        raw_value: (btn as HTMLElement).dataset.valueId!,
+        raw_value: (btn as HTMLElement).dataset.rawValue || (btn as HTMLElement).dataset.valueId!,
         hex_color: null,
         price_modifier: parseInt((btn as HTMLElement).dataset.priceModifier || "0", 10),
         available: !(btn as HTMLButtonElement).disabled,
@@ -172,7 +172,7 @@ const sortedModules = [...modules].sort((a, b) => a.sort_order - b.sort_order);
       mod.values.push({
         value_id: (btn as HTMLElement).dataset.valueId!,
         label: (btn as HTMLElement).getAttribute("aria-label") || "",
-        raw_value: (btn as HTMLElement).dataset.valueId!,
+        raw_value: (btn as HTMLElement).dataset.rawValue || (btn as HTMLElement).dataset.valueId!,
         hex_color: bgColor,
         price_modifier: parseInt((btn as HTMLElement).dataset.priceModifier || "0", 10),
         available: !(btn as HTMLButtonElement).disabled,
@@ -192,7 +192,7 @@ const sortedModules = [...modules].sort((a, b) => a.sort_order - b.sort_order);
         mod!.values.push({
           value_id: opt.value,
           label: opt.textContent?.replace(/\s*\(.*\)/, "").trim() || "",
-          raw_value: opt.value,
+          raw_value: opt.dataset.rawValue || opt.value,
           hex_color: null,
           price_modifier: parseInt(opt.dataset.priceModifier || "0", 10),
           available: !opt.disabled,
