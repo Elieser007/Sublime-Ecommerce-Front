@@ -5,6 +5,7 @@
  * Client-side data loading from the public API.
  * Shows product image, name, price, description, category path.
  * Volume price selector with tier table.
+ * Variant selector for attribute-based products.
  * Add-to-cart button using the existing LocalStorage pattern.
  * WhatsApp checkout with tier info and warning if qty < tier min.
  *
@@ -18,6 +19,7 @@ export const prerender = false;
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import VolumePriceSelector from '../../components/VolumePriceSelector.astro';
 import PriceTierList from '../../components/PriceTierList.astro';
+import VariantSelector from '../../components/product/VariantSelector.astro';
 ---
 
 <BaseLayout title="Producto — Sublime">
@@ -65,6 +67,9 @@ import PriceTierList from '../../components/PriceTierList.astro';
         
         <!-- Volume Price Selector + Tier List -->
         <div id="volume-price-section"></div>
+
+        <!-- Variant Selector (attribute modules) -->
+        <div id="variant-section"></div>
         
         <!-- Quantity Stepper (shows when tier selected) -->
         <div id="quantity-stepper-section" class="quantity-stepper-section" style="display: none;">
@@ -102,6 +107,9 @@ import PriceTierList from '../../components/PriceTierList.astro';
   } from '../../lib/public-api';
   import { getTierPrice, getTierForQuantity } from '../../lib/price-utils';
   import { buildCartMessage, getCartFromStorage, calculateCartTotals } from '../../lib/whatsapp';
+  import { computeFinalPrice, isSelectionComplete } from '../../lib/variant-logic';
+
+  const API_URL = (typeof import.meta !== "undefined" && import.meta.env?.PUBLIC_API_URL) || "http://localhost:8787";
 
   const $loading = document.getElementById('detail-loading');
   const $error = document.getElementById('detail-error');
@@ -109,6 +117,7 @@ import PriceTierList from '../../components/PriceTierList.astro';
   const $errorMessage = document.getElementById('detail-error-message');
   const $retry = document.getElementById('retry-detail');
   const $volumeSection = document.getElementById('volume-price-section');
+  const $variantSection = document.getElementById('variant-section');
   const $qtySection = document.getElementById('quantity-stepper-section');
   const $detailQty = document.getElementById('detail-qty');
   const $addCart = document.getElementById('detail-add-cart');
@@ -129,6 +138,8 @@ import PriceTierList from '../../components/PriceTierList.astro';
   let currentTiers: any[] = [];
   let selectedTier: any = null;
   let selectedQty = 1;
+  let currentVariantModules: any[] = [];
+  let variantFinalPrice: number | null = null;
 
   async function loadProduct(slug: string) {
     try {
@@ -144,6 +155,9 @@ import PriceTierList from '../../components/PriceTierList.astro';
       renderProduct(product);
       $content.style.display = '';
 
+      // Load variant data if product has attribute modules
+      await loadVariants(product.id);
+
     } catch (err: any) {
       $loading.style.display = 'none';
       $error.style.display = '';
@@ -154,6 +168,250 @@ import PriceTierList from '../../components/PriceTierList.astro';
         $errorMessage.textContent = 'Error al cargar el producto. Verificá tu conexión.';
       }
     }
+  }
+
+  async function loadVariants(productId: string) {
+    try {
+      const res = await fetch(`${API_URL}/api/public/products/${productId}/variants`);
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const modules = data.available_modules || [];
+
+      if (modules.length === 0) {
+        $variantSection.innerHTML = '';
+        return;
+      }
+
+      currentVariantModules = modules;
+      variantFinalPrice = data.final_price;
+
+      // Render VariantSelector via client-side HTML injection
+      // The component is Astro (server-rendered), so we build the HTML here
+      renderVariantSelector(modules, productId);
+    } catch (err) {
+      console.error('Failed to load variants:', err);
+      // EC-4: show stale data, don't block interaction
+    }
+  }
+
+  function renderVariantSelector(modules: any[], productId: string) {
+    // Build variant selector HTML
+    const sortedModules = [...modules].sort((a: any, b: any) => a.sort_order - b.sort_order);
+
+    let html = `<div class="variant-selector" data-product-id="${productId}" data-base-price="${currentProduct.base_price}" role="group" aria-label="Selección de variantes">`;
+
+    for (const mod of sortedModules) {
+      switch (mod.frontend_component) {
+        case "SizeSelector":
+          html += renderSizeSelector(mod);
+          break;
+        case "ColorSelector":
+          html += renderColorSelector(mod);
+          break;
+        case "MaterialSelector":
+          html += renderMaterialSelector(mod);
+          break;
+      }
+    }
+
+    // Price display
+    const formattedPrice = formatPrice(currentProduct.base_price);
+    html += `
+      <div class="variant-selector__price" aria-live="polite">
+        <span class="variant-selector__price-label label-sm">Precio:</span>
+        <span class="variant-selector__price-value headline-lg" data-variant-price>Gs. ${formattedPrice}</span>
+      </div>
+    </div>`;
+
+    $variantSection.innerHTML = html;
+    initVariantInteractions();
+  }
+
+  function renderSizeSelector(mod: any): string {
+    let html = `<div class="size-selector" role="radiogroup" aria-label="${mod.name}">
+      <span class="size-selector__label label-sm">${mod.name}</span>
+      <div class="size-selector__options">`;
+
+    for (const val of mod.values) {
+      const modifier = val.price_modifier !== 0
+        ? `<span class="size-selector__modifier">${val.price_modifier > 0 ? '+' : ''}₲${val.price_modifier.toLocaleString('es-PY')}</span>`
+        : '';
+      html += `
+        <button type="button" class="size-selector__btn ${!val.available ? 'size-selector__btn--disabled' : ''}"
+          data-module-id="${mod.module_id}" data-value-id="${val.value_id}" data-price-modifier="${val.price_modifier}"
+          role="radio" aria-checked="false" aria-disabled="${!val.available}" ${!val.available ? 'disabled' : ''}>
+          <span class="size-selector__label-text">${val.label}</span>${modifier}
+        </button>`;
+    }
+
+    html += `</div></div>`;
+    return html;
+  }
+
+  function renderColorSelector(mod: any): string {
+    let html = `<div class="color-selector" role="radiogroup" aria-label="${mod.name}">
+      <span class="color-selector__label label-sm">${mod.name}</span>
+      <div class="color-selector__options">`;
+
+    for (const val of mod.values) {
+      const hex = val.hex_color || val.raw_value;
+      html += `
+        <button type="button" class="color-selector__circle ${!val.available ? 'color-selector__circle--disabled' : ''}"
+          data-module-id="${mod.module_id}" data-value-id="${val.value_id}" data-price-modifier="${val.price_modifier}"
+          role="radio" aria-checked="false" aria-disabled="${!val.available}" ${!val.available ? 'disabled' : ''}
+          aria-label="${val.label}" title="${val.label}">
+          <span class="color-selector__swatch" style="background-color: ${hex};"></span>
+        </button>`;
+    }
+
+    html += `</div></div>`;
+    return html;
+  }
+
+  function renderMaterialSelector(mod: any): string {
+    let html = `<div class="material-selector">
+      <label class="material-selector__label label-sm" for="material-${mod.module_id}">${mod.name}</label>
+      <select id="material-${mod.module_id}" class="material-selector__select" data-module-id="${mod.module_id}">
+        <option value="">Seleccionar ${mod.name.toLowerCase()}...</option>`;
+
+    for (const val of mod.values) {
+      const modifier = val.price_modifier !== 0
+        ? ` (${val.price_modifier > 0 ? '+' : ''}₲${val.price_modifier.toLocaleString('es-PY')})`
+        : '';
+      html += `<option value="${val.value_id}" disabled="${!val.available}" data-price-modifier="${val.price_modifier}">${val.label}${modifier}</option>`;
+    }
+
+    html += `</select></div>`;
+    return html;
+  }
+
+  function initVariantInteractions() {
+    const container = document.querySelector('.variant-selector') as HTMLElement;
+    if (!container) return;
+
+    const selectedAttributes = new Map<string, string>();
+    const selectedModifiers = new Map<string, number>();
+
+    function updateVariantPrice() {
+      const modifiers = Array.from(selectedModifiers.values());
+      const finalPrice = computeFinalPrice(currentProduct.base_price, modifiers);
+      const $priceDisplay = container.querySelector('[data-variant-price]') as HTMLElement;
+      if ($priceDisplay) {
+        $priceDisplay.textContent = `Gs. ${formatPrice(finalPrice)}`;
+      }
+
+      // Dispatch event
+      window.dispatchEvent(new CustomEvent('variant-change', {
+        detail: {
+          selectedAttributes: Object.fromEntries(selectedAttributes),
+          finalPrice,
+          productId: currentProduct.id,
+        }
+      }));
+
+      // Enable/disable add to cart
+      const modules = currentVariantModules.map((m: any) => ({
+        ...m,
+        values: m.values.map((v: any) => ({ ...v, available: true }))
+      }));
+      const complete = isSelectionComplete(modules, selectedAttributes);
+      if ($addCart) $addCart.disabled = !complete;
+    }
+
+    // Size buttons
+    container.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('.size-selector__btn') as HTMLButtonElement;
+      if (!btn || btn.disabled) return;
+
+      const moduleId = btn.dataset.moduleId!;
+      const valueId = btn.dataset.valueId!;
+      const priceModifier = parseInt(btn.dataset.priceModifier || '0', 10);
+
+      container.querySelectorAll(`.size-selector__btn[data-module-id="${moduleId}"]`).forEach((b) => {
+        b.classList.remove('size-selector__btn--selected');
+        b.setAttribute('aria-checked', 'false');
+      });
+
+      btn.classList.add('size-selector__btn--selected');
+      btn.setAttribute('aria-checked', 'true');
+
+      selectedAttributes.set(moduleId, valueId);
+      selectedModifiers.set(moduleId, priceModifier);
+      updateVariantPrice();
+    });
+
+    // Color circles
+    container.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('.color-selector__circle') as HTMLButtonElement;
+      if (!btn || btn.disabled) return;
+
+      const moduleId = btn.dataset.moduleId!;
+      const valueId = btn.dataset.valueId!;
+      const priceModifier = parseInt(btn.dataset.priceModifier || '0', 10);
+
+      container.querySelectorAll(`.color-selector__circle[data-module-id="${moduleId}"]`).forEach((b) => {
+        b.classList.remove('color-selector__circle--selected');
+        b.setAttribute('aria-checked', 'false');
+      });
+
+      btn.classList.add('color-selector__circle--selected');
+      btn.setAttribute('aria-checked', 'true');
+
+      selectedAttributes.set(moduleId, valueId);
+      selectedModifiers.set(moduleId, priceModifier);
+      updateVariantPrice();
+    });
+
+    // Material select
+    container.addEventListener('change', (e) => {
+      const select = e.target as HTMLSelectElement;
+      if (!select.classList.contains('material-selector__select')) return;
+
+      const moduleId = select.dataset.moduleId!;
+      const valueId = select.value;
+
+      if (!valueId) {
+        selectedAttributes.delete(moduleId);
+        selectedModifiers.delete(moduleId);
+      } else {
+        const priceModifier = parseInt(
+          select.options[select.selectedIndex]?.dataset.priceModifier || '0', 10
+        );
+        selectedAttributes.set(moduleId, valueId);
+        selectedModifiers.set(moduleId, priceModifier);
+      }
+      updateVariantPrice();
+    });
+
+    // Keyboard navigation
+    container.addEventListener('keydown', (e) => {
+      const target = e.target as HTMLElement;
+      if (!target.classList.contains('size-selector__btn') && !target.classList.contains('color-selector__circle')) return;
+
+      const group = target.closest('[role="radiogroup"]');
+      if (!group) return;
+
+      const radios = Array.from(group.querySelectorAll('[role="radio"]:not([disabled])')) as HTMLElement[];
+      const currentIndex = radios.indexOf(target);
+
+      let nextIndex = currentIndex;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        nextIndex = (currentIndex + 1) % radios.length;
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        nextIndex = (currentIndex - 1 + radios.length) % radios.length;
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        target.click();
+        return;
+      } else {
+        return;
+      }
+
+      e.preventDefault();
+      radios[nextIndex].focus();
+      radios[nextIndex].click();
+    });
   }
 
   function renderProduct(product: any) {
@@ -282,14 +540,53 @@ import PriceTierList from '../../components/PriceTierList.astro';
   $addCart?.addEventListener('click', () => {
     if (!currentProduct) return;
     
-    // Use tier price if available
-    const tierPrice = selectedTier ? selectedTier.price : currentProduct.base_price;
+    // Use variant price if available, otherwise tier or base price
+    const unitPrice = variantFinalPrice ?? (selectedTier ? selectedTier.price : currentProduct.base_price);
     const tierMinQty = selectedTier?.min_quantity || 1;
+    
+    // Get selected attributes from variant selector
+    const variantContainer = document.querySelector('.variant-selector') as HTMLElement;
+    const selectedAttributes: Record<string, { value_id: string; label: string; raw_value: string }> = {};
+    
+    if (variantContainer) {
+      // Size
+      const selectedSize = variantContainer.querySelector('.size-selector__btn--selected') as HTMLElement;
+      if (selectedSize) {
+        selectedAttributes[selectedSize.dataset.moduleId!] = {
+          value_id: selectedSize.dataset.valueId!,
+          label: selectedSize.querySelector('.size-selector__label-text')?.textContent?.trim() || '',
+          raw_value: selectedSize.dataset.valueId!,
+        };
+      }
+      
+      // Color
+      const selectedColor = variantContainer.querySelector('.color-selector__circle--selected') as HTMLElement;
+      if (selectedColor) {
+        selectedAttributes[selectedColor.dataset.moduleId!] = {
+          value_id: selectedColor.dataset.valueId!,
+          label: selectedColor.getAttribute('aria-label') || '',
+          raw_value: selectedColor.dataset.valueId!,
+        };
+      }
+      
+      // Material
+      const selectedMaterial = variantContainer.querySelector('.material-selector__select') as HTMLSelectElement;
+      if (selectedMaterial && selectedMaterial.value) {
+        const option = selectedMaterial.options[selectedMaterial.selectedIndex];
+        selectedAttributes[selectedMaterial.dataset.moduleId!] = {
+          value_id: selectedMaterial.value,
+          label: option.textContent?.replace(/\s*\(.*\)/, '').trim() || '',
+          raw_value: selectedMaterial.value,
+        };
+      }
+    }
+    
+    const hasAttributes = Object.keys(selectedAttributes).length > 0;
     
     const product = {
       id: currentProduct.id,
       name: currentProduct.name,
-      price: tierPrice,
+      price: unitPrice,
       image: getProductImageUrl(
         currentProduct.images && currentProduct.images.length > 0
           ? currentProduct.images[0]?.url
@@ -298,12 +595,23 @@ import PriceTierList from '../../components/PriceTierList.astro';
       quantity: selectedQty,
       // Store tier info for WhatsApp
       selected_tier_id: selectedTier?.id,
-      selected_tier_price: tierPrice,
+      selected_tier_price: unitPrice,
       selected_tier_min_qty: tierMinQty,
+      // Store variant attributes
+      ...(hasAttributes ? { selected_attributes: selectedAttributes } : {}),
     };
     
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const existing = cart.find((item: any) => item.id === product.id);
+    const existing = cart.find((item: any) => {
+      // Match by id + same attributes
+      if (item.id !== product.id) return false;
+      if (!hasAttributes && !item.selected_attributes) return true;
+      if (hasAttributes && item.selected_attributes) {
+        return JSON.stringify(item.selected_attributes) === JSON.stringify(product.selected_attributes);
+      }
+      return false;
+    });
+    
     if (existing) { 
       existing.quantity += selectedQty; 
       // Update tier info if same tier
@@ -320,7 +628,7 @@ import PriceTierList from '../../components/PriceTierList.astro';
     }
     localStorage.setItem('cart', JSON.stringify(cart));
     
-    const badge = document.query('.cart-badge');
+    const badge = document.querySelector('.cart-badge');
     if (badge) {
       const total = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
       badge.textContent = total.toString();
@@ -536,5 +844,204 @@ import PriceTierList from '../../components/PriceTierList.astro';
   @keyframes pulse {
     0%, 100% { opacity: 0.5; }
     50% { opacity: 1; }
+  }
+
+  /* Variant Selector */
+  .variant-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    padding: var(--space-md);
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-lg);
+  }
+
+  .variant-selector__price {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: var(--border-width) solid var(--outline-variant);
+  }
+
+  .variant-selector__price-label {
+    color: var(--on-surface-variant);
+  }
+
+  .variant-selector__price-value {
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  /* Size Selector */
+  .size-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .size-selector__label {
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .size-selector__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .size-selector__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--surface-container-high);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+  }
+
+  .size-selector__btn:hover:not(:disabled) {
+    border-color: var(--primary);
+    background-color: var(--primary-container);
+  }
+
+  .size-selector__btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .size-selector__btn--selected {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-primary);
+  }
+
+  .size-selector__btn--disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .size-selector__label-text {
+    line-height: 1;
+  }
+
+  .size-selector__modifier {
+    font-size: 10px;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+
+  /* Color Selector */
+  .color-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .color-selector__label {
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .color-selector__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .color-selector__circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: transparent;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+
+  .color-selector__circle:hover:not(:disabled) {
+    border-color: var(--outline);
+  }
+
+  .color-selector__circle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .color-selector__circle--selected {
+    border-color: var(--primary);
+  }
+
+  .color-selector__circle--disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .color-selector__swatch {
+    display: block;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: var(--border-width) solid var(--outline-variant);
+  }
+
+  /* Material Selector */
+  .material-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .material-selector__label {
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .material-selector__select {
+    width: 100%;
+    padding: var(--space-md);
+    background-color: var(--surface-container-high);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    font-family: var(--font-body);
+    font-size: 16px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2382cfff' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-md) center;
+    background-size: 20px;
+    padding-right: var(--space-2xl);
+  }
+
+  .material-selector__select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-container);
+  }
+
+  .material-selector__select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 </style>

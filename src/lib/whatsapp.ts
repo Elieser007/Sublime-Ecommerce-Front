@@ -25,6 +25,12 @@ export interface CartItem {
   selected_tier_id?: string;
   selected_tier_price?: number;
   selected_tier_min_qty?: number;
+  // Variant attributes (optional for backward compat)
+  selected_attributes?: Record<string, {
+    value_id: string;
+    label: string;
+    raw_value: string;
+  }>;
 }
 
 /**
@@ -70,6 +76,15 @@ export function buildCartMessage(cart: CartItem[]): string {
 
     // Product line: "• Product Name"
     lines.push(`• ${item.name}`);
+
+    // Variant attributes (Color: Rojo, Talle: XL)
+    if (item.selected_attributes) {
+      const attrEntries = Object.values(item.selected_attributes);
+      for (const attr of attrEntries) {
+        lines.push(`  ${attr.label}`);
+      }
+    }
+
     // Detail line: "  2xGs. 120.000 = *Gs. 240.000*"
     lines.push(
       `  ${item.quantity}xGs. ${formatGuaranies(unitPrice)} = *Gs. ${formatGuaranies(subtotal)}*`

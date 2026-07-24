@@ -1,0 +1,367 @@
+---
+/**
+ * VariantSelector — Orchestrator for product attribute selection
+ *
+ * Renders modules in sort_order, each with the appropriate sub-component:
+ * - SizeSelector → button pills
+ * - ColorSelector → hex circles
+ * - MaterialSelector → native dropdown
+ *
+ * Client-side logic:
+ * - Dependency filtering via API call
+ * - Price calculation (base + modifiers)
+ * - Selection completeness check
+ * - Custom event dispatching (variant-change)
+ *
+ * Props come from the product detail page after API resolution.
+ */
+
+import SizeSelector from "./SizeSelector.astro";
+import ColorSelector from "./ColorSelector.astro";
+import MaterialSelector from "./MaterialSelector.astro";
+
+interface ModuleValue {
+  value_id: string;
+  label: string;
+  raw_value: string;
+  hex_color: string | null;
+  price_modifier: number;
+  available: boolean;
+}
+
+interface AttributeModule {
+  id: string;
+  name: string;
+  slug: string;
+  frontend_component: string;
+  sort_order: number;
+  values: ModuleValue[];
+}
+
+interface Props {
+  productId: string;
+  basePrice: number;
+  modules: AttributeModule[];
+}
+
+const { productId, basePrice, modules } = Astro.props;
+
+// Sort modules by sort_order
+const sortedModules = [...modules].sort((a, b) => a.sort_order - b.sort_order);
+---
+
+<div
+  class="variant-selector"
+  data-product-id={productId}
+  data-base-price={basePrice}
+  role="group"
+  aria-label="Selección de variantes"
+>
+  {sortedModules.map((mod) => {
+    switch (mod.frontend_component) {
+      case "SizeSelector":
+        return (
+          <SizeSelector
+            moduleId={mod.id}
+            moduleName={mod.name}
+            values={mod.values}
+          />
+        );
+      case "ColorSelector":
+        return (
+          <ColorSelector
+            moduleId={mod.id}
+            moduleName={mod.name}
+            values={mod.values}
+          />
+        );
+      case "MaterialSelector":
+        return (
+          <MaterialSelector
+            moduleId={mod.id}
+            moduleName={mod.name}
+            values={mod.values}
+          />
+        );
+      default:
+        return null;
+    }
+  })}
+
+  <!-- Price display -->
+  <div class="variant-selector__price" aria-live="polite">
+    <span class="variant-selector__price-label label-sm">Precio:</span>
+    <span class="variant-selector__price-value headline-lg" data-variant-price>
+      {`Gs. ${new Intl.NumberFormat("es-PY", { style: "decimal", maximumFractionDigits: 0 }).format(basePrice)}`}
+    </span>
+  </div>
+</div>
+
+<script>
+  import { computeFinalPrice, filterAvailableOptions, isSelectionComplete } from "../../lib/variant-logic";
+
+  // State
+  const selectedAttributes = new Map<string, string>();
+  const selectedModifiers = new Map<string, number>();
+
+  // DOM refs
+  const container = document.querySelector(".variant-selector") as HTMLElement;
+  if (!container) throw new Error("VariantSelector container not found");
+
+  const productId = container.dataset.productId!;
+  const basePrice = parseInt(container.dataset.basePrice || "0", 10);
+  const $priceDisplay = container.querySelector("[data-variant-price]") as HTMLElement;
+  const $addCartBtn = document.getElementById("detail-add-cart") as HTMLButtonElement;
+
+  // Parse modules from DOM (data attributes on sub-selectors)
+  function parseModules(): Array<{
+    id: string;
+    slug: string;
+    frontend_component: string;
+    values: Array<{
+      value_id: string;
+      label: string;
+      raw_value: string;
+      hex_color: string | null;
+      price_modifier: number;
+      available: boolean;
+    }>;
+  }> {
+    const modules: Array<{
+      id: string;
+      slug: string;
+      frontend_component: string;
+      values: Array<{
+        value_id: string;
+        label: string;
+        raw_value: string;
+        hex_color: string | null;
+        price_modifier: number;
+        available: boolean;
+      }>;
+    }> = [];
+
+    // Size buttons
+    container.querySelectorAll(".size-selector__btn").forEach((btn) => {
+      const moduleId = (btn as HTMLElement).dataset.moduleId!;
+      let mod = modules.find((m) => m.id === moduleId);
+      if (!mod) {
+        mod = { id: moduleId, slug: "size_nomenclature", frontend_component: "SizeSelector", values: [] };
+        modules.push(mod);
+      }
+      mod.values.push({
+        value_id: (btn as HTMLElement).dataset.valueId!,
+        label: btn.textContent?.trim() || "",
+        raw_value: (btn as HTMLElement).dataset.valueId!,
+        hex_color: null,
+        price_modifier: parseInt((btn as HTMLElement).dataset.priceModifier || "0", 10),
+        available: !(btn as HTMLButtonElement).disabled,
+      });
+    });
+
+    // Color circles
+    container.querySelectorAll(".color-selector__circle").forEach((btn) => {
+      const moduleId = (btn as HTMLElement).dataset.moduleId!;
+      let mod = modules.find((m) => m.id === moduleId);
+      if (!mod) {
+        mod = { id: moduleId, slug: "color_hex", frontend_component: "ColorSelector", values: [] };
+        modules.push(mod);
+      }
+      const swatch = btn.querySelector(".color-selector__swatch") as HTMLElement;
+      const bgColor = swatch?.style.backgroundColor || "#000000";
+      mod.values.push({
+        value_id: (btn as HTMLElement).dataset.valueId!,
+        label: (btn as HTMLElement).getAttribute("aria-label") || "",
+        raw_value: (btn as HTMLElement).dataset.valueId!,
+        hex_color: bgColor,
+        price_modifier: parseInt((btn as HTMLElement).dataset.priceModifier || "0", 10),
+        available: !(btn as HTMLButtonElement).disabled,
+      });
+    });
+
+    // Material select
+    container.querySelectorAll(".material-selector__select").forEach((select) => {
+      const moduleId = (select as HTMLElement).dataset.moduleId!;
+      let mod = modules.find((m) => m.id === moduleId);
+      if (!mod) {
+        mod = { id: moduleId, slug: "material_type", frontend_component: "MaterialSelector", values: [] };
+        modules.push(mod);
+      }
+      (select as HTMLSelectElement).querySelectorAll("option").forEach((opt) => {
+        if (!opt.value) return; // Skip placeholder
+        mod!.values.push({
+          value_id: opt.value,
+          label: opt.textContent?.replace(/\s*\(.*\)/, "").trim() || "",
+          raw_value: opt.value,
+          hex_color: null,
+          price_modifier: parseInt(opt.dataset.priceModifier || "0", 10),
+          available: !opt.disabled,
+        });
+      });
+    });
+
+    return modules;
+  }
+
+  // Update price display
+  function updatePrice() {
+    const modifiers = Array.from(selectedModifiers.values());
+    const finalPrice = computeFinalPrice(basePrice, modifiers);
+    const formatted = new Intl.NumberFormat("es-PY", {
+      style: "decimal",
+      maximumFractionDigits: 0,
+    }).format(finalPrice);
+
+    $priceDisplay.textContent = `Gs. ${formatted}`;
+
+    // Dispatch event
+    window.dispatchEvent(
+      new CustomEvent("variant-change", {
+        detail: {
+          selectedAttributes: Object.fromEntries(selectedAttributes),
+          finalPrice,
+          productId,
+        },
+      })
+    );
+
+    // Enable/disable add to cart button
+    const modules = parseModules();
+    const complete = isSelectionComplete(
+      modules.map((m) => ({ ...m, values: m.values.map((v) => ({ ...v, available: true })) })),
+      selectedAttributes
+    );
+    if ($addCartBtn) {
+      $addCartBtn.disabled = !complete;
+    }
+  }
+
+  // Handle size button clicks
+  container.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest(".size-selector__btn") as HTMLButtonElement;
+    if (!btn || btn.disabled) return;
+
+    const moduleId = btn.dataset.moduleId!;
+    const valueId = btn.dataset.valueId!;
+    const priceModifier = parseInt(btn.dataset.priceModifier || "0", 10);
+
+    // Deselect other buttons in same module
+    container.querySelectorAll(`.size-selector__btn[data-module-id="${moduleId}"]`).forEach((b) => {
+      b.classList.remove("size-selector__btn--selected");
+      b.setAttribute("aria-checked", "false");
+    });
+
+    // Select this button
+    btn.classList.add("size-selector__btn--selected");
+    btn.setAttribute("aria-checked", "true");
+
+    selectedAttributes.set(moduleId, valueId);
+    selectedModifiers.set(moduleId, priceModifier);
+    updatePrice();
+  });
+
+  // Handle color circle clicks
+  container.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest(".color-selector__circle") as HTMLButtonElement;
+    if (!btn || btn.disabled) return;
+
+    const moduleId = btn.dataset.moduleId!;
+    const valueId = btn.dataset.valueId!;
+    const priceModifier = parseInt(btn.dataset.priceModifier || "0", 10);
+
+    // Deselect other circles in same module
+    container.querySelectorAll(`.color-selector__circle[data-module-id="${moduleId}"]`).forEach((b) => {
+      b.classList.remove("color-selector__circle--selected");
+      b.setAttribute("aria-checked", "false");
+    });
+
+    // Select this circle
+    btn.classList.add("color-selector__circle--selected");
+    btn.setAttribute("aria-checked", "true");
+
+    selectedAttributes.set(moduleId, valueId);
+    selectedModifiers.set(moduleId, priceModifier);
+    updatePrice();
+  });
+
+  // Handle material select changes
+  container.addEventListener("change", (e) => {
+    const select = e.target as HTMLSelectElement;
+    if (!select.classList.contains("material-selector__select")) return;
+
+    const moduleId = select.dataset.moduleId!;
+    const valueId = select.value;
+
+    if (!valueId) {
+      selectedAttributes.delete(moduleId);
+      selectedModifiers.delete(moduleId);
+    } else {
+      const priceModifier = parseInt(
+        select.options[select.selectedIndex]?.dataset.priceModifier || "0",
+        10
+      );
+      selectedAttributes.set(moduleId, valueId);
+      selectedModifiers.set(moduleId, priceModifier);
+    }
+    updatePrice();
+  });
+
+  // Keyboard navigation (ARIA)
+  container.addEventListener("keydown", (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.classList.contains("size-selector__btn") && !target.classList.contains("color-selector__circle")) return;
+
+    const group = target.closest("[role='radiogroup']");
+    if (!group) return;
+
+    const radios = Array.from(group.querySelectorAll("[role='radio']:not([disabled])")) as HTMLElement[];
+    const currentIndex = radios.indexOf(target);
+
+    let nextIndex = currentIndex;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      nextIndex = (currentIndex + 1) % radios.length;
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      nextIndex = (currentIndex - 1 + radios.length) % radios.length;
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      target.click();
+      return;
+    } else {
+      return;
+    }
+
+    e.preventDefault();
+    radios[nextIndex].focus();
+    radios[nextIndex].click();
+  });
+</script>
+
+<style>
+  .variant-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    padding: var(--space-md);
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-lg);
+  }
+
+  .variant-selector__price {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: var(--border-width) solid var(--outline-variant);
+  }
+
+  .variant-selector__price-label {
+    color: var(--on-surface-variant);
+  }
+
+  .variant-selector__price-value {
+    color: var(--primary);
+    font-weight: 700;
+  }
+</style>

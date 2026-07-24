@@ -1,0 +1,96 @@
+---
+/**
+ * MaterialSelector — Native dropdown for material selection
+ *
+ * Renders a <select> with material options.
+ * Shows price modifier in option text if non-zero.
+ * Disables unavailable options based on dependencies.
+ */
+
+interface Props {
+  moduleId: string;
+  moduleName: string;
+  values: Array<{
+    value_id: string;
+    label: string;
+    raw_value: string;
+    price_modifier: number;
+    available: boolean;
+  }>;
+  selectedValueId?: string;
+}
+
+const { moduleId, moduleName, values, selectedValueId } = Astro.props;
+
+function formatModifier(mod: number): string {
+  if (mod === 0) return "";
+  const sign = mod > 0 ? "+" : "";
+  return ` (${sign}₲${mod.toLocaleString("es-PY")})`;
+}
+
+const selectId = `material-${moduleId}`;
+---
+
+<div class="material-selector">
+  <label for={selectId} class="material-selector__label label-sm">{moduleName}</label>
+  <select
+    id={selectId}
+    class="material-selector__select"
+    data-module-id={moduleId}
+  >
+    <option value="">Seleccionar {moduleName.toLowerCase()}...</option>
+    {values.map((val) => (
+      <option
+        value={val.value_id}
+        selected={val.value_id === selectedValueId}
+        disabled={!val.available}
+        data-price-modifier={val.price_modifier}
+      >
+        {val.label}{formatModifier(val.price_modifier)}
+      </option>
+    ))}
+  </select>
+</div>
+
+<style>
+  .material-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .material-selector__label {
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .material-selector__select {
+    width: 100%;
+    padding: var(--space-md);
+    background-color: var(--surface-container-high);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    font-family: var(--font-body);
+    font-size: 16px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2382cfff' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-md) center;
+    background-size: 20px;
+    padding-right: var(--space-2xl);
+  }
+
+  .material-selector__select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-container);
+  }
+
+  .material-selector__select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+</style>

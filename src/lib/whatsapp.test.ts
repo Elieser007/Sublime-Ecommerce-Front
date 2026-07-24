@@ -113,6 +113,34 @@ describe("buildCartMessage", () => {
     expect(message).toContain("150.000"); // 3 * 50000
     expect(message).not.toContain("Precio por volumen");
   });
+
+  it("includes selected attributes in message", () => {
+    const cartWithAttributes = [
+      {
+        id: "1",
+        name: "Remera Basica",
+        price: 15500,
+        quantity: 1,
+        selected_attributes: {
+          "mod-color": { value_id: "val-rojo", label: "Rojo", raw_value: "#FF0000" },
+          "mod-size": { value_id: "val-xl", label: "XL", raw_value: "XL" },
+        },
+      },
+    ];
+    const message = buildCartMessage(cartWithAttributes);
+    expect(message).toContain("Rojo");
+    expect(message).toContain("XL");
+    expect(message).toContain("Remera Basica");
+  });
+
+  it("works with items without selected_attributes (backward compat)", () => {
+    const cartWithoutAttributes = [
+      { id: "1", name: "Sin Atributos", price: 10000, quantity: 1 },
+    ];
+    const message = buildCartMessage(cartWithoutAttributes);
+    expect(message).toContain("Sin Atributos");
+    expect(message).toContain("10.000");
+  });
 });
 
 describe("generateWhatsAppUrl", () => {

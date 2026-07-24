@@ -1,0 +1,126 @@
+---
+/**
+ * SizeSelector — Button pills for size selection
+ *
+ * Renders size values as clickable buttons.
+ * Shows price modifier if non-zero.
+ * Disables unavailable options based on dependencies.
+ * Touch-friendly targets ≥44px (NFR-5).
+ */
+
+interface Props {
+  moduleId: string;
+  moduleName: string;
+  values: Array<{
+    value_id: string;
+    label: string;
+    raw_value: string;
+    price_modifier: number;
+    available: boolean;
+  }>;
+  selectedValueId?: string;
+}
+
+const { moduleId, moduleName, values, selectedValueId } = Astro.props;
+
+function formatModifier(mod: number): string {
+  if (mod === 0) return "";
+  const sign = mod > 0 ? "+" : "";
+  return `${sign}₲${mod.toLocaleString("es-PY")}`;
+}
+---
+
+<div class="size-selector" role="radiogroup" aria-label={moduleName}>
+  <span class="size-selector__label label-sm">{moduleName}</span>
+  <div class="size-selector__options">
+    {values.map((val) => (
+      <button
+        type="button"
+        class={`size-selector__btn ${val.value_id === selectedValueId ? "size-selector__btn--selected" : ""} ${!val.available ? "size-selector__btn--disabled" : ""}`}
+        data-module-id={moduleId}
+        data-value-id={val.value_id}
+        data-price-modifier={val.price_modifier}
+        role="radio"
+        aria-checked={val.value_id === selectedValueId}
+        aria-disabled={!val.available}
+        disabled={!val.available}
+        title={val.label}
+      >
+        <span class="size-selector__label-text">{val.label}</span>
+        {val.price_modifier !== 0 && (
+          <span class="size-selector__modifier">{formatModifier(val.price_modifier)}</span>
+        )}
+      </button>
+    ))}
+  </div>
+</div>
+
+<style>
+  .size-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .size-selector__label {
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .size-selector__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .size-selector__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--surface-container-high);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+  }
+
+  .size-selector__btn:hover:not(:disabled) {
+    border-color: var(--primary);
+    background-color: var(--primary-container);
+  }
+
+  .size-selector__btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .size-selector__btn--selected {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-primary);
+  }
+
+  .size-selector__btn--disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .size-selector__label-text {
+    line-height: 1;
+  }
+
+  .size-selector__modifier {
+    font-size: 10px;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+</style>

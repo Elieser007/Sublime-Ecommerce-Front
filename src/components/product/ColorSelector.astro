@@ -1,0 +1,112 @@
+---
+/**
+ * ColorSelector — Colored circles for color selection
+ *
+ * Renders color values as circles with hex_color.
+ * Shows tooltip with display_label on hover.
+ * Borde seleccionado (selected border).
+ * Touch-friendly targets ≥44px (NFR-5).
+ */
+
+interface Props {
+  moduleId: string;
+  moduleName: string;
+  values: Array<{
+    value_id: string;
+    label: string;
+    raw_value: string;
+    hex_color: string | null;
+    price_modifier: number;
+    available: boolean;
+  }>;
+  selectedValueId?: string;
+}
+
+const { moduleId, moduleName, values, selectedValueId } = Astro.props;
+---
+
+<div class="color-selector" role="radiogroup" aria-label={moduleName}>
+  <span class="color-selector__label label-sm">{moduleName}</span>
+  <div class="color-selector__options">
+    {values.map((val) => (
+      <button
+        type="button"
+        class={`color-selector__circle ${val.value_id === selectedValueId ? "color-selector__circle--selected" : ""} ${!val.available ? "color-selector__circle--disabled" : ""}`}
+        data-module-id={moduleId}
+        data-value-id={val.value_id}
+        data-price-modifier={val.price_modifier}
+        role="radio"
+        aria-checked={val.value_id === selectedValueId}
+        aria-disabled={!val.available}
+        aria-label={val.label}
+        disabled={!val.available}
+        title={val.label}
+      >
+        <span
+          class="color-selector__swatch"
+          style={`background-color: ${val.hex_color || val.raw_value};`}
+        ></span>
+      </button>
+    ))}
+  </div>
+</div>
+
+<style>
+  .color-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .color-selector__label {
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .color-selector__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .color-selector__circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: transparent;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+
+  .color-selector__circle:hover:not(:disabled) {
+    border-color: var(--outline);
+  }
+
+  .color-selector__circle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .color-selector__circle--selected {
+    border-color: var(--primary);
+  }
+
+  .color-selector__circle--disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .color-selector__swatch {
+    display: block;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: var(--border-width) solid var(--outline-variant);
+  }
+</style>
