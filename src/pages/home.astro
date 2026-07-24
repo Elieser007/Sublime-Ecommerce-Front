@@ -7,7 +7,6 @@
  */
 
 import BaseLayout from '../layouts/BaseLayout.astro';
-import ProductCard from '../components/ProductCard.astro';
 import Chip from '../components/Chip.astro';
 ---
 
@@ -79,6 +78,7 @@ import Chip from '../components/Chip.astro';
 </BaseLayout>
 
 <script>
+  import '../components/product-card.js';
   import {
     fetchFeaturedProducts,
     formatPrice,
@@ -107,60 +107,24 @@ import Chip from '../components/Chip.astro';
         return;
       }
 
-      let html = '';
+      // Render product cards using Web Component
+      $grid.innerHTML = '';
       for (const product of products) {
         const imageUrl = getProductImageUrl(product.image_url);
-        const price = formatPrice(product.base_price);
-        const category = product.section_name || '';
-
-        html += `<article class="product-card">
-          <a href="/producto/${product.slug}" class="product-link">
-            <div class="product-image-wrapper">
-              <img src="${imageUrl}" alt="${product.name}" class="product-image" loading="lazy" width="400" height="400" />
-            </div>
-            <div class="product-info">
-              ${category ? `<span class="product-category label-sm">${category}</span>` : ''}
-              <h3 class="product-name body-lg">${product.name}</h3>
-              <p class="product-price body-lg">Gs. ${price}</p>
-            </div>
-          </a>
-          <button class="product-add-btn btn btn--secondary"
-            data-product-id="${product.id}"
-            data-product-name="${product.name}"
-            data-product-price="${product.base_price}"
-            data-product-image="${imageUrl}"
-            aria-label="Agregar ${product.name} al carrito">
-            Agregar al carrito
-          </button>
-        </article>`;
+        const card = document.createElement('product-card');
+        card.setAttribute('product', JSON.stringify({
+          id: product.id,
+          slug: product.slug,
+          name: product.name,
+          price: product.base_price,
+          image: imageUrl,
+          category: product.section_name,
+          price_tiers: product.price_tiers || [],
+        }));
+        $grid.appendChild(card);
       }
-      $grid.innerHTML = html;
       $grid.style.display = '';
 
-      // Attach cart handlers
-      $grid.querySelectorAll('[data-product-id]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const el = btn;
-          const product = {
-            id: el.dataset.productId,
-            name: el.dataset.productName,
-            price: Number(el.dataset.productPrice),
-            image: el.dataset.productImage,
-            quantity: 1,
-          };
-          const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-          const existing = cart.find((item: any) => item.id === product.id);
-          if (existing) { existing.quantity += 1; }
-          else { cart.push(product); }
-          localStorage.setItem('cart', JSON.stringify(cart));
-          const badge = document.querySelector('.cart-badge');
-          if (badge) {
-            badge.textContent = cart.reduce((sum: number, item: any) => sum + item.quantity, 0).toString();
-          }
-          btn.textContent = '¡Agregado!';
-          setTimeout(() => { btn.textContent = 'Agregar al carrito'; }, 1500);
-        });
-      });
     } catch (err) {
       $loading.style.display = 'none';
       $error.style.display = '';
@@ -207,21 +171,4 @@ import Chip from '../components/Chip.astro';
     0%, 100% { opacity: 0.5; }
     50% { opacity: 1; }
   }
-
-  /* Product card styles for dynamic rendering */
-  .product-card {
-    display: flex; flex-direction: column;
-    border: var(--border-width) solid var(--on-surface);
-    transition: border-color 0.2s ease;
-  }
-  .product-card:hover { border-color: var(--primary); }
-  .product-link { text-decoration: none; color: inherit; display: flex; flex-direction: column; flex: 1; }
-  .product-image-wrapper { aspect-ratio: 1; overflow: hidden; background-color: var(--surface-container); }
-  .product-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
-  .product-card:hover .product-image { transform: scale(1.05); }
-  .product-info { padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-xs); flex: 1; }
-  .product-category { color: var(--secondary); }
-  .product-name { color: var(--on-surface); font-weight: 600; }
-  .product-price { color: var(--primary); font-weight: 700; }
-  .product-add-btn { width: 100%; border-top: var(--border-width) solid var(--outline-variant); border-radius: 0; padding: var(--space-md); }
 </style>

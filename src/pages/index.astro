@@ -14,7 +14,6 @@
 
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PromotionWall from '../components/PromotionWall.astro';
-import ProductCard from '../components/ProductCard.astro';
 import CategoryTree from '../components/CategoryTree.astro';
 import CategoryFilter from '../components/CategoryFilter.astro';
 import MobileCategoryPanel from '../components/MobileCategoryPanel.astro';
@@ -150,6 +149,7 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
 </BaseLayout>
 
 <script>
+  import '../components/product-card.js';
   import {
     fetchProducts,
     fetchCategoryTree,
@@ -302,90 +302,38 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
         return;
       }
 
-      let html = '';
+      // Clear and render product cards using Web Component
+      $grid.innerHTML = '';
       for (const product of result.data) {
         const imageUrl = getProductImageUrl(product.image_url);
-        const price = formatPrice(product.base_price);
-        const category = product.section_name || '';
-        // Include price_tiers for VolumePriceBadge
-        const priceTiers = product.price_tiers || [];
-
         const secSlug = slugify(product.section_name);
         const catSlug = slugify(product.category_name);
-        html += `<div class="product-wrapper" data-category="${secSlug}" data-section-slug="${secSlug}" data-category-slug="${catSlug}" data-product-name="${product.name}" data-product-category="${secSlug}">
-          <article class="product-card">
-            <a href="/producto/${product.slug}" class="product-link">
-              <div class="product-image-wrapper">
-                <img src="${imageUrl}" alt="${product.name}" class="product-image" loading="lazy" width="400" height="400" />
-              </div>
-              <div class="product-info">
-                ${category ? `<span class="product-category label-sm">${category}</span>` : ''}
-                <h3 class="product-name body-lg">${product.name}</h3>
-                <div class="product-price-row">
-                  <p class="product-price body-lg">Gs. ${price}</p>
-                  <span class="volume-badge" data-tiers='${JSON.stringify(priceTiers).replace(/'/g, "\\'")}'></span>
-                </div>
-              </div>
-            </a>
-            <button class="product-add-btn btn btn--secondary"
-              data-product-id="${product.id}"
-              data-product-name="${product.name}"
-              data-product-price="${product.base_price}"
-              data-product-image="${imageUrl}"
-              data-product-tiers='${JSON.stringify(priceTiers).replace(/'/g, "\\'")}'
-              aria-label="Agregar ${product.name} al carrito">
-              Agregar al carrito
-            </button>
-          </article>
-        </div>`;
+
+        // Wrapper div for category filtering
+        const wrapper = document.createElement('div');
+        wrapper.className = 'product-wrapper';
+        wrapper.dataset.category = secSlug;
+        wrapper.dataset.sectionSlug = secSlug;
+        wrapper.dataset.categorySlug = catSlug;
+        wrapper.dataset.productName = product.name;
+        wrapper.dataset.productCategory = secSlug;
+
+        // Create Web Component
+        const card = document.createElement('product-card');
+        card.setAttribute('product', JSON.stringify({
+          id: product.id,
+          slug: product.slug,
+          name: product.name,
+          price: product.base_price,
+          image: imageUrl,
+          category: product.section_name,
+          price_tiers: product.price_tiers || [],
+        }));
+
+        wrapper.appendChild(card);
+        $grid.appendChild(wrapper);
       }
-      $grid.innerHTML = html;
       $container.style.display = '';
-
-      // Render volume badges for products with tiers
-      $grid.querySelectorAll('.volume-badge[data-tiers]').forEach((badge) => {
-        try {
-          const tiers = JSON.parse(badge.getAttribute('data-tiers') || '[]');
-          if (tiers.length > 0) {
-            // Find best volume tier (lowest price with min_qty > 1)
-            const volumeTiers = tiers.filter((t: any) => t.min_quantity > 1);
-            if (volumeTiers.length > 0) {
-              const best = volumeTiers.reduce((a: any, b: any) => b.price < a.price ? b : a);
-              const formatted = new Intl.NumberFormat('es-PY', { style: 'decimal', maximumFractionDigits: 0 }).format(best.price);
-              badge.textContent = `Desde ${best.min_quantity} unds: Gs. ${formatted}`;
-              badge.style.display = 'inline-flex';
-            }
-          }
-        } catch (e) {
-          console.warn('Failed to render volume badge', e);
-        }
-      });
-
-      // Attach cart handlers
-      $grid.querySelectorAll('[data-product-id]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const el = btn;
-          const product = {
-            id: el.dataset.productId,
-            name: el.dataset.productName,
-            price: Number(el.dataset.productPrice),
-            image: el.dataset.productImage,
-            quantity: 1,
-          };
-          const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-          const existing = cart.find((item: any) => item.id === product.id);
-          if (existing) { existing.quantity += 1; }
-          else { cart.push(product); }
-          localStorage.setItem('cart', JSON.stringify(cart));
-          const badge = document.querySelector('.cart-badge');
-          if (badge) {
-            const total = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
-            badge.textContent = total.toString();
-          }
-          btn.textContent = '¡Agregado!';
-          setTimeout(() => { btn.textContent = 'Agregar al carrito'; }, 1500);
-        });
-      });
 
     } catch (err) {
       $loading.style.display = 'none';
@@ -860,51 +808,6 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
     color: var(--on-surface-variant);
   }
   .products-error p, .products-empty p { margin-bottom: var(--space-lg); }
-
-  /* Product Card overrides for inline rendering */
-  .product-card {
-    display: flex;
-    flex-direction: column;
-    border: var(--border-width) solid var(--on-surface);
-    transition: border-color 0.2s ease;
-  }
-  .product-card:hover { border-color: var(--primary); }
-  .product-link {
-    text-decoration: none;
-    color: inherit;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-  }
-  .product-link:hover { text-decoration: none; }
-  .product-image-wrapper {
-    aspect-ratio: 1;
-    overflow: hidden;
-    background-color: var(--surface-container);
-  }
-  .product-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.3s ease;
-  }
-  .product-card:hover .product-image { transform: scale(1.05); }
-  .product-info {
-    padding: var(--space-md);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-    flex: 1;
-  }
-  .product-category { color: var(--secondary); }
-  .product-name { color: var(--on-surface); font-weight: 600; }
-  .product-price { color: var(--primary); font-weight: 700; }
-  .product-add-btn {
-    width: 100%;
-    border-top: var(--border-width) solid var(--outline-variant);
-    border-radius: 0;
-    padding: var(--space-md);
-  }
 
   /* Mobile panel */
   .mobile-panel-overlay {
