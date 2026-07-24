@@ -1,0 +1,927 @@
+---
+/**
+ * AttributeManager — Admin Modal for Product Attribute Management
+ * 
+ * Opens from "Ver Atributos" button in product list.
+ * Manages module assignment, values with price modifiers, and dependencies.
+ */
+
+interface Props {
+  productId: string;
+  productName: string;
+}
+
+const { productId, productName } = Astro.props;
+---
+
+<div class="attr-modal-overlay" id="attr-overlay" style="display: none;" data-product-id={productId}>
+  <div class="attr-modal">
+    <div class="attr-modal-header">
+      <h3 class="headline-lg-mobile">Atributos — {productName}</h3>
+      <button class="modal-close" id="attr-modal-close">✕</button>
+    </div>
+    
+    <div class="attr-modal-body">
+      <!-- Assigned Modules Section -->
+      <div class="attr-section">
+        <div class="attr-section-header">
+          <h4 class="label-sm">Módulos Asignados</h4>
+          <select id="add-module-select" class="form-select body-sm">
+            <option value="">+ Agregar Módulo</option>
+          </select>
+        </div>
+        <div id="assigned-modules-list" class="attr-modules-list">
+          <p class="attr-empty-state">No hay módulos asignados</p>
+        </div>
+      </div>
+
+      <!-- Dependencies Section -->
+      <div class="attr-section">
+        <div class="attr-section-header">
+          <h4 class="label-sm">Dependencias</h4>
+          <button class="btn btn--secondary btn--sm" id="show-dependency-btn">Configurar Dependencias</button>
+        </div>
+        <div id="dependencies-list" class="attr-deps-list">
+          <p class="attr-empty-state">No hay dependencias configuradas</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="attr-modal-footer">
+      <button class="btn btn--secondary" id="attr-modal-cancel">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dependency Form Modal -->
+<div class="attr-modal-overlay" id="dep-overlay" style="display: none;">
+  <div class="attr-modal attr-modal--sm">
+    <div class="attr-modal-header">
+      <h3 class="headline-lg-mobile">Configurar Dependencia</h3>
+      <button class="modal-close" id="dep-modal-close">✕</button>
+    </div>
+    
+    <form class="attr-modal-body" id="dependency-form">
+      <div class="form-group">
+        <label class="label-sm">Módulo Padre *</label>
+        <select name="parentModuleId" id="parent-module-select" class="form-select body-md" required>
+          <option value="">Seleccionar...</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="label-sm">Valor Padre *</label>
+        <select name="parentValueId" id="parent-value-select" class="form-select body-md" required disabled>
+          <option value="">Seleccionar módulo primero</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="label-sm">Módulo Hijo *</label>
+        <select name="childModuleId" id="child-module-select" class="form-select body-md" required>
+          <option value="">Seleccionar...</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="label-sm">Valores Hijos (opcional)</label>
+        <div id="child-values-checklist" class="attr-checklist">
+          <p class="attr-empty-state">Seleccioná módulo hijo primero</p>
+        </div>
+      </div>
+
+      <div class="form-error" id="dep-form-error"></div>
+      
+      <div class="form-actions">
+        <button type="button" class="btn btn--secondary" id="dep-cancel">Cancelar</button>
+        <button type="submit" class="btn btn--primary">Guardar Dependencia</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .attr-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+    z-index: 310;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .attr-modal {
+    background-color: #131313;
+    border: 1px solid rgba(62, 72, 80, 0.3);
+    border-radius: 0px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .attr-modal--sm {
+    max-width: 480px;
+  }
+
+  .attr-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(62, 72, 80, 0.3);
+  }
+
+  .attr-modal-header h3 {
+    color: #e2e2e2;
+    margin: 0;
+  }
+
+  .attr-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .attr-modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid rgba(62, 72, 80, 0.3);
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .attr-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .attr-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .attr-section-header h4 {
+    margin: 0;
+    color: #bdc8d1;
+  }
+
+  .attr-modules-list,
+  .attr-deps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .attr-empty-state {
+    color: #6b7280;
+    font-size: 14px;
+    text-align: center;
+    padding: 16px;
+    background: rgba(31, 31, 31, 0.3);
+    border: 1px dashed rgba(62, 72, 80, 0.3);
+    margin: 0;
+  }
+
+  .attr-module-card {
+    background: rgba(31, 31, 31, 0.5);
+    border: 1px solid rgba(62, 72, 80, 0.2);
+    border-radius: 0px;
+    padding: 12px;
+  }
+
+  .attr-module-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .attr-module-name {
+    color: #82cfff;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .attr-module-name:hover {
+    color: #a8dcff;
+  }
+
+  .attr-module-name::before {
+    content: '▸';
+    transition: transform 0.2s ease;
+  }
+
+  .attr-module-name.expanded::before {
+    transform: rotate(90deg);
+  }
+
+  .attr-module-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .attr-values-list {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(62, 72, 80, 0.2);
+    margin-top: 8px;
+  }
+
+  .attr-values-list.visible {
+    display: flex;
+  }
+
+  .attr-value-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    background: rgba(31, 31, 31, 0.3);
+    border-radius: 0px;
+  }
+
+  .attr-value-label {
+    color: #e2e2e2;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .attr-value-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .attr-value-price {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .attr-value-price input {
+    width: 80px;
+    padding: 4px 6px;
+    background: rgba(31, 31, 31, 0.5);
+    border: 1px solid rgba(62, 72, 80, 0.3);
+    border-radius: 0px;
+    color: #e2e2e2;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .attr-value-price input:focus {
+    outline: none;
+    border-color: #82cfff;
+  }
+
+  .attr-value-price .price-modifier {
+    color: #d5ca00;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+  }
+
+  .attr-add-value-form {
+    display: flex;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(62, 72, 80, 0.2);
+  }
+
+  .attr-add-value-form input {
+    flex: 1;
+    padding: 6px 8px;
+    background: rgba(31, 31, 31, 0.5);
+    border: 1px solid rgba(62, 72, 80, 0.3);
+    border-radius: 0px;
+    color: #e2e2e2;
+    font-size: 12px;
+  }
+
+  .attr-add-value-form input:focus {
+    outline: none;
+    border-color: #82cfff;
+  }
+
+  .attr-dep-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(31, 31, 31, 0.5);
+    border: 1px solid rgba(62, 72, 80, 0.2);
+    border-radius: 0px;
+  }
+
+  .attr-dep-info {
+    color: #e2e2e2;
+    font-size: 13px;
+  }
+
+  .attr-dep-info .dep-arrow {
+    color: #82cfff;
+    margin: 0 4px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group label {
+    color: #bdc8d1;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .form-select {
+    padding: 10px 12px;
+    background-color: rgba(31, 31, 31, 0.5);
+    border: 1px solid rgba(62, 72, 80, 0.3);
+    border-radius: 0px;
+    color: #e2e2e2;
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-size: 14px;
+  }
+
+  .form-select:focus {
+    outline: none;
+    border-color: #82cfff;
+    box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.2);
+  }
+
+  .form-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .form-error {
+    color: #ffb4ab;
+    font-size: 13px;
+    min-height: 20px;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 16px;
+    border-top: 1px solid rgba(62, 72, 80, 0.3);
+  }
+
+  .attr-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 8px;
+    background: rgba(31, 31, 31, 0.3);
+    border: 1px solid rgba(62, 72, 80, 0.2);
+    border-radius: 0px;
+  }
+
+  .attr-checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    color: #e2e2e2;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .attr-checklist-item:hover {
+    color: #82cfff;
+  }
+
+  .attr-checklist-item input[type="checkbox"] {
+    accent-color: #82cfff;
+  }
+
+  :global(.btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 0px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  :global(.btn:hover) {
+    transform: scale(1.02);
+  }
+
+  :global(.btn:active) {
+    transform: scale(0.98);
+  }
+
+  :global(.btn--primary) {
+    background-color: rgba(130, 207, 255, 0.1);
+    color: #82cfff;
+    border: 1px solid rgba(130, 207, 255, 0.5);
+  }
+
+  :global(.btn--primary:hover) {
+    background-color: rgba(130, 207, 255, 0.2);
+  }
+
+  :global(.btn--secondary) {
+    background-color: transparent;
+    color: #e2e2e2;
+    border: 1px solid rgba(62, 72, 80, 0.5);
+  }
+
+  :global(.btn--secondary:hover) {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  :global(.btn--sm) {
+    padding: 6px 12px;
+    font-size: 10px;
+  }
+
+  :global(.btn--danger) {
+    background-color: rgba(255, 180, 171, 0.08);
+    color: #ffb4ab;
+    border: 1px solid rgba(255, 180, 171, 0.3);
+  }
+
+  :global(.btn--danger:hover) {
+    background-color: rgba(255, 180, 171, 0.15);
+  }
+
+  :global(.modal-close) {
+    background: none;
+    border: 1px solid rgba(62, 72, 80, 0.3);
+    border-radius: 0px;
+    width: 32px;
+    height: 32px;
+    color: #bdc8d1;
+    cursor: pointer;
+    font-size: 16px;
+  }
+
+  :global(.modal-close:hover) {
+    border-color: #ffb4ab;
+    color: #ffb4ab;
+  }
+</style>
+
+<script>
+  const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_API_URL) || 'http://localhost:8787';
+
+  // State
+  let productId = '';
+  let allModules: any[] = [];
+  let productAttributes: any[] = [];
+  let dependencies: any[] = [];
+  let expandedModule: string | null = null;
+
+  const $ = (id: string) => document.getElementById(id);
+
+  // ─── TOAST NOTIFICATIONS ────────────────────────────────
+  function showToast(message: string, type: 'success' | 'error' = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `attr-toast attr-toast--${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      background: ${type === 'success' ? 'rgba(130, 207, 255, 0.9)' : 'rgba(255, 180, 171, 0.9)'};
+      color: ${type === 'success' ? '#131313' : '#131313'};
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      border-radius: 0px;
+      z-index: 400;
+      animation: fadeInOut 3s ease forwards;
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // ─── LOAD DATA ──────────────────────────────────────────
+  async function loadModules() {
+    const res = await fetch(`${API_URL}/api/admin/attributes/modules`, { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    allModules = data.modules || [];
+  }
+
+  async function loadProductAttributes() {
+    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes`, { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    productAttributes = data.attributes || [];
+    renderAssignedModules();
+    populateAddModuleSelect();
+  }
+
+  async function loadDependencies() {
+    const res = await fetch(`${API_URL}/api/admin/attributes/dependencies`, { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    dependencies = data.dependencies || [];
+    renderDependencies();
+  }
+
+  // ─── RENDER ─────────────────────────────────────────────
+  function renderAssignedModules() {
+    const container = $('assigned-modules-list');
+    if (!container) return;
+
+    if (productAttributes.length === 0) {
+      container.innerHTML = '<p class="attr-empty-state">No hay módulos asignados</p>';
+      return;
+    }
+
+    container.innerHTML = productAttributes.map((attr: any) => `
+      <div class="attr-module-card" data-module-id="${attr.module_id}">
+        <div class="attr-module-header">
+          <span class="attr-module-name ${expandedModule === attr.module_id ? 'expanded' : ''}" 
+                onclick="toggleModule('${attr.module_id}')">
+            ${attr.module_name}
+            <span class="badge badge--sm">${attr.values.length} valores</span>
+          </span>
+          <div class="attr-module-actions">
+            <button class="btn btn--danger btn--sm" onclick="unassignModule('${attr.module_id}', '${attr.module_name}')">
+              Quitar
+            </button>
+          </div>
+        </div>
+        <div class="attr-values-list ${expandedModule === attr.module_id ? 'visible' : ''}" id="values-${attr.module_id}">
+          ${attr.values.length === 0 
+            ? '<p class="attr-empty-state">No hay valores</p>'
+            : attr.values.map((v: any) => `
+              <div class="attr-value-row">
+                <span class="attr-value-label">
+                  ${v.hex_color ? `<span class="attr-value-color" style="background:${v.hex_color}"></span>` : ''}
+                  ${v.label}
+                </span>
+                <div class="attr-value-price">
+                  <input type="number" 
+                         value="${v.price_modifier}" 
+                         onchange="updatePriceModifier('${attr.module_id}', '${v.value_id}', this.value)"
+                         placeholder="Mod. precio" />
+                  <span class="price-modifier">${v.price_modifier > 0 ? '+' : ''}${v.price_modifier}</span>
+                </div>
+                <button class="btn btn--danger btn--sm" onclick="removeValue('${attr.module_id}', '${v.value_id}')">✕</button>
+              </div>
+            `).join('')
+          }
+          <div class="attr-add-value-form">
+            <input type="text" id="new-value-${attr.module_id}" placeholder="Nuevo valor..." />
+            <input type="number" id="new-price-${attr.module_id}" placeholder="Mod. precio" style="width:80px" />
+            <button class="btn btn--primary btn--sm" onclick="addValue('${attr.module_id}')">+</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderDependencies() {
+    const container = $('dependencies-list');
+    if (!container) return;
+
+    if (dependencies.length === 0) {
+      container.innerHTML = '<p class="attr-empty-state">No hay dependencias configuradas</p>';
+      return;
+    }
+
+    container.innerHTML = dependencies.map((dep: any) => `
+      <div class="attr-dep-item">
+        <span class="attr-dep-info">
+          <strong>${dep.parent_module_name || 'Módulo'}</strong>: ${dep.parent_value_label}
+          <span class="dep-arrow">→</span>
+          <strong>${dep.child_module_name || 'Módulo'}</strong>: ${dep.child_value_label || 'Todos'}
+        </span>
+        <button class="btn btn--danger btn--sm" onclick="deleteDependency('${dep.id}')">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function populateAddModuleSelect() {
+    const select = $('add-module-select') as HTMLSelectElement;
+    if (!select) return;
+
+    const assignedIds = new Set(productAttributes.map((a: any) => a.module_id));
+    const available = allModules.filter((m) => !assignedIds.has(m.id));
+
+    select.innerHTML = '<option value="">+ Agregar Módulo</option>' + 
+      available.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
+  }
+
+  // ─── MODULE OPERATIONS ──────────────────────────────────
+  (window as any).toggleModule = (moduleId: string) => {
+    expandedModule = expandedModule === moduleId ? null : moduleId;
+    renderAssignedModules();
+  };
+
+  (window as any).unassignModule = async (moduleId: string, moduleName: string) => {
+    if (!confirm(`¿Quitar módulo "${moduleName}" del producto?`)) return;
+
+    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      showToast(`Módulo "${moduleName}" removido`);
+      await loadProductAttributes();
+    } else {
+      showToast('Error al quitar módulo', 'error');
+    }
+  };
+
+  $('add-module-select')?.addEventListener('change', async (e) => {
+    const moduleId = (e.target as HTMLSelectElement).value;
+    if (!moduleId) return;
+
+    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ moduleId }),
+    });
+
+    if (res.ok) {
+      const mod = allModules.find((m) => m.id === moduleId);
+      showToast(`Módulo "${mod?.name}" asignado`);
+      (e.target as HTMLSelectElement).value = '';
+      await loadProductAttributes();
+    } else {
+      const err = await res.json();
+      showToast(err.error || 'Error al asignar módulo', 'error');
+    }
+  });
+
+  // ─── VALUE OPERATIONS ───────────────────────────────────
+  (window as any).addValue = async (moduleId: string) => {
+    const valueInput = $(`new-value-${moduleId}`) as HTMLInputElement;
+    const priceInput = $(`new-price-${moduleId}`) as HTMLInputElement;
+    const label = valueInput?.value.trim();
+    const priceModifier = parseInt(priceInput?.value) || 0;
+
+    if (!label) {
+      showToast('Ingresá un nombre para el valor', 'error');
+      return;
+    }
+
+    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ label, raw_value: label.toLowerCase(), price_modifier: priceModifier }),
+    });
+
+    if (res.ok) {
+      showToast('Valor agregado');
+      valueInput.value = '';
+      priceInput.value = '';
+      await loadProductAttributes();
+    } else {
+      showToast('Error al agregar valor', 'error');
+    }
+  };
+
+  (window as any).updatePriceModifier = async (moduleId: string, valueId: string, newPrice: string) => {
+    const priceModifier = parseInt(newPrice) || 0;
+
+    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values/${valueId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ price_modifier: priceModifier }),
+    });
+
+    if (res.ok) {
+      showToast('Precio actualizado');
+      await loadProductAttributes();
+    } else {
+      showToast('Error al actualizar precio', 'error');
+    }
+  };
+
+  (window as any).removeValue = async (moduleId: string, valueId: string) => {
+    if (!confirm('¿Quitar este valor del producto?')) return;
+
+    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values/${valueId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      showToast('Valor removido');
+      await loadProductAttributes();
+    } else {
+      showToast('Error al quitar valor', 'error');
+    }
+  };
+
+  // ─── DEPENDENCY FORM ────────────────────────────────────
+  function openDependencyForm() {
+    $('dep-overlay')!.style.display = '';
+    populateParentModuleSelect();
+    populateChildModuleSelect();
+  }
+
+  function closeDependencyForm() {
+    $('dep-overlay')!.style.display = 'none';
+    ($('dependency-form') as HTMLFormElement)?.reset();
+    $('dep-form-error')!.textContent = '';
+    ($('parent-value-select') as HTMLSelectElement).disabled = true;
+    $('child-values-checklist')!.innerHTML = '<p class="attr-empty-state">Seleccioná módulo hijo primero</p>';
+  }
+
+  function populateParentModuleSelect() {
+    const select = $('parent-module-select') as HTMLSelectElement;
+    if (!select) return;
+    select.innerHTML = '<option value="">Seleccionar...</option>' + 
+      allModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
+  }
+
+  function populateChildModuleSelect() {
+    const select = $('child-module-select') as HTMLSelectElement;
+    if (!select) return;
+    select.innerHTML = '<option value="">Seleccionar...</option>' + 
+      allModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
+  }
+
+  async function loadModuleValues(moduleId: string, targetId: string) {
+    const res = await fetch(`${API_URL}/api/admin/attributes/values?module_id=${moduleId}`, { credentials: 'include' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.values || [];
+  }
+
+  $('parent-module-select')?.addEventListener('change', async (e) => {
+    const moduleId = (e.target as HTMLSelectElement).value;
+    const valueSelect = $('parent-value-select') as HTMLSelectElement;
+    
+    if (!moduleId) {
+      valueSelect.disabled = true;
+      valueSelect.innerHTML = '<option value="">Seleccionar módulo primero</option>';
+      return;
+    }
+
+    const values = await loadModuleValues(moduleId);
+    valueSelect.disabled = false;
+    valueSelect.innerHTML = '<option value="">Seleccionar...</option>' + 
+      values.map((v: any) => `<option value="${v.id}">${v.label}</option>`).join('');
+  });
+
+  $('child-module-select')?.addEventListener('change', async (e) => {
+    const moduleId = (e.target as HTMLSelectElement).value;
+    const checklist = $('child-values-checklist');
+    
+    if (!moduleId) {
+      checklist!.innerHTML = '<p class="attr-empty-state">Seleccioná módulo hijo primero</p>';
+      return;
+    }
+
+    const values = await loadModuleValues(moduleId);
+    if (values.length === 0) {
+      checklist!.innerHTML = '<p class="attr-empty-state">No hay valores disponibles</p>';
+      return;
+    }
+
+    checklist!.innerHTML = values.map((v: any) => `
+      <label class="attr-checklist-item">
+        <input type="checkbox" name="childValues" value="${v.id}" />
+        ${v.label}
+      </label>
+    `).join('');
+  });
+
+  $('dependency-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const parentModuleId = (form.querySelector('[name="parentModuleId"]') as HTMLSelectElement).value;
+    const parentValueId = (form.querySelector('[name="parentValueId"]') as HTMLSelectElement).value;
+    const childModuleId = (form.querySelector('[name="childModuleId"]') as HTMLSelectElement).value;
+    
+    const childValueCheckboxes = form.querySelectorAll('[name="childValues"]:checked') as NodeListOf<HTMLInputElement>;
+    const childValueIds = Array.from(childValueCheckboxes).map((cb) => cb.value);
+
+    // Validation
+    if (!parentModuleId || !parentValueId || !childModuleId) {
+      $('dep-form-error')!.textContent = 'Completá todos los campos obligatorios';
+      return;
+    }
+
+    if (parentModuleId === childModuleId) {
+      $('dep-form-error')!.textContent = 'El módulo hijo debe ser diferente al padre';
+      return;
+    }
+
+    // Create dependencies (one per selected child value, or one with null if none selected)
+    const valuesToCreate = childValueIds.length > 0 ? childValueIds : [null];
+    
+    for (const childValueId of valuesToCreate) {
+      await fetch(`${API_URL}/api/admin/attributes/dependencies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ parentModuleId, parentValueId, childModuleId, childValueId }),
+      });
+    }
+
+    showToast('Dependencia(s) creada(s)');
+    closeDependencyForm();
+    await loadDependencies();
+  });
+
+  (window as any).deleteDependency = async (depId: string) => {
+    if (!confirm('¿Eliminar esta dependencia?')) return;
+
+    const res = await fetch(`${API_URL}/api/admin/attributes/dependencies/${depId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      showToast('Dependencia eliminada');
+      await loadDependencies();
+    } else {
+      showToast('Error al eliminar dependencia', 'error');
+    }
+  };
+
+  // ─── MODAL CONTROLS ─────────────────────────────────────
+  function openModal() {
+    $('attr-overlay')!.style.display = '';
+    loadProductAttributes();
+    loadDependencies();
+  }
+
+  function closeModal() {
+    $('attr-overlay')!.style.display = 'none';
+  }
+
+  $('attr-modal-close')?.addEventListener('click', closeModal);
+  $('attr-modal-cancel')?.addEventListener('click', closeModal);
+  $('attr-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+  $('show-dependency-btn')?.addEventListener('click', openDependencyForm);
+  $('dep-modal-close')?.addEventListener('click', closeDependencyForm);
+  $('dep-cancel')?.addEventListener('click', closeDependencyForm);
+  $('dep-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeDependencyForm(); });
+
+  // Initialize
+  productId = $('attr-overlay')?.dataset.productId || '';
+  if (productId) {
+    loadModules().then(() => openModal());
+  }
+
+  // Export for external trigger
+  (window as any).openAttributeManager = (id: string) => {
+    productId = id;
+    $('attr-overlay')!.dataset.productId = id;
+    loadModules().then(() => openModal());
+  };
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if ($('dep-overlay')?.style.display !== 'none') {
+        closeDependencyForm();
+      } else if ($('attr-overlay')?.style.display !== 'none') {
+        closeModal();
+      }
+    }
+  });
+</script>

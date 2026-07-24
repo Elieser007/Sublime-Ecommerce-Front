@@ -7,6 +7,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
+import AttributeManager from '../../components/admin/AttributeManager.astro';
 
 const columns = [
   { key: 'name', label: 'Nombre' },
@@ -15,8 +16,9 @@ const columns = [
   { key: 'category', label: 'Categoría' },
   { key: 'subcategory', label: 'Subcategoría' },
   { key: 'price', label: 'Precio Base' },
+  { key: 'attributes', label: 'Atributos' },
   { key: 'status', label: 'Estado' },
-  { key: 'actions', label: 'Acciones', width: '120px' },
+  { key: 'actions', label: 'Acciones', width: '150px' },
 ];
 ---
 
@@ -87,6 +89,9 @@ const columns = [
       </form>
     </div>
   </div>
+
+  <!-- Attribute Manager Modal -->
+  <AttributeManager productId="" productName="" />
 
   <!-- Pricing Modal -->
   <div class="modal-overlay" id="price-overlay" style="display: none;">
@@ -211,7 +216,7 @@ const columns = [
   // ─── LOAD PRODUCTS ────────────────────────────────────
   async function loadProducts() {
     const tbody = document.querySelector('tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">Cargando...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Cargando...</td></tr>';
     const params = new URLSearchParams();
     params.set('page', String(currentPage));
     params.set('limit', String(limit));
@@ -226,14 +231,32 @@ const columns = [
       items = data.data || [];
       totalItems = data.total || 0;
       totalPages = data.pages || 1;
+      // Load attribute counts for each product
+      await loadAttributeCounts();
       render();
-    } catch { if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">Error</td></tr>'; }
+    } catch { if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Error</td></tr>'; }
+  }
+
+  async function loadAttributeCounts() {
+    for (const product of items) {
+      try {
+        const res = await fetch(`${API_URL}/api/admin/products/${product.id}/attributes`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          product.attribute_count = (data.attributes || []).length;
+        } else {
+          product.attribute_count = 0;
+        }
+      } catch {
+        product.attribute_count = 0;
+      }
+    }
   }
 
   function render() {
     const tbody = document.querySelector('tbody');
     if (!tbody) return;
-    if (items.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">No hay productos</td></tr>'; }
+    if (items.length === 0) { tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">No hay productos</td></tr>'; }
     else {
       tbody.innerHTML = items.map((p: any) => `<tr>
         <td><strong>${p.name}</strong></td>
@@ -242,8 +265,10 @@ const columns = [
         <td>${p.category_name || '—'}</td>
         <td>${p.subcategory_name || '—'}</td>
         <td>${fmt(p.base_price)}</td>
+        <td><span class="attr-badge">${p.attribute_count || 0} módulos</span></td>
         <td><span class="badge ${p.is_active ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${p.is_active ? 'Activo' : 'Inactivo'}</span></td>
         <td><div class="cell-actions">
+          <button class="ta-btn ta-btn--attr" onclick="openAttributeManager('${p.id}', '${p.name.replace(/'/g, "\\'")}')" title="Atributos">🏷️</button>
           <button class="ta-btn" onclick="editProduct('${p.id}')" title="Editar">✏️</button>
           <button class="ta-btn ta-btn--price" onclick="openPricing('${p.id}')" title="Precios">💰</button>
           <button class="ta-btn ta-btn--delete" onclick="deleteProduct('${p.id}')" title="Desactivar">🗑️</button>
@@ -405,6 +430,23 @@ const columns = [
 
   (window as any).openPricing = openPricing;
 
+  // ─── ATTRIBUTE MANAGER ──────────────────────────────────
+  let attributeManagerProductId: string | null = null;
+
+  (window as any).openAttributeManager = (id: string, name: string) => {
+    attributeManagerProductId = id;
+    const overlay = document.getElementById('attr-overlay');
+    if (overlay) {
+      overlay.dataset.productId = id;
+      // Update product name in modal
+      const title = overlay.querySelector('h3');
+      if (title) title.textContent = `Atributos — ${name}`;
+      overlay.style.display = '';
+      // Trigger load via custom event
+      window.dispatchEvent(new CustomEvent('open-attributes', { detail: { productId: id } }));
+    }
+  };
+
   (window as any).deletePrice = async (priceId: string) => {
     if (!pricingProductId || !confirm('¿Eliminar este precio?')) return;
     const res = await fetch(`${API_URL}/api/products/${pricingProductId}/prices/${priceId}`, { method: 'DELETE', credentials: 'include' });
@@ -472,4 +514,7 @@ const columns = [
   :global(.badge-dot) { width: 6px; height: 6px; border-radius: 0px; background-color: currentColor; }
   :global(.badge--active) { background-color: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.3); }
   :global(.badge--inactive) { background-color: rgba(255, 180, 171, 0.1); color: #ffb4ab; border: 1px solid rgba(255, 180, 171, 0.3); }
+  .attr-badge { display: inline-flex; align-items: center; padding: 4px 10px; font-family: 'Space Mono', monospace; font-size: 11px; color: #d5ca00; background: rgba(213, 202, 0, 0.1); border: 1px solid rgba(213, 202, 0, 0.3); border-radius: 0px; }
+  :global(.ta-btn--attr) { background: rgba(213, 202, 0, 0.08); border-color: rgba(213, 202, 0, 0.2); color: #d5ca00; }
+  :global(.ta-btn--attr:hover) { background: rgba(213, 202, 0, 0.15); border-color: rgba(213, 202, 0, 0.5); }
 </style>

@@ -1,0 +1,459 @@
+---
+/**
+ * DependencyForm — Standalone Dependency Configuration Component
+ * 
+ * Can be used as a tab or separate section in admin.
+ * Manages hierarchical attribute dependencies.
+ */
+
+interface Props {
+  productId?: string;
+}
+
+const { productId } = Astro.props;
+---
+
+<div class="dep-form-container">
+  <div class="dep-form-header">
+    <h4 class="label-sm">Crear Dependencia</h4>
+  </div>
+  
+  <form class="dep-form" id="standalone-dep-form">
+    <div class="dep-form-row">
+      <div class="form-group">
+        <label class="label-sm">Módulo Padre *</label>
+        <select name="parentModuleId" class="form-select body-md dep-parent-module" required>
+          <option value="">Seleccionar...</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="label-sm">Valor Padre *</label>
+        <select name="parentValueId" class="form-select body-md dep-parent-value" required disabled>
+          <option value="">Seleccionar módulo primero</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="dep-form-row">
+      <div class="form-group">
+        <label class="label-sm">Módulo Hijo *</label>
+        <select name="childModuleId" class="form-select body-md dep-child-module" required>
+          <option value="">Seleccionar...</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="label-sm">Valores Hijos (opcional)</label>
+        <div class="dep-child-values dep-checklist">
+          <p class="dep-empty">Seleccioná módulo hijo primero</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-error" id="standalone-dep-error"></div>
+    
+    <div class="form-actions">
+      <button type="submit" class="btn btn--primary">Guardar Dependencia</button>
+    </div>
+  </form>
+
+  <div class="dep-list-section">
+    <h4 class="label-sm">Dependencias Existentes</h4>
+    <div class="dep-list" id="standalone-dep-list">
+      <p class="dep-empty">No hay dependencias configuradas</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .dep-form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 20px;
+    background: rgba(31, 31, 31, 0.3);
+    border: 1px solid rgba(62, 72, 80, 0.2);
+    border-radius: 0px;
+  }
+
+  .dep-form-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .dep-form-header h4 {
+    margin: 0;
+    color: #bdc8d1;
+  }
+
+  .dep-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .dep-form-row {
+    display: flex;
+    gap: 16px;
+  }
+
+  .dep-form-row .form-group {
+    flex: 1;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group label {
+    color: #bdc8d1;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .form-select {
+    padding: 10px 12px;
+    background-color: rgba(31, 31, 31, 0.5);
+    border: 1px solid rgba(62, 72, 80, 0.3);
+    border-radius: 0px;
+    color: #e2e2e2;
+    font-family: 'Hanken Grotesk', sans-serif;
+    font-size: 14px;
+  }
+
+  .form-select:focus {
+    outline: none;
+    border-color: #82cfff;
+    box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.2);
+  }
+
+  .form-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .form-error {
+    color: #ffb4ab;
+    font-size: 13px;
+    min-height: 20px;
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 16px;
+    border-top: 1px solid rgba(62, 72, 80, 0.3);
+  }
+
+  .dep-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 8px;
+    background: rgba(31, 31, 31, 0.3);
+    border: 1px solid rgba(62, 72, 80, 0.2);
+    border-radius: 0px;
+  }
+
+  .dep-checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    color: #e2e2e2;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .dep-checklist-item:hover {
+    color: #82cfff;
+  }
+
+  .dep-checklist-item input[type="checkbox"] {
+    accent-color: #82cfff;
+  }
+
+  .dep-empty {
+    color: #6b7280;
+    font-size: 13px;
+    text-align: center;
+    padding: 12px;
+    margin: 0;
+  }
+
+  .dep-list-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .dep-list-section h4 {
+    margin: 0;
+    color: #bdc8d1;
+  }
+
+  .dep-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .dep-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(31, 31, 31, 0.5);
+    border: 1px solid rgba(62, 72, 80, 0.2);
+    border-radius: 0px;
+  }
+
+  .dep-info {
+    color: #e2e2e2;
+    font-size: 13px;
+    flex: 1;
+  }
+
+  .dep-info .dep-arrow {
+    color: #82cfff;
+    margin: 0 8px;
+  }
+
+  .dep-info strong {
+    color: #82cfff;
+    font-weight: 500;
+  }
+
+  :global(.btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 0px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  :global(.btn:hover) {
+    transform: scale(1.02);
+  }
+
+  :global(.btn--primary) {
+    background-color: rgba(130, 207, 255, 0.1);
+    color: #82cfff;
+    border: 1px solid rgba(130, 207, 255, 0.5);
+  }
+
+  :global(.btn--primary:hover) {
+    background-color: rgba(130, 207, 255, 0.2);
+  }
+
+  :global(.btn--danger) {
+    background-color: rgba(255, 180, 171, 0.08);
+    color: #ffb4ab;
+    border: 1px solid rgba(255, 180, 171, 0.3);
+  }
+
+  :global(.btn--danger:hover) {
+    background-color: rgba(255, 180, 171, 0.15);
+  }
+</style>
+
+<script>
+  const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_API_URL) || 'http://localhost:8787';
+
+  let allModules: any[] = [];
+  let dependencies: any[] = [];
+
+  const $ = (id: string) => document.getElementById(id);
+
+  // ─── TOAST ──────────────────────────────────────────────
+  function showToast(message: string, type: 'success' | 'error' = 'success') {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      background: ${type === 'success' ? 'rgba(130, 207, 255, 0.9)' : 'rgba(255, 180, 171, 0.9)'};
+      color: #131313;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      z-index: 400;
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // ─── LOAD DATA ──────────────────────────────────────────
+  async function loadModules() {
+    const res = await fetch(`${API_URL}/api/admin/attributes/modules`, { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    allModules = data.modules || [];
+    populateModuleSelects();
+  }
+
+  async function loadDependencies() {
+    const res = await fetch(`${API_URL}/api/admin/attributes/dependencies`, { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    dependencies = data.dependencies || [];
+    renderDependencies();
+  }
+
+  async function loadModuleValues(moduleId: string) {
+    const res = await fetch(`${API_URL}/api/admin/attributes/values?module_id=${moduleId}`, { credentials: 'include' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.values || [];
+  }
+
+  // ─── RENDER ─────────────────────────────────────────────
+  function populateModuleSelects() {
+    const parentSelect = document.querySelector('.dep-parent-module') as HTMLSelectElement;
+    const childSelect = document.querySelector('.dep-child-module') as HTMLSelectElement;
+    
+    const options = '<option value="">Seleccionar...</option>' + 
+      allModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
+    
+    if (parentSelect) parentSelect.innerHTML = options;
+    if (childSelect) childSelect.innerHTML = options;
+  }
+
+  function renderDependencies() {
+    const container = $('standalone-dep-list');
+    if (!container) return;
+
+    if (dependencies.length === 0) {
+      container.innerHTML = '<p class="dep-empty">No hay dependencias configuradas</p>';
+      return;
+    }
+
+    container.innerHTML = dependencies.map((dep: any) => `
+      <div class="dep-item">
+        <span class="dep-info">
+          <strong>${dep.parent_module_name || 'Módulo'}</strong>: ${dep.parent_value_label}
+          <span class="dep-arrow">→</span>
+          <strong>${dep.child_module_name || 'Módulo'}</strong>: ${dep.child_value_label || 'Todos'}
+        </span>
+        <button class="btn btn--danger" onclick="deleteDep('${dep.id}')">Eliminar</button>
+      </div>
+    `).join('');
+  }
+
+  // ─── EVENT LISTENERS ────────────────────────────────────
+  document.querySelector('.dep-parent-module')?.addEventListener('change', async (e) => {
+    const moduleId = (e.target as HTMLSelectElement).value;
+    const valueSelect = document.querySelector('.dep-parent-value') as HTMLSelectElement;
+    
+    if (!moduleId) {
+      valueSelect.disabled = true;
+      valueSelect.innerHTML = '<option value="">Seleccionar módulo primero</option>';
+      return;
+    }
+
+    const values = await loadModuleValues(moduleId);
+    valueSelect.disabled = false;
+    valueSelect.innerHTML = '<option value="">Seleccionar...</option>' + 
+      values.map((v: any) => `<option value="${v.id}">${v.label}</option>`).join('');
+  });
+
+  document.querySelector('.dep-child-module')?.addEventListener('change', async (e) => {
+    const moduleId = (e.target as HTMLSelectElement).value;
+    const checklist = document.querySelector('.dep-child-values') as HTMLElement;
+    
+    if (!moduleId) {
+      checklist.innerHTML = '<p class="dep-empty">Seleccioná módulo hijo primero</p>';
+      return;
+    }
+
+    const values = await loadModuleValues(moduleId);
+    if (values.length === 0) {
+      checklist.innerHTML = '<p class="dep-empty">No hay valores disponibles</p>';
+      return;
+    }
+
+    checklist.innerHTML = values.map((v: any) => `
+      <label class="dep-checklist-item">
+        <input type="checkbox" name="childValues" value="${v.id}" />
+        ${v.label}
+      </label>
+    `).join('');
+  });
+
+  $('standalone-dep-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const parentModuleId = (form.querySelector('[name="parentModuleId"]') as HTMLSelectElement).value;
+    const parentValueId = (form.querySelector('[name="parentValueId"]') as HTMLSelectElement).value;
+    const childModuleId = (form.querySelector('[name="childModuleId"]') as HTMLSelectElement).value;
+    
+    const childValueCheckboxes = form.querySelectorAll('[name="childValues"]:checked') as NodeListOf<HTMLInputElement>;
+    const childValueIds = Array.from(childValueCheckboxes).map((cb) => cb.value);
+
+    if (!parentModuleId || !parentValueId || !childModuleId) {
+      $('standalone-dep-error')!.textContent = 'Completá todos los campos obligatorios';
+      return;
+    }
+
+    if (parentModuleId === childModuleId) {
+      $('standalone-dep-error')!.textContent = 'El módulo hijo debe ser diferente al padre';
+      return;
+    }
+
+    const valuesToCreate = childValueIds.length > 0 ? childValueIds : [null];
+    
+    for (const childValueId of valuesToCreate) {
+      await fetch(`${API_URL}/api/admin/attributes/dependencies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ parentModuleId, parentValueId, childModuleId, childValueId }),
+      });
+    }
+
+    showToast('Dependencia(s) creada(s)');
+    form.reset();
+    $('standalone-dep-error')!.textContent = '';
+    (document.querySelector('.dep-parent-value') as HTMLSelectElement).disabled = true;
+    document.querySelector('.dep-child-values')!.innerHTML = '<p class="dep-empty">Seleccioná módulo hijo primero</p>';
+    await loadDependencies();
+  });
+
+  (window as any).deleteDep = async (depId: string) => {
+    if (!confirm('¿Eliminar esta dependencia?')) return;
+
+    const res = await fetch(`${API_URL}/api/admin/attributes/dependencies/${depId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      showToast('Dependencia eliminada');
+      await loadDependencies();
+    } else {
+      showToast('Error al eliminar dependencia', 'error');
+    }
+  };
+
+  // Initialize
+  loadModules();
+  loadDependencies();
+</script>
