@@ -941,12 +941,15 @@ const { productId, productName } = Astro.props;
     loadModules().then(() => openModal());
   }
 
-  // Export for external trigger
-  (window as any).openAttributeManager = (id: string) => {
-    productId = id;
-    $('attr-overlay')!.dataset.productId = id;
-    loadModules().then(() => openModal());
-  };
+  // Listen for custom event from products.astro
+  window.addEventListener('open-attributes', (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    if (detail?.productId) {
+      productId = detail.productId;
+      $('attr-overlay')!.dataset.productId = detail.productId;
+      loadModules().then(() => openModal());
+    }
+  });
 
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
