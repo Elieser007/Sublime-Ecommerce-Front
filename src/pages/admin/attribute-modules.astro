@@ -1,0 +1,682 @@
+---
+/**
+ * Admin Attribute Modules — Manage attribute modules and values
+ *
+ * Uses reusable components: DataTable, Badge
+ * Pattern: same as categories.astro
+ */
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminSidebar from '../../components/AdminSidebar.astro';
+import DataTable from '../../components/admin/DataTable.astro';
+import Badge from '../../components/admin/Badge.astro';
+
+const moduleColumns = [
+  { key: 'name', label: 'Nombre' },
+  { key: 'slug', label: 'Slug' },
+  { key: 'component', label: 'Componente' },
+  { key: 'values', label: 'Valores', width: '80px' },
+  { key: 'order', label: 'Orden', width: '70px' },
+  { key: 'status', label: 'Estado' },
+  { key: 'actions', label: 'Acciones', width: '100px' },
+];
+
+const COMPONENT_OPTIONS = [
+  { value: 'color_selector', label: 'Selector de Color' },
+  { value: 'size_selector', label: 'Selector de Talle' },
+  { value: 'dropdown', label: 'Dropdown' },
+  { value: 'toggle', label: 'Toggle' },
+];
+---
+
+<BaseLayout title="Módulos de Atributos — Admin">
+  <div class="admin-layout">
+    <AdminSidebar active="attributes" />
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1 class="headline-lg-mobile">Módulos de Atributos</h1>
+        <p class="body-md admin-subtitle">Definir opciones de personalización: color, talle, material, etc.</p>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="stats-bar" id="stats-bar">
+        <span class="stat-item label-sm" id="stat-total">0 módulos</span>
+        <span class="stat-divider">·</span>
+        <span class="stat-item label-sm" id="stat-values">0 valores</span>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="content-header">
+        <div class="search-box">
+          <input type="text" class="form-input body-md" id="search-input" placeholder="Buscar módulos..." />
+        </div>
+        <button class="btn btn--primary" id="add-module">
+          <span class="btn-icon">+</span>
+          Nuevo Módulo
+        </button>
+      </div>
+
+      <!-- Modules Table -->
+      <DataTable columns={moduleColumns}>
+        <tr id="modules-loading"><td colspan="7" class="empty-cell">Cargando módulos...</td></tr>
+      </DataTable>
+
+      <!-- Module Modal -->
+      <div class="modal-overlay" id="module-modal" style="display: none;">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 class="headline-lg-mobile" id="module-modal-title">Nuevo Módulo</h3>
+            <button class="modal-close" id="module-modal-close">✕</button>
+          </div>
+          <form class="modal-form" id="module-form">
+            <input type="hidden" id="module-id" />
+            <div class="form-group">
+              <label class="label-sm">Nombre *</label>
+              <input type="text" name="name" class="form-input body-md" required placeholder="Ej: Color" />
+            </div>
+            <div class="form-group">
+              <label class="label-sm">Slug *</label>
+              <input type="text" name="slug" class="form-input body-md" required placeholder="Ej: color_hex" />
+              <span class="form-hint">Identificador URL-friendly</span>
+            </div>
+            <div class="form-group">
+              <label class="label-sm">Componente Frontend *</label>
+              <select name="frontend_component" class="form-select body-md" required>
+                <option value="">Seleccionar...</option>
+                {COMPONENT_OPTIONS.map((opt) => (
+                  <option value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="label-sm">Orden</label>
+              <input type="number" name="sort_order" class="form-input body-md" value="0" min="0" />
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn--secondary" id="module-modal-cancel">Cancelar</button>
+              <button type="submit" class="btn btn--primary">Guardar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Value Modal -->
+      <div class="modal-overlay" id="value-modal" style="display: none;">
+        <div class="modal">
+          <div class="modal-header">
+            <h3 class="headline-lg-mobile" id="value-modal-title">Nuevo Valor</h3>
+            <button class="modal-close" id="value-modal-close">✕</button>
+          </div>
+          <form class="modal-form" id="value-form">
+            <input type="hidden" id="value-id" />
+            <input type="hidden" id="value-module-id" />
+            <div class="form-group">
+              <label class="label-sm">Label *</label>
+              <input type="text" name="label" class="form-input body-md" required placeholder="Ej: Rojo" />
+            </div>
+            <div class="form-group">
+              <label class="label-sm">Valor (raw) *</label>
+              <input type="text" name="raw_value" class="form-input body-md" required placeholder="Ej: #FF0000" />
+            </div>
+            <div class="form-group">
+              <label class="label-sm">Color HEX</label>
+              <div class="color-input-row">
+                <input type="color" name="hex_color_picker" class="color-picker" value="#FF0000" />
+                <input type="text" name="hex_color" class="form-input body-md" placeholder="#FF0000" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="label-sm">Imagen URL</label>
+              <input type="text" name="image_url" class="form-input body-md" placeholder="https://..." />
+            </div>
+            <div class="form-group">
+              <label class="label-sm">Orden</label>
+              <input type="number" name="sort_order" class="form-input body-md" value="0" min="0" />
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn--secondary" id="value-modal-cancel">Cancelar</button>
+              <button type="submit" class="btn btn--primary">Guardar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+</BaseLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  let modules: any[] = [];
+  let expandedModuleId: string | null = null;
+  let moduleValues: Record<string, any[]> = {};
+
+  const COMPONENT_LABELS: Record<string, string> = {
+    color_selector: 'Selector de Color',
+    size_selector: 'Selector de Talle',
+    dropdown: 'Dropdown',
+    toggle: 'Toggle',
+  };
+
+  // ─── Load modules ────────────────────────────────────────
+  async function loadModules() {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/attributes/modules`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load');
+      const data = await res.json();
+      modules = data.data || [];
+      renderModules();
+      updateStats();
+    } catch (err) {
+      console.error('Error loading modules:', err);
+    }
+  }
+
+  // ─── Load values for a module ────────────────────────────
+  async function loadValues(moduleId: string) {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/attributes/values?module_id=${moduleId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load');
+      const data = await res.json();
+      moduleValues[moduleId] = data.data || [];
+      renderValues(moduleId);
+    } catch (err) {
+      console.error('Error loading values:', err);
+    }
+  }
+
+  // ─── Render modules table ────────────────────────────────
+  function renderModules() {
+    const tbody = document.querySelector('#tab-modules tbody, .dt-table tbody');
+    if (!tbody) return;
+
+    const search = (document.getElementById('search-input') as HTMLInputElement)?.value || '';
+    let filtered = modules;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      filtered = modules.filter((m: any) =>
+        m.name.toLowerCase().includes(q) ||
+        m.slug.toLowerCase().includes(q) ||
+        (COMPONENT_LABELS[m.frontend_component] || m.frontend_component).toLowerCase().includes(q)
+      );
+    }
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No hay módulos de atributos</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filtered.map((m: any) => {
+      const componentLabel = COMPONENT_LABELS[m.frontend_component] || m.frontend_component;
+      const isExpanded = expandedModuleId === m.id;
+      const statusClass = m.is_active ? 'active' : 'inactive';
+      const statusLabel = m.is_active ? 'Activo' : 'Inactivo';
+
+      return `
+        <tr class="module-row ${isExpanded ? 'expanded' : ''}" data-module-id="${m.id}">
+          <td>
+            <button class="expand-btn" onclick="toggleExpand('${m.id}')" title="Ver valores">
+              <span class="expand-icon">${isExpanded ? '▼' : '▶'}</span>
+              <strong>${m.name}</strong>
+            </button>
+          </td>
+          <td><code class="slug-badge">${m.slug}</code></td>
+          <td><span class="component-badge">${componentLabel}</span></td>
+          <td class="center">${m.value_count ?? 0}</td>
+          <td class="center">${m.sort_order}</td>
+          <td><span class="badge badge--${statusClass}"><span class="badge-dot"></span>${statusLabel}</span></td>
+          <td>
+            <div class="cell-actions">
+              <button class="ta-btn" onclick="editModule('${m.id}')" title="Editar">✏️</button>
+              <button class="ta-btn ta-btn--delete" onclick="deleteModule('${m.id}')" title="Eliminar">🗑️</button>
+            </div>
+          </td>
+        </tr>
+        ${isExpanded ? `<tr class="values-row"><td colspan="7"><div class="values-panel" id="values-${m.id}"><div class="values-loading">Cargando valores...</div></div></td></tr>` : ''}
+      `;
+    }).join('');
+
+    // Load values for expanded module
+    if (expandedModuleId) {
+      if (moduleValues[expandedModuleId]) {
+        renderValues(expandedModuleId);
+      } else {
+        loadValues(expandedModuleId);
+      }
+    }
+  }
+
+  // ─── Render values panel ─────────────────────────────────
+  function renderValues(moduleId: string) {
+    const panel = document.getElementById(`values-${moduleId}`);
+    if (!panel) return;
+
+    const values = moduleValues[moduleId] || [];
+    if (values.length === 0) {
+      panel.innerHTML = `
+        <div class="values-header">
+          <span class="values-title body-md">Valores</span>
+          <button class="btn btn--primary btn--sm" onclick="openValueModal('${moduleId}')">
+            <span class="btn-icon">+</span> Agregar Valor
+          </button>
+        </div>
+        <p class="values-empty">No hay valores para este módulo</p>
+      `;
+      return;
+    }
+
+    panel.innerHTML = `
+      <div class="values-header">
+        <span class="values-title body-md">Valores (${values.length})</span>
+        <button class="btn btn--primary btn--sm" onclick="openValueModal('${moduleId}')">
+          <span class="btn-icon">+</span> Agregar Valor
+        </button>
+      </div>
+      <div class="values-grid">
+        ${values.map((v: any) => `
+          <div class="value-card" data-value-id="${v.id}">
+            <div class="value-info">
+              ${v.hex_color ? `<span class="color-dot" style="background-color: ${v.hex_color}"></span>` : ''}
+              <span class="value-label">${v.label}</span>
+              <code class="value-raw">${v.raw_value}</code>
+            </div>
+            <div class="value-actions">
+              <button class="ta-btn" onclick="editValue('${moduleId}', '${v.id}')" title="Editar">✏️</button>
+              <button class="ta-btn ta-btn--delete" onclick="deleteValue('${v.id}')" title="Eliminar">🗑️</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // ─── Update stats ────────────────────────────────────────
+  function updateStats() {
+    const total = modules.length;
+    const totalValues = modules.reduce((sum: number, m: any) => sum + (m.value_count || 0), 0);
+    const statTotal = document.getElementById('stat-total');
+    const statValues = document.getElementById('stat-values');
+    if (statTotal) statTotal.textContent = `${total} módulo${total !== 1 ? 's' : ''}`;
+    if (statValues) statValues.textContent = `${totalValues} valor${totalValues !== 1 ? 'es' : ''}`;
+  }
+
+  // ─── Toggle expand ───────────────────────────────────────
+  (window as any).toggleExpand = function(moduleId: string) {
+    if (expandedModuleId === moduleId) {
+      expandedModuleId = null;
+    } else {
+      expandedModuleId = moduleId;
+    }
+    renderModules();
+  };
+
+  // ─── Module modal ────────────────────────────────────────
+  function openModuleModal(mode: 'create' | 'edit', data?: any) {
+    const overlay = document.getElementById('module-modal');
+    const title = document.getElementById('module-modal-title');
+    const idInput = document.getElementById('module-id') as HTMLInputElement;
+    const form = document.getElementById('module-form') as HTMLFormElement;
+
+    if (!overlay || !title) return;
+
+    title.textContent = mode === 'create' ? 'Nuevo Módulo' : 'Editar Módulo';
+    idInput.value = data?.id || '';
+
+    if (data) {
+      form.name.value = data.name || '';
+      form.slug.value = data.slug || '';
+      form.frontend_component.value = data.frontend_component || '';
+      form.sort_order.value = data.sort_order || 0;
+    } else {
+      form.reset();
+      form.sort_order.value = '0';
+    }
+
+    overlay.style.display = '';
+  }
+
+  function closeModuleModal() {
+    document.getElementById('module-modal').style.display = 'none';
+  }
+
+  document.getElementById('add-module')?.addEventListener('click', () => openModuleModal('create'));
+  document.getElementById('module-modal-close')?.addEventListener('click', closeModuleModal);
+  document.getElementById('module-modal-cancel')?.addEventListener('click', closeModuleModal);
+  document.getElementById('module-modal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModuleModal();
+  });
+
+  document.getElementById('module-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const id = (document.getElementById('module-id') as HTMLInputElement).value;
+    const isEdit = !!id;
+
+    const body: any = {
+      name: form.name.value,
+      slug: form.slug.value,
+      frontend_component: form.frontend_component.value,
+      sort_order: parseInt(form.sort_order.value) || 0,
+    };
+
+    const url = isEdit
+      ? `${API_URL}/api/admin/attributes/modules/${id}`
+      : `${API_URL}/api/admin/attributes/modules`;
+
+    const res = await fetch(url, {
+      method: isEdit ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      closeModuleModal();
+      loadModules();
+    } else {
+      const error = await res.json();
+      alert(error.error || 'Error al guardar');
+    }
+  });
+
+  // ─── Edit module ─────────────────────────────────────────
+  (window as any).editModule = function(id: string) {
+    const mod = modules.find((m: any) => m.id === id);
+    if (mod) openModuleModal('edit', mod);
+  };
+
+  // ─── Delete module ───────────────────────────────────────
+  (window as any).deleteModule = async function(id: string) {
+    if (!confirm('¿Estás seguro? Se eliminará este módulo y todos sus valores.')) return;
+
+    const res = await fetch(`${API_URL}/api/admin/attributes/modules/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      if (expandedModuleId === id) expandedModuleId = null;
+      delete moduleValues[id];
+      loadModules();
+    }
+  };
+
+  // ─── Value modal ─────────────────────────────────────────
+  function openValueModal(moduleId: string, data?: any) {
+    const overlay = document.getElementById('value-modal');
+    const title = document.getElementById('value-modal-title');
+    const moduleIdInput = document.getElementById('value-module-id') as HTMLInputElement;
+    const valueIdInput = document.getElementById('value-id') as HTMLInputElement;
+    const form = document.getElementById('value-form') as HTMLFormElement;
+
+    if (!overlay || !title) return;
+
+    title.textContent = data ? 'Editar Valor' : 'Nuevo Valor';
+    moduleIdInput.value = moduleId;
+    valueIdInput.value = data?.id || '';
+
+    if (data) {
+      form.label.value = data.label || '';
+      form.raw_value.value = data.raw_value || '';
+      form.hex_color.value = data.hex_color || '';
+      form.hex_color_picker.value = data.hex_color || '#FF0000';
+      form.image_url.value = data.image_url || '';
+      form.sort_order.value = data.sort_order || 0;
+    } else {
+      form.reset();
+      form.sort_order.value = '0';
+      form.hex_color_picker.value = '#FF0000';
+    }
+
+    overlay.style.display = '';
+  }
+
+  function closeValueModal() {
+    document.getElementById('value-modal').style.display = 'none';
+  }
+
+  (window as any).openValueModal = openValueModal;
+
+  document.getElementById('value-modal-close')?.addEventListener('click', closeValueModal);
+  document.getElementById('value-modal-cancel')?.addEventListener('click', closeValueModal);
+  document.getElementById('value-modal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeValueModal();
+  });
+
+  // Sync color picker with text input
+  document.querySelector('[name="hex_color_picker"]')?.addEventListener('input', (e) => {
+    const textInput = document.querySelector('[name="hex_color"]') as HTMLInputElement;
+    if (textInput) textInput.value = (e.target as HTMLInputElement).value;
+  });
+  document.querySelector('[name="hex_color"]')?.addEventListener('input', (e) => {
+    const picker = document.querySelector('[name="hex_color_picker"]') as HTMLInputElement;
+    const val = (e.target as HTMLInputElement).value;
+    if (picker && /^#[0-9A-Fa-f]{6}$/.test(val)) picker.value = val;
+  });
+
+  document.getElementById('value-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const moduleId = (document.getElementById('value-module-id') as HTMLInputElement).value;
+    const valueId = (document.getElementById('value-id') as HTMLInputElement).value;
+    const isEdit = !!valueId;
+
+    const body: any = {
+      module_id: moduleId,
+      label: form.label.value,
+      raw_value: form.raw_value.value,
+      hex_color: form.hex_color.value || null,
+      image_url: form.image_url.value || null,
+      sort_order: parseInt(form.sort_order.value) || 0,
+    };
+
+    const url = isEdit
+      ? `${API_URL}/api/admin/attributes/values/${valueId}`
+      : `${API_URL}/api/admin/attributes/values`;
+
+    const res = await fetch(url, {
+      method: isEdit ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      closeValueModal();
+      delete moduleValues[moduleId];
+      loadModules();
+      if (expandedModuleId === moduleId) loadValues(moduleId);
+    } else {
+      const error = await res.json();
+      alert(error.error || 'Error al guardar');
+    }
+  });
+
+  // ─── Edit value ──────────────────────────────────────────
+  (window as any).editValue = function(moduleId: string, valueId: string) {
+    const values = moduleValues[moduleId] || [];
+    const val = values.find((v: any) => v.id === valueId);
+    if (val) openValueModal(moduleId, val);
+  };
+
+  // ─── Delete value ────────────────────────────────────────
+  (window as any).deleteValue = async function(valueId: string) {
+    if (!confirm('¿Eliminar este valor?')) return;
+
+    const res = await fetch(`${API_URL}/api/admin/attributes/values/${valueId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (res.ok && expandedModuleId) {
+      delete moduleValues[expandedModuleId];
+      loadModules();
+      loadValues(expandedModuleId);
+    }
+  };
+
+  // ─── Search ──────────────────────────────────────────────
+  document.getElementById('search-input')?.addEventListener('input', () => {
+    renderModules();
+  });
+
+  // ─── ESC to close modals ─────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeModuleModal();
+      closeValueModal();
+    }
+  });
+
+  // ─── Init ────────────────────────────────────────────────
+  loadModules();
+</script>
+
+<style>
+  .admin-layout { display: grid; grid-template-columns: 1fr; min-height: calc(100vh - 72px); }
+  @media (min-width: 768px) { .admin-layout { grid-template-columns: 260px 1fr; } }
+  .admin-main { padding: var(--space-2xl); overflow-y: auto; }
+  .admin-header { margin-bottom: var(--space-lg); }
+  .admin-header h1 { color: var(--on-surface); margin-bottom: var(--space-sm); }
+  .admin-subtitle { color: var(--on-surface-variant); }
+
+  .stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: var(--space-xl);
+    padding: 12px 16px;
+    background-color: rgba(31, 31, 31, 0.3);
+    border: 1px solid rgba(62, 72, 80, 0.2);
+  }
+  .stat-item { color: #bdc8d1; }
+  .stat-divider { color: rgba(62, 72, 80, 0.5); }
+
+  .content-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-xl);
+    flex-wrap: wrap;
+    gap: var(--space-md);
+  }
+  .search-box { flex: 1; max-width: 320px; }
+
+  .empty-cell { text-align: center; padding: 48px !important; color: #bdc8d1; }
+
+  .cell-actions { display: flex; gap: 6px; justify-content: flex-end; opacity: 0.6; transition: opacity 0.2s ease; }
+  tr:hover .cell-actions { opacity: 1; }
+
+  .center { text-align: center; }
+
+  .slug-badge {
+    display: inline-block; padding: 4px 10px;
+    background-color: rgba(53, 53, 53, 0.5); border: 1px solid rgba(62, 72, 80, 0.3);
+    color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px;
+  }
+  .component-badge {
+    display: inline-block; padding: 4px 10px;
+    background-color: rgba(130, 207, 255, 0.08); border: 1px solid rgba(130, 207, 255, 0.2);
+    color: #82cfff; font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px;
+  }
+
+  .expand-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: none; border: none; color: #e2e2e2; cursor: pointer;
+    font-family: 'Hanken Grotesk', sans-serif; font-size: 16px; padding: 0;
+  }
+  .expand-btn:hover { color: #82cfff; }
+  .expand-icon { font-size: 10px; color: #bdc8d1; width: 14px; text-align: center; }
+
+  .module-row.expanded { background-color: rgba(130, 207, 255, 0.03); }
+  .values-row td { padding: 0 !important; border-bottom: 1px solid rgba(130, 207, 255, 0.1) !important; }
+  .values-panel {
+    padding: 16px 24px 16px 48px;
+    background-color: rgba(130, 207, 255, 0.02);
+    border-top: 1px solid rgba(62, 72, 80, 0.1);
+  }
+  .values-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .values-title { color: #82cfff; font-family: 'Space Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .values-empty { color: #bdc8d1; font-size: 13px; padding: 8px 0; }
+  .values-loading { color: #bdc8d1; font-size: 13px; padding: 8px 0; }
+
+  .values-grid { display: flex; flex-direction: column; gap: 6px; }
+  .value-card {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px;
+    background-color: rgba(31, 31, 31, 0.3); border: 1px solid rgba(62, 72, 80, 0.15);
+    transition: border-color 0.15s ease;
+  }
+  .value-card:hover { border-color: rgba(62, 72, 80, 0.4); }
+  .value-info { display: flex; align-items: center; gap: 10px; }
+  .color-dot { width: 14px; height: 14px; border-radius: 0px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+  .value-label { color: #e2e2e2; font-size: 14px; }
+  .value-raw { color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 11px; }
+  .value-actions { display: flex; gap: 4px; opacity: 0.5; transition: opacity 0.15s ease; }
+  .value-card:hover .value-actions { opacity: 1; }
+
+  .color-input-row { display: flex; gap: 8px; align-items: center; }
+  .color-picker { width: 40px; height: 38px; padding: 2px; border: 1px solid rgba(62, 72, 80, 0.3); background: rgba(31,31,31,0.5); cursor: pointer; border-radius: 0px; }
+
+  .form-hint { color: #626870; font-size: 12px; margin-top: 2px; }
+
+  .btn--sm { padding: 6px 14px; font-size: 11px; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .modal { background-color: #131313; border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 24px; border-bottom: 1px solid rgba(62, 72, 80, 0.3); }
+  .modal-header h3 { color: #e2e2e2; }
+  .modal-close { background: none; border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; width: 36px; height: 36px; color: #bdc8d1; cursor: pointer; font-size: 18px; transition: all 0.15s ease; }
+  .modal-close:hover { border-color: #ffb4ab; color: #ffb4ab; }
+  .modal-form { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+  .form-group { display: flex; flex-direction: column; gap: 8px; }
+  .form-group label { color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .form-input, .form-select, .form-textarea { padding: 12px; background-color: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; color: #e2e2e2; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; transition: all 0.2s ease; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: #82cfff; box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.2); }
+  .form-actions { display: flex; gap: 12px; justify-content: flex-end; padding-top: 20px; border-top: 1px solid rgba(62, 72, 80, 0.3); }
+
+  :global(.ta-btn) {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; padding: 0;
+    background: rgba(130, 207, 255, 0.08); border: 1px solid rgba(130, 207, 255, 0.2);
+    border-radius: 0px; color: #82cfff; cursor: pointer;
+    transition: all 0.15s ease; font-size: 14px;
+  }
+  :global(.ta-btn:hover) { background: rgba(130, 207, 255, 0.15); border-color: rgba(130, 207, 255, 0.5); transform: scale(1.1); }
+  :global(.ta-btn:active) { transform: scale(0.95); }
+  :global(.ta-btn--delete) { background: rgba(255, 180, 171, 0.08); border-color: rgba(255, 180, 171, 0.2); color: #ffb4ab; }
+  :global(.ta-btn--delete:hover) { background: rgba(255, 180, 171, 0.15); border-color: rgba(255, 180, 171, 0.5); }
+
+  :global(.badge) {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; font-family: 'Space Mono', monospace; font-size: 11px;
+    font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;
+    border-radius: 0px; white-space: nowrap;
+  }
+  :global(.badge-dot) { width: 6px; height: 6px; border-radius: 0px; background-color: currentColor; }
+  :global(.badge--active) { background-color: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.3); }
+  :global(.badge--inactive) { background-color: rgba(189, 200, 209, 0.1); color: #bdc8d1; border: 1px solid rgba(189, 200, 209, 0.3); }
+</style>
+
+<style>
+  :global(.btn) {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 24px; font-family: 'Space Mono', monospace; font-size: 12px;
+    font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase;
+    text-decoration: none; border-radius: 0px; cursor: pointer;
+    transition: all 0.2s ease; backdrop-filter: blur(8px);
+  }
+  :global(.btn:hover) { transform: scale(1.05); }
+  :global(.btn:active) { transform: scale(0.95); }
+  :global(.btn--primary) {
+    background-color: rgba(130, 207, 255, 0.1); color: #82cfff;
+    border: 1px solid rgba(130, 207, 255, 0.5);
+  }
+  :global(.btn--primary:hover) { background-color: rgba(130, 207, 255, 0.2); }
+  :global(.btn--secondary) {
+    background-color: transparent; color: #e2e2e2;
+    border: 1px solid rgba(62, 72, 80, 0.5);
+  }
+  :global(.btn--secondary:hover) { background-color: rgba(255, 255, 255, 0.05); border-color: rgba(62, 72, 80, 0.8); }
+  :global(.btn-icon) { font-size: 18px; line-height: 1; }
+</style>

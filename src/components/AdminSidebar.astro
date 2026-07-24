@@ -8,7 +8,7 @@
  */
 ---
 
-<aside class="admin-sidebar" id="admin-sidebar">
+<aside class="admin-sidebar" id="admin-sidebar" data-active={Astro.props.active || ''}>
   <!-- User Info (populated by JS) -->
   <div class="sidebar-user" id="sidebar-user">
     <div class="user-avatar">
@@ -97,6 +97,13 @@
               <line x1="9" y1="21" x2="9" y2="9"/>
             </svg>
             <span>Promociones</span>
+          </a>
+          <a href="/admin/attribute-modules" class="sidebar-link" data-section="attributes">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
+            <span>Atributos</span>
           </a>
     </div>
 
@@ -209,7 +216,20 @@
     }
   });
 
+  // Set active link based on prop
+  function setActiveLink() {
+    const activeSection = document.querySelector('.admin-sidebar')?.getAttribute('data-active');
+    if (activeSection) {
+      document.querySelectorAll('.sidebar-link').forEach((link) => {
+        if ((link as HTMLElement).dataset.section === activeSection) {
+          link.classList.add('active');
+        }
+      });
+    }
+  }
+
   initSidebar();
+  setActiveLink();
 </script>
 
 <style>
