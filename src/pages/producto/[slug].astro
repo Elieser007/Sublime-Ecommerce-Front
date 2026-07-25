@@ -348,7 +348,7 @@ const basePriceFormatted = formatPrice(product.base_price);
       const modifier = val.price_modifier !== 0
         ? ` (${val.price_modifier > 0 ? '+' : ''}₲${val.price_modifier.toLocaleString('es-PY')})`
         : '';
-      html += `<option value="${val.value_id}" disabled="${val.available === false}" data-price-modifier="${val.price_modifier}">${val.label}${modifier}</option>`;
+      html += `<option value="${val.value_id}" ${val.available === false ? 'disabled' : ''} data-price-modifier="${val.price_modifier}">${val.label}${modifier}</option>`;
     }
 
     html += `</select></div>`;
