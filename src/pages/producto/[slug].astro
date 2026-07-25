@@ -140,6 +140,8 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
   let selectedQty = 1;
   let currentVariantModules: any[] = [];
   let variantFinalPrice: number | null = null;
+  let selectedAttributesMap = new Map<string, string>();
+  let selectedModifiersMap = new Map<string, number>();
 
   async function loadProduct(slug: string) {
     try {
@@ -170,9 +172,13 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
     }
   }
 
-  async function loadVariants(productId: string) {
+  async function loadVariants(productId: string, selected?: Record<string, string>) {
     try {
-      const res = await fetch(`${API_URL}/api/public/products/${productId}/variants`);
+      let url = `${API_URL}/api/public/products/${productId}/variants`;
+      if (selected && Object.keys(selected).length > 0) {
+        url += `?selected=${encodeURIComponent(JSON.stringify(selected))}`;
+      }
+      const res = await fetch(url);
       if (!res.ok) return;
 
       const json = await res.json();
@@ -186,12 +192,78 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
       currentVariantModules = modules;
       variantFinalPrice = json.data?.final_price ?? json.final_price ?? null;
 
-      // Render VariantSelector via client-side HTML injection
-      // The component is Astro (server-rendered), so we build the HTML here
       renderVariantSelector(modules, productId);
     } catch (err) {
       console.error('Failed to load variants:', err);
-      // EC-4: show stale data, don't block interaction
+    }
+  }
+
+  function buildSelectedParam(): Record<string, string> {
+    const selected: Record<string, string> = {};
+    for (const [moduleId, valueId] of selectedAttributesMap) {
+      const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
+      if (!mod) continue;
+      const val = mod.values.find((v: any) => v.value_id === valueId);
+      if (val) {
+        selected[mod.slug] = val.raw_value;
+      }
+    }
+    return selected;
+  }
+
+  async function refreshVariants() {
+    const selected = buildSelectedParam();
+    await loadVariants(currentProduct.id, selected);
+    reapplySelectedState();
+  }
+
+  function reapplySelectedState() {
+    const container = document.querySelector('.variant-selector') as HTMLElement;
+    if (!container) return;
+
+    for (const [moduleId, valueId] of selectedAttributesMap) {
+      const btn = container.querySelector(
+        `.size-selector__btn[data-module-id="${moduleId}"][data-value-id="${valueId}"]`
+      ) as HTMLButtonElement;
+      if (btn) {
+        if (btn.disabled) {
+          selectedAttributesMap.delete(moduleId);
+        } else {
+          btn.classList.add('size-selector__btn--selected');
+          btn.setAttribute('aria-checked', 'true');
+        }
+        continue;
+      }
+
+      const circle = container.querySelector(
+        `.color-selector__circle[data-module-id="${moduleId}"][data-value-id="${valueId}"]`
+      ) as HTMLButtonElement;
+      if (circle) {
+        if (circle.disabled) {
+          selectedAttributesMap.delete(moduleId);
+        } else {
+          circle.classList.add('color-selector__circle--selected');
+          circle.setAttribute('aria-checked', 'true');
+        }
+        continue;
+      }
+
+      const select = container.querySelector(
+        `.material-selector__select[data-module-id="${moduleId}"]`
+      ) as HTMLSelectElement;
+      if (select) {
+        const opt = Array.from(select.options).find(o => o.value === valueId);
+        if (opt && !opt.disabled) {
+          select.value = valueId;
+        } else {
+          selectedAttributesMap.delete(moduleId);
+        }
+      }
+    }
+
+    const $priceDisplay = container.querySelector('[data-variant-price]') as HTMLElement;
+    if ($priceDisplay && variantFinalPrice != null) {
+      $priceDisplay.textContent = `Gs. ${formatPrice(variantFinalPrice)}`;
     }
   }
 
@@ -290,11 +362,8 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
     const container = document.querySelector('.variant-selector') as HTMLElement;
     if (!container) return;
 
-    const selectedAttributes = new Map<string, string>();
-    const selectedModifiers = new Map<string, number>();
-
     function updateVariantPrice() {
-      const modifiers = Array.from(selectedModifiers.values());
+      const modifiers = Array.from(selectedModifiersMap.values());
       const finalPrice = computeFinalPrice(currentProduct.base_price, modifiers);
       const $priceDisplay = container.querySelector('[data-variant-price]') as HTMLElement;
       if ($priceDisplay) {
@@ -304,7 +373,7 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
       // Dispatch event
       window.dispatchEvent(new CustomEvent('variant-change', {
         detail: {
-          selectedAttributes: Object.fromEntries(selectedAttributes),
+          selectedAttributes: Object.fromEntries(selectedAttributesMap),
           finalPrice,
           productId: currentProduct.id,
         }
@@ -315,7 +384,7 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
         ...m,
         values: m.values.map((v: any) => ({ ...v, available: true }))
       }));
-      const complete = isSelectionComplete(modules, selectedAttributes);
+      const complete = isSelectionComplete(modules, selectedAttributesMap);
       if ($addCart) $addCart.disabled = !complete;
     }
 
@@ -336,9 +405,10 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
       btn.classList.add('size-selector__btn--selected');
       btn.setAttribute('aria-checked', 'true');
 
-      selectedAttributes.set(moduleId, valueId);
-      selectedModifiers.set(moduleId, priceModifier);
+      selectedAttributesMap.set(moduleId, valueId);
+      selectedModifiersMap.set(moduleId, priceModifier);
       updateVariantPrice();
+      refreshVariants();
     });
 
     // Color circles
@@ -358,9 +428,10 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
       btn.classList.add('color-selector__circle--selected');
       btn.setAttribute('aria-checked', 'true');
 
-      selectedAttributes.set(moduleId, valueId);
-      selectedModifiers.set(moduleId, priceModifier);
+      selectedAttributesMap.set(moduleId, valueId);
+      selectedModifiersMap.set(moduleId, priceModifier);
       updateVariantPrice();
+      refreshVariants();
     });
 
     // Material select
@@ -372,16 +443,17 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
       const valueId = select.value;
 
       if (!valueId) {
-        selectedAttributes.delete(moduleId);
-        selectedModifiers.delete(moduleId);
+        selectedAttributesMap.delete(moduleId);
+        selectedModifiersMap.delete(moduleId);
       } else {
         const priceModifier = parseInt(
           select.options[select.selectedIndex]?.dataset.priceModifier || '0', 10
         );
-        selectedAttributes.set(moduleId, valueId);
-        selectedModifiers.set(moduleId, priceModifier);
+        selectedAttributesMap.set(moduleId, valueId);
+        selectedModifiersMap.set(moduleId, priceModifier);
       }
       updateVariantPrice();
+      refreshVariants();
     });
 
     // Keyboard navigation
