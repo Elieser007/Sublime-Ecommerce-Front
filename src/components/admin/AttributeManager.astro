@@ -100,6 +100,26 @@ const { productId, productName } = Astro.props;
   </div>
 </div>
 
+<!-- Value Picker Modal -->
+<div class="attr-modal-overlay" id="value-picker-overlay" style="display: none;">
+  <div class="attr-modal attr-modal--sm">
+    <div class="attr-modal-header">
+      <h3 class="headline-lg-mobile" id="value-picker-title">Agregar Valor</h3>
+      <button class="modal-close" id="value-picker-close">✕</button>
+    </div>
+    
+    <div class="attr-modal-body">
+      <div id="value-picker-list" class="attr-picker-list">
+        <p class="attr-empty-state">Cargando valores...</p>
+      </div>
+    </div>
+    
+    <div class="attr-modal-footer">
+      <button class="btn btn--secondary" id="value-picker-cancel">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <style>
   .attr-modal-overlay {
     position: fixed;
@@ -424,6 +444,70 @@ const { productId, productName } = Astro.props;
     accent-color: #82cfff;
   }
 
+  .attr-picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .attr-picker-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(31, 31, 31, 0.5);
+    border: 1px solid rgba(62, 72, 80, 0.2);
+    border-radius: 0px;
+  }
+
+  .attr-picker-item-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #e2e2e2;
+    font-size: 13px;
+  }
+
+  .attr-picker-item--assigned {
+    opacity: 0.6;
+  }
+
+  .attr-picker-item--assigned .attr-picker-btn {
+    background-color: rgba(62, 72, 80, 0.3);
+    color: #6b7280;
+    border-color: rgba(62, 72, 80, 0.3);
+    cursor: not-allowed;
+  }
+
+  .attr-picker-btn {
+    padding: 4px 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 0px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: rgba(130, 207, 255, 0.1);
+    color: #82cfff;
+    border: 1px solid rgba(130, 207, 255, 0.5);
+  }
+
+  .attr-picker-btn:hover:not(:disabled) {
+    background-color: rgba(130, 207, 255, 0.2);
+  }
+
+  .attr-picker-btn:disabled {
+    background-color: rgba(62, 72, 80, 0.3);
+    color: #6b7280;
+    border-color: rgba(62, 72, 80, 0.3);
+    cursor: not-allowed;
+  }
+
   :global(.btn) {
     display: inline-flex;
     align-items: center;
@@ -585,6 +669,9 @@ const { productId, productName } = Astro.props;
             <span class="badge badge--sm">${attr.values.length} valores</span>
           </span>
           <div class="attr-module-actions">
+            <button class="btn btn--primary btn--sm" onclick="openValuePicker('${attr.module_id}', '${escapeHtml(attr.module_name)}')">
+              + Agregar Valor
+            </button>
             <button class="btn btn--danger btn--sm" onclick="unassignModule('${attr.module_id}', '${attr.module_name}')">
               Quitar
             </button>
@@ -592,7 +679,7 @@ const { productId, productName } = Astro.props;
         </div>
         <div class="attr-values-list ${expandedModule === attr.module_id ? 'visible' : ''}" id="values-${attr.module_id}">
           ${attr.values.length === 0 
-            ? '<p class="attr-empty-state">No hay valores</p>'
+            ? '<p class="attr-empty-state">No hay valores asignados</p>'
             : attr.values.map((v: any) => `
               <div class="attr-value-row">
                 <span class="attr-value-label">
@@ -602,19 +689,14 @@ const { productId, productName } = Astro.props;
                 <div class="attr-value-price">
                   <input type="number" 
                          value="${v.price_modifier}" 
-                         onchange="updatePriceModifier('${attr.module_id}', '${v.value_id}', this.value)"
+                         onchange="updatePriceModifier('${attr.module_id}', '${v.id}', this.value)"
                          placeholder="Mod. precio" />
                   <span class="price-modifier">${v.price_modifier > 0 ? '+' : ''}${v.price_modifier}</span>
                 </div>
-                <button class="btn btn--danger btn--sm" onclick="removeValue('${attr.module_id}', '${v.value_id}')">✕</button>
+                <button class="btn btn--danger btn--sm" onclick="removeValue('${attr.module_id}', '${v.id}')">✕</button>
               </div>
             `).join('')
           }
-          <div class="attr-add-value-form">
-            <input type="text" id="new-value-${attr.module_id}" placeholder="Nuevo valor..." />
-            <input type="number" id="new-price-${attr.module_id}" placeholder="Mod. precio" style="width:80px" />
-            <button class="btn btn--primary btn--sm" onclick="addValue('${attr.module_id}')">+</button>
-          </div>
         </div>
       </div>
     `).join('');
@@ -697,53 +779,66 @@ const { productId, productName } = Astro.props;
   });
 
   // ─── VALUE OPERATIONS ───────────────────────────────────
-  (window as any).addValue = async (moduleId: string) => {
-    const valueInput = $(`new-value-${moduleId}`) as HTMLInputElement;
-    const priceInput = $(`new-price-${moduleId}`) as HTMLInputElement;
-    const label = valueInput?.value.trim();
-    const priceModifier = parseInt(priceInput?.value) || 0;
+  let currentPickerModuleId: string | null = null;
 
-    if (!label) {
-      showToast('Ingresá un nombre para el valor', 'error');
+  async function loadModuleValues(moduleId: string): Promise<any[]> {
+    const res = await fetch(`${API_URL}/api/admin/attributes/values?module_id=${moduleId}`, { credentials: 'include' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.data || [];
+  }
+
+  (window as any).openValuePicker = async (moduleId: string, moduleName: string) => {
+    currentPickerModuleId = moduleId;
+    $('value-picker-title')!.textContent = `Valores de ${moduleName}`;
+    $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">Cargando valores...</p>';
+    $('value-picker-overlay')!.style.display = '';
+
+    const allValues = await loadModuleValues(moduleId);
+    const currentAttr = productAttributes.find((a: any) => a.module_id === moduleId);
+    const assignedIds = new Set(currentAttr?.values?.map((v: any) => v.id) || []);
+
+    if (allValues.length === 0) {
+      $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">No hay valores disponibles para este módulo</p>';
       return;
     }
 
-    // Step 1: Create the attribute value
-    const createRes = await fetch(`${API_URL}/api/admin/attributes/values`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ 
-        module_id: moduleId,
-        value: label.toLowerCase(),
-        display_label: label,
-        sort_order: 0
-      })
-    });
-    
-    if (!createRes.ok) {
-      showToast('Error al crear valor', 'error');
-      return;
-    }
-    
-    const createData = await createRes.json();
-    const newValueId = createData.data.id;
+    $('value-picker-list')!.innerHTML = allValues.map((v: any) => {
+      const isAssigned = assignedIds.has(v.id);
+      return `
+        <div class="attr-picker-item ${isAssigned ? 'attr-picker-item--assigned' : ''}">
+          <span class="attr-picker-item-info">
+            ${v.hex_color ? `<span class="attr-value-color" style="background:${v.hex_color}"></span>` : ''}
+            ${escapeHtml(v.label)}
+          </span>
+          <button class="attr-picker-btn" 
+                  ${isAssigned ? 'disabled' : ''}
+                  onclick="assignValueFromPicker('${moduleId}', '${v.id}')">
+            ${isAssigned ? 'Agregado' : 'Agregar'}
+          </button>
+        </div>
+      `;
+    }).join('');
+  };
 
-    // Step 2: Assign value to product with price modifier
+  (window as any).assignValueFromPicker = async (moduleId: string, valueId: string) => {
     const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ value_id: newValueId, price_modifier: priceModifier }),
+      body: JSON.stringify({ value_id: valueId, price_modifier: 0 }),
     });
 
     if (res.ok) {
       showToast('Valor agregado');
-      valueInput.value = '';
-      priceInput.value = '';
       await loadProductAttributes();
+      if (currentPickerModuleId) {
+        const attr = productAttributes.find((a: any) => a.module_id === currentPickerModuleId);
+        (window as any).openValuePicker(currentPickerModuleId, attr?.module_name || '');
+      }
     } else {
-      showToast('Error al agregar valor', 'error');
+      const err = await res.json();
+      showToast(err.error || 'Error al agregar valor', 'error');
     }
   };
 
@@ -781,6 +876,11 @@ const { productId, productName } = Astro.props;
     }
   };
 
+  function closeValuePicker() {
+    $('value-picker-overlay')!.style.display = 'none';
+    currentPickerModuleId = null;
+  }
+
   // ─── DEPENDENCY FORM ────────────────────────────────────
   function openDependencyForm() {
     $('dep-overlay')!.style.display = '';
@@ -810,11 +910,11 @@ const { productId, productName } = Astro.props;
       allModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
   }
 
-  async function loadModuleValues(moduleId: string, targetId: string) {
+  async function loadModuleValuesForDep(moduleId: string): Promise<any[]> {
     const res = await fetch(`${API_URL}/api/admin/attributes/values?module_id=${moduleId}`, { credentials: 'include' });
     if (!res.ok) return [];
     const data = await res.json();
-    return data.values || [];
+    return data.data || [];
   }
 
   $('parent-module-select')?.addEventListener('change', async (e) => {
@@ -827,7 +927,7 @@ const { productId, productName } = Astro.props;
       return;
     }
 
-    const values = await loadModuleValues(moduleId);
+    const values = await loadModuleValuesForDep(moduleId);
     valueSelect.disabled = false;
     valueSelect.innerHTML = '<option value="">Seleccionar...</option>' + 
       values.map((v: any) => `<option value="${v.id}">${v.label}</option>`).join('');
@@ -842,7 +942,7 @@ const { productId, productName } = Astro.props;
       return;
     }
 
-    const values = await loadModuleValues(moduleId);
+    const values = await loadModuleValuesForDep(moduleId);
     if (values.length === 0) {
       checklist!.innerHTML = '<p class="attr-empty-state">No hay valores disponibles</p>';
       return;
@@ -935,6 +1035,10 @@ const { productId, productName } = Astro.props;
   $('dep-cancel')?.addEventListener('click', closeDependencyForm);
   $('dep-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeDependencyForm(); });
 
+  $('value-picker-close')?.addEventListener('click', closeValuePicker);
+  $('value-picker-cancel')?.addEventListener('click', closeValuePicker);
+  $('value-picker-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeValuePicker(); });
+
   // Initialize
   productId = $('attr-overlay')?.dataset.productId || '';
   if (productId) {
@@ -954,7 +1058,9 @@ const { productId, productName } = Astro.props;
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      if ($('dep-overlay')?.style.display !== 'none') {
+      if ($('value-picker-overlay')?.style.display !== 'none') {
+        closeValuePicker();
+      } else if ($('dep-overlay')?.style.display !== 'none') {
         closeDependencyForm();
       } else if ($('attr-overlay')?.style.display !== 'none') {
         closeModal();

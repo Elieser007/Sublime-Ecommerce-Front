@@ -164,6 +164,32 @@ function dependencyExists(
   );
 }
 
+/**
+ * Get available values for picker (filter out already assigned)
+ */
+function getAvailableValuesForPicker(
+  allValues: AttributeValue[],
+  assignedValueIds: Set<string>
+): AttributeValue[] {
+  return allValues.filter((v) => !assignedValueIds.has(v.id));
+}
+
+/**
+ * Check if a value is already assigned to a product attribute
+ */
+function isValueAssigned(assignedValueIds: Set<string>, valueId: string): boolean {
+  return assignedValueIds.has(valueId);
+}
+
+/**
+ * Build assigned value IDs set from product attributes
+ */
+function buildAssignedValueIds(attributes: ProductAttribute[], moduleId: string): Set<string> {
+  const attr = attributes.find((a) => a.module_id === moduleId);
+  if (!attr) return new Set();
+  return new Set(attr.values.map((v) => v.value_id));
+}
+
 // ─── TESTS ────────────────────────────────────────────────
 
 describe("AttributeManager logic", () => {
@@ -292,6 +318,49 @@ describe("AttributeManager logic", () => {
     it("returns false for empty dependencies", () => {
       const exists = dependencyExists([], "mod-1", "val-1", "mod-2", "val-3");
       expect(exists).toBe(false);
+    });
+  });
+
+  describe("Value Picker", () => {
+    const allModuleValues: AttributeValue[] = [
+      { id: "val-1", module_id: "mod-1", label: "Rojo", raw_value: "#FF0000", hex_color: "#FF0000", sort_order: 0 },
+      { id: "val-2", module_id: "mod-1", label: "Azul", raw_value: "#0000FF", hex_color: "#0000FF", sort_order: 1 },
+      { id: "val-6", module_id: "mod-1", label: "Verde", raw_value: "#00FF00", hex_color: "#00FF00", sort_order: 2 },
+    ];
+
+    it("buildAssignedValueIds returns correct set for module", () => {
+      const assignedIds = buildAssignedValueIds(mockProductAttributes, "mod-1");
+      expect(assignedIds.size).toBe(2);
+      expect(assignedIds.has("val-1")).toBe(true);
+      expect(assignedIds.has("val-2")).toBe(true);
+    });
+
+    it("buildAssignedValueIds returns empty set for unassigned module", () => {
+      const assignedIds = buildAssignedValueIds(mockProductAttributes, "mod-3");
+      expect(assignedIds.size).toBe(0);
+    });
+
+    it("getAvailableValuesForPicker excludes assigned values", () => {
+      const assignedIds = new Set(["val-1", "val-2"]);
+      const available = getAvailableValuesForPicker(allModuleValues, assignedIds);
+      expect(available).toHaveLength(1);
+      expect(available[0].id).toBe("val-6");
+    });
+
+    it("getAvailableValuesForPicker returns all when none assigned", () => {
+      const assignedIds = new Set<string>();
+      const available = getAvailableValuesForPicker(allModuleValues, assignedIds);
+      expect(available).toHaveLength(3);
+    });
+
+    it("isValueAssigned returns true for assigned value", () => {
+      const assignedIds = new Set(["val-1", "val-2"]);
+      expect(isValueAssigned(assignedIds, "val-1")).toBe(true);
+    });
+
+    it("isValueAssigned returns false for unassigned value", () => {
+      const assignedIds = new Set(["val-1", "val-2"]);
+      expect(isValueAssigned(assignedIds, "val-6")).toBe(false);
     });
   });
 });
