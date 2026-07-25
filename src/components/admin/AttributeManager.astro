@@ -640,13 +640,19 @@ const { productId, productName } = Astro.props;
     productAttributes = data.data || [];
     renderAssignedModules();
     populateAddModuleSelect();
+    const depBtn = $('show-dependency-btn') as HTMLButtonElement;
+    if (depBtn) depBtn.style.display = productAttributes.length >= 2 ? '' : 'none';
   }
 
   async function loadDependencies() {
     const res = await fetch(`${API_URL}/api/admin/attributes/dependencies`, { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
-    dependencies = data.data || [];
+    const allDeps = data.data || [];
+    const assignedModuleIds = new Set(productAttributes.map((a: any) => a.module_id));
+    dependencies = allDeps.filter((dep: any) =>
+      assignedModuleIds.has(dep.parent_module_id) && assignedModuleIds.has(dep.child_module_id)
+    );
     renderDependencies();
   }
 
@@ -899,15 +905,21 @@ const { productId, productName } = Astro.props;
   function populateParentModuleSelect() {
     const select = $('parent-module-select') as HTMLSelectElement;
     if (!select) return;
-    select.innerHTML = '<option value="">Seleccionar...</option>' + 
-      allModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
+    const assignedModules = allModules.filter((m) =>
+      productAttributes.some((a: any) => a.module_id === m.id)
+    );
+    select.innerHTML = '<option value="">Seleccionar...</option>' +
+      assignedModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
   }
 
   function populateChildModuleSelect() {
     const select = $('child-module-select') as HTMLSelectElement;
     if (!select) return;
-    select.innerHTML = '<option value="">Seleccionar...</option>' + 
-      allModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
+    const assignedModules = allModules.filter((m) =>
+      productAttributes.some((a: any) => a.module_id === m.id)
+    );
+    select.innerHTML = '<option value="">Seleccionar...</option>' +
+      assignedModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
   }
 
   async function loadModuleValuesForDep(moduleId: string): Promise<any[]> {
