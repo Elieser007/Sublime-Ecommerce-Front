@@ -321,7 +321,7 @@ function slugify(str: string): string {
     panel.querySelectorAll('.tree-toggle').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const id = (btn as HTMLElement).dataset.toggle;
+        const id = btn.dataset.toggle;
         const sublist = document.getElementById(`tree-sublist-${id}`);
         if (sublist) {
           sublist.classList.toggle('expanded');
@@ -331,10 +331,9 @@ function slugify(str: string): string {
     });
     panel.querySelectorAll('.tree-label').forEach((el) => {
       el.addEventListener('click', () => {
-        const filter = (el as HTMLElement).dataset.filter;
+        const filter = el.dataset.filter;
         document.querySelectorAll('.product-wrapper').forEach((card) => {
-          const c = card as HTMLElement;
-          if (!filter || c.dataset.category === filter) {
+          if (!filter || card.dataset.category === filter) {
             c.style.display = '';
           } else {
             c.style.display = 'none';

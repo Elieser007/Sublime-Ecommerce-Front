@@ -166,7 +166,8 @@ const treeId = `category-tree-${isRoot ? 'root' : Math.random().toString(36).sli
 
 <script>
   // Client-side interactivity for tree toggle and keyboard navigation
-  const tree = document.querySelector(`#${treeId}`);
+  // NOTE: cannot use `treeId` (server-side variable) in hoisted <script>
+  const tree = document.querySelector('.category-tree--root');
   
   if (tree) {
     // Toggle expand/collapse
