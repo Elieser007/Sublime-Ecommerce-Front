@@ -2,73 +2,89 @@
 /**
  * Product Detail — /producto/[slug]
  *
- * Client-side data loading from the public API.
- * Shows product image, name, price, description, category path.
- * Volume price selector with tier table.
- * Variant selector for attribute-based products.
- * Add-to-cart button using the existing LocalStorage pattern.
- * WhatsApp checkout with tier info and warning if qty < tier min.
- *
- * This page uses on-demand rendering (prerender = false)
- * because product slugs are not known at build time.
- * The Cloudflare Worker handles the request at runtime.
+ * SSG: pre-rendered at build time via getStaticPaths().
+ * Product data comes from Astro.props (build-time fetch).
+ * Variant selection remains client-side (fetched on interaction).
+ * Add-to-cart uses LocalStorage. WhatsApp checkout with tier info.
  */
 
-export const prerender = false;
-
+import { getProductImageUrl } from '../../lib/public-api';
+import { formatPrice } from '../../lib/public-api';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import VolumePriceSelector from '../../components/VolumePriceSelector.astro';
-import PriceTierList from '../../components/PriceTierList.astro';
-import VariantSelector from '../../components/product/VariantSelector.astro';
+
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+
+export async function getStaticPaths() {
+  const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const listRes = await fetch(`${apiUrl}/api/public/products?limit=1000`);
+  if (!listRes.ok) {
+    throw new Error(`Failed to fetch product list: ${listRes.status}`);
+  }
+  const listData = await listRes.json();
+  const products = listData.data || [];
+
+  // NOTE: This uses an N+1 fetch pattern (1 list + N detail requests).
+  // Acceptable for ~500 products with daily deploys. The backend's
+  // /api/public/products endpoint doesn't return full product details
+  // (images, variants, all price tiers), so individual fetches are needed.
+  // If product count grows beyond 1000, consider adding a batch endpoint
+  // to the backend that returns all products with full details.
+  const paths = [];
+  for (const product of products) {
+    const detailRes = await fetch(`${apiUrl}/api/public/products/slug/${product.slug}`);
+    if (!detailRes.ok) continue;
+    const detailData = await detailRes.json();
+    paths.push({
+      params: { slug: product.slug },
+      props: { product: detailData.product },
+    });
+  }
+
+  return paths;
+}
+
+const { product } = Astro.props;
+
+// Pre-compute values for template
+const primaryImage = product.images && product.images.length > 0
+  ? product.images.find((img: any) => img.is_primary) || product.images[0]
+  : null;
+const imageUrl = getProductImageUrl(primaryImage?.url);
+const breadcrumbs = [
+  product.section_name,
+  product.category_name,
+  product.subcategory_name,
+].filter(Boolean).join(' / ') || 'Producto';
+const tiers = product.price_tiers || [];
+const basePriceFormatted = formatPrice(product.base_price);
 ---
 
-<BaseLayout title="Producto — Sublime">
-  <!-- Loading state -->
-  <div id="detail-loading" class="detail-section">
-    <div class="detail-layout">
-      <div class="detail-image-skeleton"></div>
-      <div class="detail-info-skeleton">
-        <div class="skeleton-line skeleton-line--lg"></div>
-        <div class="skeleton-line skeleton-line--md"></div>
-        <div class="skeleton-line skeleton-line--sm"></div>
-        <div class="skeleton-line skeleton-line--lg"></div>
-        <div class="skeleton-line skeleton-line--md"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Error state -->
-  <div id="detail-error" class="detail-state" style="display: none;">
-    <h1 class="headline-lg-mobile" style="color: var(--error);">Producto no encontrado</h1>
-    <p class="body-lg" id="detail-error-message" style="color: var(--on-surface-variant); margin: var(--space-lg) 0;">
-      El producto que buscás no existe o fue eliminado.
-    </p>
-    <div class="detail-actions">
-      <a href="/" class="btn btn--primary">Ver Catálogo</a>
-      <button class="btn btn--secondary" id="retry-detail">Reintentar</button>
-    </div>
-  </div>
-
-  <!-- Product detail (rendered by JS) -->
-  <div id="detail-content" class="detail-section" style="display: none;">
+<BaseLayout title={`${product.name} — Sublime`}>
+  <!-- Product detail — pre-rendered with build-time data -->
+  <div id="detail-content" class="detail-section">
     <div class="detail-layout">
       <!-- Image -->
       <div class="detail-image-container">
-        <img id="detail-image" class="detail-image" src="/placeholder-product.svg" alt="" width="600" height="600" />
+        <img id="detail-image" class="detail-image" src={imageUrl} alt={product.name} width="600" height="600" />
       </div>
 
       <!-- Info -->
       <div class="detail-info">
         <!-- Breadcrumb -->
-        <nav class="detail-breadcrumb body-sm" id="detail-breadcrumb"></nav>
+        <nav class="detail-breadcrumb body-sm" id="detail-breadcrumb">{breadcrumbs}</nav>
 
-        <h1 class="detail-name headline-lg-mobile" id="detail-name"></h1>
-        <p class="detail-price headline-xl" id="detail-price"></p>
+        <h1 class="detail-name headline-lg-mobile" id="detail-name">{product.name}</h1>
+        <p class="detail-price headline-xl" id="detail-price">Gs. {basePriceFormatted}</p>
         
         <!-- Volume Price Selector + Tier List -->
-        <div id="volume-price-section"></div>
+        <div id="volume-price-section">
+          {tiers.length > 0 && (
+            <VolumePriceSelector priceTiers={tiers} />
+          )}
+        </div>
 
-        <!-- Variant Selector (attribute modules) -->
+        <!-- Variant Selector (attribute modules — loaded client-side) -->
         <div id="variant-section"></div>
         
         <!-- Quantity Stepper (shows when tier selected) -->
@@ -81,7 +97,9 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
           </div>
         </div>
 
-        <div class="detail-description body-lg" id="detail-description"></div>
+        <div class="detail-description body-lg" id="detail-description">
+          {product.description && <span>{product.description}</span>}
+        </div>
 
         <div class="detail-actions">
           <button class="btn btn--primary detail-add-btn" id="detail-add-cart">
@@ -97,45 +115,33 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
       </div>
     </div>
   </div>
+
+  <!-- Inject build-time product data for client-side script -->
+  <script is:inline set:html={`window.__PRODUCT_DATA__ = ${JSON.stringify(product)};`} />
 </BaseLayout>
 
 <script>
   import {
-    fetchProductBySlug,
     formatPrice,
     getProductImageUrl,
   } from '../../lib/public-api';
   import { getTierPrice, getTierForQuantity } from '../../lib/price-utils';
-  import { buildCartMessage, getCartFromStorage, calculateCartTotals } from '../../lib/whatsapp';
+  import { buildCartMessage } from '../../lib/whatsapp';
   import { computeFinalPrice, isSelectionComplete } from '../../lib/variant-logic';
 
   const API_URL = (typeof import.meta !== "undefined" && import.meta.env?.PUBLIC_API_URL) || "http://localhost:8787";
 
-  const $loading = document.getElementById('detail-loading');
-  const $error = document.getElementById('detail-error');
-  const $content = document.getElementById('detail-content');
-  const $errorMessage = document.getElementById('detail-error-message');
-  const $retry = document.getElementById('retry-detail');
   const $volumeSection = document.getElementById('volume-price-section');
   const $variantSection = document.getElementById('variant-section');
   const $qtySection = document.getElementById('quantity-stepper-section');
   const $detailQty = document.getElementById('detail-qty');
   const $addCart = document.getElementById('detail-add-cart');
   const $whatsappBtn = document.getElementById('detail-whatsapp');
-
-  // Detail elements
-  const $image = document.getElementById('detail-image');
-  const $name = document.getElementById('detail-name');
   const $price = document.getElementById('detail-price');
-  const $description = document.getElementById('detail-description');
-  const $breadcrumb = document.getElementById('detail-breadcrumb');
 
-  // Get product slug from URL
-  const pathParts = window.location.pathname.split('/').filter(Boolean);
-  const productSlug = pathParts[pathParts.length - 1];
-
-  let currentProduct: any = null;
-  let currentTiers: any[] = [];
+  // Get product data from pre-rendered page (SSG)
+  const currentProduct: any = (window as any).__PRODUCT_DATA__;
+  let currentTiers: any[] = currentProduct?.price_tiers || [];
   let selectedTier: any = null;
   let selectedQty = 1;
   let currentVariantModules: any[] = [];
@@ -143,33 +149,9 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
   let selectedAttributesMap = new Map<string, string>();
   let selectedModifiersMap = new Map<string, number>();
 
-  async function loadProduct(slug: string) {
-    try {
-      $loading.style.display = '';
-      $error.style.display = 'none';
-      $content.style.display = 'none';
-
-      const product = await fetchProductBySlug(slug);
-      currentProduct = product;
-      currentTiers = product.price_tiers || [];
-
-      $loading.style.display = 'none';
-      renderProduct(product);
-      $content.style.display = '';
-
-      // Load variant data if product has attribute modules
-      await loadVariants(product.id);
-
-    } catch (err: any) {
-      $loading.style.display = 'none';
-      $error.style.display = '';
-
-      if (err.message === 'Not found') {
-        $errorMessage.textContent = 'El producto que buscás no existe o fue eliminado.';
-      } else {
-        $errorMessage.textContent = 'Error al cargar el producto. Verificá tu conexión.';
-      }
-    }
+  // Initialize variant loading (client-side only)
+  if (currentProduct) {
+    loadVariants(currentProduct.id);
   }
 
   async function loadVariants(productId: string, selected?: Record<string, string>) {
@@ -486,43 +468,6 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
     });
   }
 
-  function renderProduct(product: any) {
-    // Image
-    const primaryImage = product.images && product.images.length > 0
-      ? product.images.find((img: any) => img.is_primary) || product.images[0]
-      : null;
-    $image.src = getProductImageUrl(primaryImage?.url);
-    $image.alt = product.name;
-
-    // Name
-    $name.textContent = product.name;
-
-    // Breadcrumb
-    const crumbs = [];
-    if (product.section_name) crumbs.push(product.section_name);
-    if (product.category_name) crumbs.push(product.category_name);
-    if (product.subcategory_name) crumbs.push(product.subcategory_name);
-    $breadcrumb.textContent = crumbs.join(' / ') || 'Producto';
-
-    // Description
-    if (product.description) {
-      $description.textContent = product.description;
-      $description.style.display = '';
-    } else {
-      $description.style.display = 'none';
-    }
-
-    // Render volume price section if tiers exist
-    if (currentTiers.length > 0) {
-      renderVolumeSection(currentTiers);
-    } else {
-      // No tiers - just show base price
-      $price.textContent = `Gs. ${formatPrice(product.base_price)}`;
-      $volumeSection.innerHTML = '';
-      $qtySection.style.display = 'none';
-    }
-  }
-
   function renderVolumeSection(tiers: any[]) {
     // Sort tiers by min_quantity
     const sortedTiers = [...tiers].sort((a, b) => a.min_quantity - b.min_quantity);
@@ -713,16 +658,9 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
     updateWhatsAppLink(selectedTier);
   });
 
-  // Retry
-  $retry?.addEventListener('click', () => loadProduct(productSlug));
-
-  // Init
-  if (productSlug) {
-    loadProduct(productSlug);
-  } else {
-    $loading.style.display = 'none';
-    $error.style.display = '';
-    $errorMessage.textContent = 'Slug de producto no válido.';
+  // Init volume section if tiers exist at build time
+  if (currentTiers.length > 0) {
+    renderVolumeSection(currentTiers);
   }
 </script>
 

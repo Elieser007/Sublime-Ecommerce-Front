@@ -4,7 +4,7 @@
  * Cascade: Section → Category → Subcategory
  * Auto-slug from name
  */
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
 import AttributeManager from '../../components/admin/AttributeManager.astro';
@@ -22,7 +22,7 @@ const columns = [
 ];
 ---
 
-<BaseLayout title="Productos — Admin">
+<AdminLayout title="Productos — Admin">
   <div class="admin-layout">
     <AdminSidebar active="products" />
     <main class="admin-main">
@@ -115,7 +115,7 @@ const columns = [
       </div>
     </div>
   </div>
-</BaseLayout>
+</AdminLayout>
 
 <script>
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';

@@ -6,12 +6,12 @@
  * Uses AdminProductForm with mode="create".
  */
 
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import AdminProductForm from '../../components/AdminProductForm.astro';
 ---
 
-<BaseLayout title="Nuevo Producto — Admin">
+<AdminLayout title="Nuevo Producto — Admin">
   <div class="admin-layout">
     <AdminSidebar active="nuevo" />
 
@@ -19,7 +19,7 @@ import AdminProductForm from '../../components/AdminProductForm.astro';
       <AdminProductForm mode="create" />
     </main>
   </div>
-</BaseLayout>
+</AdminLayout>
 
 <style>
   .admin-layout {

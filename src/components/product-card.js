@@ -12,6 +12,7 @@
  */
 
 import { addToCart, getCartCount, formatPrice } from '../lib/cart.js';
+import { escapeHtml } from '../lib/escape-html';
 
 class ProductCard extends HTMLElement {
   connectedCallback() {
@@ -167,20 +168,20 @@ class ProductCard extends HTMLElement {
       </style>
 
       <article class="product-card">
-        <a href="/producto/${product.slug}" class="product-link">
+        <a href="/producto/${escapeHtml(product.slug)}" class="product-link">
           <div class="product-image-wrapper">
-            <img src="${imageUrl}" alt="${product.name}" class="product-image" loading="lazy" width="400" height="400" />
+            <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(product.name)}" class="product-image" loading="lazy" width="400" height="400" />
           </div>
           <div class="product-info">
-            ${category ? `<span class="product-category">${category}</span>` : ''}
-            <h3 class="product-name">${product.name}</h3>
+            ${category ? `<span class="product-category">${escapeHtml(category)}</span>` : ''}
+            <h3 class="product-name">${escapeHtml(product.name)}</h3>
             <div class="product-price-row">
-              <p class="product-price">Gs. ${formatPrice(product.price)}</p>
-              ${bestTier ? `<span class="volume-badge visible">Desde ${bestTier.min_quantity} unds: Gs. ${formatPrice(bestTier.price)}</span>` : '<span class="volume-badge"></span>'}
+              <p class="product-price">Gs. ${escapeHtml(formatPrice(product.price))}</p>
+              ${bestTier ? `<span class="volume-badge visible">Desde ${escapeHtml(bestTier.min_quantity)} unds: Gs. ${escapeHtml(formatPrice(bestTier.price))}</span>` : '<span class="volume-badge"></span>'}
             </div>
           </div>
         </a>
-        <button class="product-add-btn" aria-label="Agregar ${product.name} al carrito">
+        <button class="product-add-btn" aria-label="Agregar ${escapeHtml(product.name)} al carrito">
           Agregar al carrito
         </button>
       </article>

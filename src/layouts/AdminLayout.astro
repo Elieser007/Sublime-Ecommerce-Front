@@ -1,0 +1,25 @@
+---
+/**
+ * AdminLayout — BaseLayout with client-side auth guard
+ *
+ * Wraps BaseLayout and checks authentication on page load.
+ * Redirects to /login if not authenticated.
+ */
+
+import BaseLayout from './BaseLayout.astro';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<BaseLayout title={title}>
+  <slot />
+</BaseLayout>
+
+<script>
+  import { requireAuth } from '../lib/auth-guard';
+  requireAuth();
+</script>

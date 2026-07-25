@@ -8,21 +8,66 @@
  * - Mobile: two buttons (Categorías, Filtros) → slide-in panels
  * - Product grid
  * 
- * Data is loaded CLIENT-SIDE from the public API.
- * Static shell renders with loading state, then JS fetches real data.
+ * SSG: All data fetched at build time via frontmatter.
+ * Client-side: category filter, sort, mobile panels.
  */
 
+import { formatPrice, getProductImageUrl } from '../lib/public-api';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PromotionWall from '../components/PromotionWall.astro';
-import CategoryTree from '../components/CategoryTree.astro';
-import CategoryFilter from '../components/CategoryFilter.astro';
-import MobileCategoryPanel from '../components/MobileCategoryPanel.astro';
-import MobileFilterPanel from '../components/MobileFilterPanel.astro';
+
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+
+// Fetch products, category tree, and promotions at build time (SSG)
+let products: any[] = [];
+let tree: any[] = [];
+let topPromotions: any[] = [];
+let topSectionInfo: any = null;
+let bottomPromotions: any[] = [];
+let bottomSectionInfo: any = null;
+try {
+  const [productsRes, treeRes, topPromoRes, bottomPromoRes] = await Promise.all([
+    fetch(`${API_URL}/api/public/products?limit=1000`),
+    fetch(`${API_URL}/api/public/categories/tree`),
+    fetch(`${API_URL}/api/public/promotions?section=always-catalog-top`),
+    fetch(`${API_URL}/api/public/promotions?section=always-catalog-bottom`),
+  ]);
+  if (productsRes.ok) {
+    const data = await productsRes.json();
+    products = data.data || [];
+  }
+  if (treeRes.ok) {
+    const data = await treeRes.json();
+    tree = data.tree || [];
+  }
+  if (topPromoRes.ok) {
+    const data = await topPromoRes.json();
+    topPromotions = data.promotions || [];
+    topSectionInfo = data.section || null;
+  }
+  if (bottomPromoRes.ok) {
+    const data = await bottomPromoRes.json();
+    bottomPromotions = data.promotions || [];
+    bottomSectionInfo = data.section || null;
+  }
+} catch (err) {
+  console.error('Error fetching catalog data at build time:', err);
+}
+
+// Helper: normalize string to slug (matches backend slugify)
+function slugify(str: string): string {
+  if (!str) return '';
+  return str.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 ---
 
 <BaseLayout title="Sublime — Shop">
-  <!-- Thin banner at top -->
-  <PromotionWall section="always-catalog-top" />
+  <!-- Thin banner at top (SSG — fetched at build time) -->
+  <PromotionWall section="always-catalog-top" promotions={topPromotions} sectionInfo={topSectionInfo} />
 
   <!-- Mobile: Action Buttons -->
   <div class="mobile-actions">
@@ -60,18 +105,64 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
         <!-- Category Tree Section -->
         <div class="sidebar-section">
           <h2 class="sidebar-title">Categorías</h2>
-          <!-- Loading state for category tree -->
-          <div id="category-tree-loading" class="sidebar-loading">
-            <div class="skeleton-line"></div>
-            <div class="skeleton-line"></div>
-            <div class="skeleton-line"></div>
-          </div>
-          <!-- Category tree rendered by JS -->
-          <div id="category-tree-container"></div>
-          <!-- Error state for category tree -->
-          <div id="category-tree-error" class="sidebar-error" style="display: none;">
-            <p class="body-sm">Error al cargar categorías</p>
-            <button class="btn btn--small" id="retry-categories">Reintentar</button>
+          <div id="category-tree-container">
+            {tree.length > 0 ? (
+              <ul class="tree-list">
+                <li class="tree-item tree-item--root active" data-filter="all">
+                  <span class="tree-label tree-label--root" data-filter="all">Todos</span>
+                </li>
+                {tree.map((section) => (
+                  <li class="tree-item tree-item--root" data-filter={section.slug}>
+                    <div class="tree-row">
+                      {section.categories && section.categories.length > 0 ? (
+                        <button class="tree-toggle" data-toggle={section.slug} aria-label="Expandir">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="6 9 12 15 18 9"/>
+                          </svg>
+                        </button>
+                      ) : (
+                        <span class="tree-spacer"></span>
+                      )}
+                      <span class="tree-label tree-label--root" data-filter={section.slug}>{section.name}</span>
+                    </div>
+                    {section.categories && section.categories.length > 0 && (
+                      <ul class="tree-sublist" id={`tree-sublist-${section.slug}`}>
+                        {section.categories.map((cat: any) => (
+                          <li class="tree-item tree-item--cat" data-filter={cat.slug}>
+                            <div class="tree-row">
+                              {cat.subcategories && cat.subcategories.length > 0 ? (
+                                <button class="tree-toggle tree-toggle--sm" data-toggle={cat.slug} aria-label="Expandir">
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="6 9 12 15 18 9"/>
+                                  </svg>
+                                </button>
+                              ) : (
+                                <span class="tree-spacer tree-spacer--sm"></span>
+                              )}
+                              <span class="tree-label tree-label--cat" data-filter={cat.slug}>{cat.name}</span>
+                            </div>
+                            {cat.subcategories && cat.subcategories.length > 0 && (
+                              <ul class="tree-sublist tree-sublist--sub" id={`tree-sublist-${cat.slug}`}>
+                                {cat.subcategories.map((sub: any) => (
+                                  <li class="tree-item tree-item--sub" data-filter={sub.slug}>
+                                    <div class="tree-row">
+                                      <span class="tree-spacer tree-spacer--sm"></span>
+                                      <span class="tree-label tree-label--sub" data-filter={sub.slug}>{sub.name}</span>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p class="body-sm">Sin categorías</p>
+            )}
           </div>
         </div>
 
@@ -108,263 +199,94 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
 
       <!-- Products Grid -->
       <main class="shop-main">
-        <!-- Loading state -->
-        <div id="products-loading" class="products-loading">
-          <div class="products-grid products-grid--skeleton">
-            {[1,2,3,4,5,6].map((i) => (
-              <div class="product-skeleton">
-                <div class="skeleton-image"></div>
-                <div class="skeleton-text"></div>
-                <div class="skeleton-text skeleton-text--short"></div>
-              </div>
-            ))}
+        {products.length > 0 ? (
+          <div id="products-container">
+            <div class="products-grid" id="products-grid">
+              {products.map((product) => {
+                const imageUrl = getProductImageUrl(product.image_url);
+                const secSlug = slugify(product.section_name);
+                const catSlug = slugify(product.category_name);
+                return (
+                  <div class="product-wrapper"
+                    data-category={secSlug}
+                    data-section-slug={secSlug}
+                    data-category-slug={catSlug}
+                    data-product-name={product.name}
+                    data-product-category={secSlug}>
+                    <product-card
+                      product={JSON.stringify({
+                        id: product.id,
+                        slug: product.slug,
+                        name: product.name,
+                        price: product.base_price,
+                        image: imageUrl,
+                        category: product.section_name,
+                        price_tiers: product.price_tiers || [],
+                      })}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-
-        <!-- Product grid rendered by JS -->
-        <div id="products-container" style="display: none;">
-          <div class="products-grid" id="products-grid"></div>
-        </div>
-
-        <!-- Error state -->
-        <div id="products-error" class="products-error" style="display: none;">
-          <p class="body-lg">Error al cargar productos</p>
-          <button class="btn btn--primary" id="retry-products">Reintentar</button>
-        </div>
-
-        <!-- Empty state -->
-        <div id="products-empty" class="products-empty" style="display: none;">
-          <p class="body-lg">No hay productos disponibles</p>
-        </div>
+        ) : (
+          <div style="text-align: center; padding: var(--space-4xl) 0; color: var(--on-surface-variant);">
+            <p class="body-lg">No hay productos disponibles</p>
+          </div>
+        )}
       </main>
     </div>
   </section>
 
-  <!-- Bottom banner -->
-  <PromotionWall section="always-catalog-bottom" />
+  <!-- Bottom banner (SSG — fetched at build time) -->
+  <PromotionWall section="always-catalog-bottom" promotions={bottomPromotions} sectionInfo={bottomSectionInfo} />
 
   <!-- Mobile Panels (rendered by JS) -->
   <div id="mobile-category-panel-container"></div>
-  <MobileFilterPanel />
 </BaseLayout>
 
-<script>
-  import '../components/product-card.js';
-  import {
-    fetchProducts,
-    fetchCategoryTree,
-    formatPrice,
-    getProductImageUrl,
-  } from '../lib/public-api';
-
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
-
-  // DOM refs
-  const $loading = document.getElementById('products-loading');
-  const $container = document.getElementById('products-container');
-  const $grid = document.getElementById('products-grid');
-  const $error = document.getElementById('products-error');
-  const $empty = document.getElementById('products-empty');
-  const $catTreeContainer = document.getElementById('category-tree-container');
-  const $catTreeLoading = document.getElementById('category-tree-loading');
-  const $catTreeError = document.getElementById('category-tree-error');
-  const $retryProducts = document.getElementById('retry-products');
-  const $retryCategories = document.getElementById('retry-categories');
-
-  // Helper: normalize string to slug (matches backend slugify)
-  function slugify(str) {
-    if (!str) return '';
-    return str.toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-  }
-
-  // ─── RENDER CATEGORY TREE (3 levels) ────────────────────
-  async function loadCategoryTree() {
-    try {
-      $catTreeLoading.style.display = '';
-      $catTreeContainer.innerHTML = '';
-      $catTreeError.style.display = 'none';
-
-      const tree = await fetchCategoryTree();
-
-      $catTreeLoading.style.display = 'none';
-
-      if (!tree || tree.length === 0) {
-        $catTreeContainer.innerHTML = '<p class="body-sm">Sin categorías</p>';
-        return;
-      }
-
-      // Build HTML for the 3-level category tree
-      let html = '<ul class="tree-list">';
-      
-      // "All" button
-      html += `<li class="tree-item tree-item--root active" data-filter="all">
-        <span class="tree-label tree-label--root" data-filter="all">Todos</span>
-      </li>`;
-
-      for (const section of tree) {
-        const hasCategories = section.categories && section.categories.length > 0;
-        html += `<li class="tree-item tree-item--root" data-filter="${section.slug}">
-          <div class="tree-row">
-            ${hasCategories ? `<button class="tree-toggle" data-toggle="${section.slug}" aria-label="Expandir">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>` : `<span class="tree-spacer"></span>`}
-            <span class="tree-label tree-label--root" data-filter="${section.slug}">${section.name}</span>
-          </div>`;
-
-        // Categories (level 2)
-        if (hasCategories) {
-          html += `<ul class="tree-sublist" id="tree-sublist-${section.slug}">`;
-          for (const cat of section.categories) {
-            const hasSubcategories = cat.subcategories && cat.subcategories.length > 0;
-            html += `<li class="tree-item tree-item--cat" data-filter="${cat.slug}">
-              <div class="tree-row">
-                ${hasSubcategories ? `<button class="tree-toggle tree-toggle--sm" data-toggle="${cat.slug}" aria-label="Expandir">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <polyline points="6 9 12 15 18 9"/>
-                  </svg>
-                </button>` : `<span class="tree-spacer tree-spacer--sm"></span>`}
-                <span class="tree-label tree-label--cat" data-filter="${cat.slug}">${cat.name}</span>
-              </div>`;
-
-            // Subcategories (level 3)
-            if (hasSubcategories) {
-              html += `<ul class="tree-sublist tree-sublist--sub" id="tree-sublist-${cat.slug}">`;
-              for (const sub of cat.subcategories) {
-                html += `<li class="tree-item tree-item--sub" data-filter="${sub.slug}">
-                  <div class="tree-row">
-                    <span class="tree-spacer tree-spacer--sm"></span>
-                    <span class="tree-label tree-label--sub" data-filter="${sub.slug}">${sub.name}</span>
-                  </div>
-                </li>`;
-              }
-              html += '</ul>';
-            }
-            html += '</li>';
-          }
-          html += '</ul>';
-        }
-        html += '</li>';
-      }
-      html += '</ul>';
-
-      $catTreeContainer.innerHTML = html;
-
-
-          // Toggle expand/collapse
-          $catTreeContainer.querySelectorAll('.tree-toggle').forEach((btn) => {
-            btn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const el = btn as HTMLElement;
-              const id = el.dataset.toggle;
-              const sublist = document.getElementById(`tree-sublist-${id}`);
-              if (sublist) {
-                sublist.classList.toggle('expanded');
-                el.classList.toggle('expanded');
-              }
-            });
-          });
-
-          // Category filter selection
-          $catTreeContainer.querySelectorAll('.tree-label').forEach((el) => {
-            el.addEventListener('click', () => {
-              const filter = (el as HTMLElement).dataset.filter;
-              $catTreeContainer.querySelectorAll('.tree-label').forEach((l) => l.classList.remove('active'));
-                  window.dispatchEvent(new CustomEvent('category-select', { detail: { category: filter } }));
-                });
-              });
-            } catch (err) {
-              $catTreeLoading.style.display = 'none';
-              $catTreeError.style.display = '';
-              console.error('Error loading category tree:', err);
-            }
-          }
-
-  // ─── RENDER PRODUCTS ───────────────────────────────────
-  async function loadProducts(params?: URLSearchParams) {
-    try {
-      $loading.style.display = '';
-      $container.style.display = 'none';
-      $error.style.display = 'none';
-      $empty.style.display = 'none';
-
-      const result = await fetchProducts(params);
-
-      $loading.style.display = 'none';
-
-      if (!result.data || result.data.length === 0) {
-        $empty.style.display = '';
-        return;
-      }
-
-      // Clear and render product cards using Web Component
-      $grid.innerHTML = '';
-      for (const product of result.data) {
-        const imageUrl = getProductImageUrl(product.image_url);
-        const secSlug = slugify(product.section_name);
-        const catSlug = slugify(product.category_name);
-
-        // Wrapper div for category filtering
-        const wrapper = document.createElement('div');
-        wrapper.className = 'product-wrapper';
-        wrapper.dataset.category = secSlug;
-        wrapper.dataset.sectionSlug = secSlug;
-        wrapper.dataset.categorySlug = catSlug;
-        wrapper.dataset.productName = product.name;
-        wrapper.dataset.productCategory = secSlug;
-
-        // Create Web Component
-        const card = document.createElement('product-card');
-        card.setAttribute('product', JSON.stringify({
-          id: product.id,
-          slug: product.slug,
-          name: product.name,
-          price: product.base_price,
-          image: imageUrl,
-          category: product.section_name,
-          price_tiers: product.price_tiers || [],
-        }));
-
-        wrapper.appendChild(card);
-        $grid.appendChild(wrapper);
-      }
-      $container.style.display = '';
-
-    } catch (err) {
-      $loading.style.display = 'none';
-      $error.style.display = '';
-      console.error('Error loading products:', err);
+<script is:inline>
+  // Initialize product-card Web Components
+  document.querySelectorAll('product-card').forEach((el) => {
+    const attr = el.getAttribute('product');
+    if (attr) {
+      try {
+        const data = JSON.parse(attr);
+        el.product = data;
+      } catch (e) {}
     }
-  }
+  });
 
-  // ─── INIT ──────────────────────────────────────────────
-  async function init() {
-    await loadCategoryTree();
-    await loadProducts();
-
-    $retryProducts?.addEventListener('click', () => loadProducts());
-    $retryCategories?.addEventListener('click', () => loadCategoryTree());
-  }
-
-  // Handle category selection filter
-  window.addEventListener('category-select', ((e: CustomEvent) => {
-    const category = e.detail.category;
-    document.querySelectorAll('.product-wrapper').forEach((el) => {
-      const card = el as HTMLElement;
-      if (!category || card.dataset.category === category) {
-        card.style.display = '';
-      } else {
-        card.style.display = 'none';
+  // Category tree toggle expand/collapse
+  document.querySelectorAll('.tree-toggle').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.toggle;
+      const sublist = document.getElementById(`tree-sublist-${id}`);
+      if (sublist) {
+        sublist.classList.toggle('expanded');
+        btn.classList.toggle('expanded');
       }
     });
-  }) as EventListener);
+  });
 
-  // ─── DESKTOP FILTERS ──────────────────────────────────
+  // Category filter selection
+  document.querySelectorAll('.tree-label').forEach((el) => {
+    el.addEventListener('click', () => {
+      const filter = el.dataset.filter;
+      document.querySelectorAll('.tree-label').forEach((l) => l.classList.remove('active'));
+      el.classList.add('active');
+      document.querySelectorAll('.product-wrapper').forEach((card) => {
+        if (!filter || card.dataset.category === filter) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+  });
+
+  // Desktop sort filters
   document.querySelectorAll('[data-sort]').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
@@ -372,26 +294,13 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
     });
   });
 
-  document.getElementById('apply-filters-desktop')?.addEventListener('click', () => {
-    const sort = document.querySelector('[data-sort].active') as HTMLElement;
-    const minPrice = (document.getElementById('price-min-desktop') as HTMLInputElement)?.value;
-    const maxPrice = (document.getElementById('price-max-desktop') as HTMLInputElement)?.value;
-
-    window.dispatchEvent(new CustomEvent('filters-applied', {
-      detail: {
-        sort: sort?.dataset.sort || 'default',
-        minPrice: minPrice ? Number(minPrice) : null,
-        maxPrice: maxPrice ? Number(maxPrice) : null,
-      }
-    }));
-  });
-
   // Mobile panels for categories
-  document.getElementById('open-categories')?.addEventListener('click', async () => {
+  document.getElementById('open-categories')?.addEventListener('click', () => {
     const existingPanel = document.getElementById('mobile-category-panel');
     if (existingPanel) { existingPanel.style.display = ''; return; }
 
-    const tree = await fetchCategoryTree().catch(() => []);
+    // Clone desktop tree into mobile panel
+    const treeHtml = document.getElementById('category-tree-container')?.innerHTML || '';
     const panel = document.createElement('div');
     panel.id = 'mobile-category-panel';
     panel.className = 'mobile-panel-overlay';
@@ -401,34 +310,40 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
           <h3 class="body-lg">Categorías</h3>
           <button class="mobile-panel-close" id="close-categories">✕</button>
         </div>
-        <div class="mobile-panel-body">
-          ${tree.map((sec) => `
-            <div class="mobile-section">
-              <h4 class="label-sm mobile-section-title">${sec.name}</h4>
-              ${sec.categories ? `<ul class="mobile-cat-list">${sec.categories.map((cat) => `
-                <li class="mobile-cat-item" data-filter="${cat.slug}">
-                  <span>${cat.name}</span>
-                </li>`).join('')}</ul>` : ''}
-            </div>`).join('')}
-        </div>
+        <div class="mobile-panel-body">${treeHtml}</div>
       </div>`;
     document.body.appendChild(panel);
     panel.querySelector('#close-categories')?.addEventListener('click', () => { panel.style.display = 'none'; });
     panel.addEventListener('click', (e) => {
       if (e.target === panel) panel.style.display = 'none';
     });
-    panel.querySelectorAll('.mobile-cat-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        const filter = item.dataset.filter;
-        if (filter) {
-          window.dispatchEvent(new CustomEvent('category-select', { detail: { category: filter } }));
-          panel.style.display = 'none';
+    // Re-init tree interactions in mobile panel
+    panel.querySelectorAll('.tree-toggle').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = (btn as HTMLElement).dataset.toggle;
+        const sublist = document.getElementById(`tree-sublist-${id}`);
+        if (sublist) {
+          sublist.classList.toggle('expanded');
+          btn.classList.toggle('expanded');
         }
       });
     });
+    panel.querySelectorAll('.tree-label').forEach((el) => {
+      el.addEventListener('click', () => {
+        const filter = (el as HTMLElement).dataset.filter;
+        document.querySelectorAll('.product-wrapper').forEach((card) => {
+          const c = card as HTMLElement;
+          if (!filter || c.dataset.category === filter) {
+            c.style.display = '';
+          } else {
+            c.style.display = 'none';
+          }
+        });
+        panel.style.display = 'none';
+      });
+    });
   });
-
-  init();
 </script>
 
 <style>
@@ -520,10 +435,6 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
     height: 16px;
     background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 100%);
   }
-
-  .sidebar-loading { display: flex; flex-direction: column; gap: 8px; }
-  .sidebar-error { color: var(--error); }
-  .sidebar-error p { margin-bottom: var(--space-sm); }
 
   /* ====== CATEGORY ACCORDION (GLOBAL - dynamically generated) ====== */
   :global(.tree-list) {
@@ -778,37 +689,6 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
   @media (min-width: 768px) { .products-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); } }
   @media (min-width: 1024px) { .products-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }
 
-  /* Loading / Skeleton */
-  .products-loading { padding: var(--space-lg) 0; }
-  .products-grid--skeleton { pointer-events: none; }
-  .product-skeleton {
-    border: var(--border-width) solid var(--outline-variant);
-  }
-  .skeleton-image {
-    aspect-ratio: 1;
-    background-color: var(--surface-container);
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  .skeleton-text {
-    height: 16px;
-    margin: var(--space-sm);
-    background-color: var(--surface-container);
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  .skeleton-text--short { width: 60%; }
-  @keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-  }
-
-  /* Error / Empty states */
-  .products-error, .products-empty {
-    text-align: center;
-    padding: var(--space-4xl) 0;
-    color: var(--on-surface-variant);
-  }
-  .products-error p, .products-empty p { margin-bottom: var(--space-lg); }
-
   /* Mobile panel */
   .mobile-panel-overlay {
     position: fixed;
@@ -844,18 +724,4 @@ import MobileFilterPanel from '../components/MobileFilterPanel.astro';
     font-size: 18px;
   }
   .mobile-panel-body { padding: var(--space-md); }
-  .mobile-section { margin-bottom: var(--space-lg); }
-  .mobile-section-title {
-    color: var(--primary);
-    margin-bottom: var(--space-sm);
-    text-transform: uppercase;
-  }
-  .mobile-cat-list { list-style: none; padding: 0; margin: 0; }
-  .mobile-cat-item {
-    padding: var(--space-sm) var(--space-md);
-    cursor: pointer;
-    color: var(--on-surface-variant);
-    transition: all 0.15s ease;
-  }
-  .mobile-cat-item:hover { color: var(--primary); background-color: var(--surface-container); }
 </style>

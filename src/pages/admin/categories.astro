@@ -5,7 +5,7 @@
  * Uses reusable components: DataTable, TableAction, Badge
  */
 
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
 import TableAction from '../../components/admin/TableAction.astro';
@@ -36,7 +36,7 @@ const subcategoryColumns = [
 ];
 ---
 
-<BaseLayout title="Categorías — Admin">
+<AdminLayout title="Categorías — Admin">
   <div class="admin-layout">
     <AdminSidebar active="categories" />
     <main class="admin-main">
@@ -149,7 +149,7 @@ const subcategoryColumns = [
       </div>
     </main>
   </div>
-</BaseLayout>
+</AdminLayout>
 
 <script>
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';

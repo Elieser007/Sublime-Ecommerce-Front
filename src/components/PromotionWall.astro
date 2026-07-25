@@ -1,142 +1,202 @@
 ---
 /**
- * PromotionWall — Dynamic promotion renderer
- * 
- * Fetches promotions from API and renders based on display_type.
- * Uses the same CSS classes as individual promo components.
- * 
- * Usage: <PromotionWall section="always-catalog-top" />
+ * PromotionWall — Dynamic promotion renderer (SSG)
+ *
+ * Renders promotions passed as props (fetched at build time by parent pages).
+ * Uses escapeHtml to prevent XSS when interpolating dynamic content.
+ * Carousel auto-play logic remains client-side.
+ *
+ * Usage:
+ *   <PromotionWall
+ *     section="always-catalog-top"
+ *     promotions={[...]}
+ *     sectionInfo={{ displayType: "tiles", ... }}
+ *   />
  */
+
+import { escapeHtml, sanitizeUrl } from "../lib/escape-html";
+
+interface Promotion {
+  id: string;
+  title: string | null;
+  description: string | null;
+  imageUrl: string;
+  link: string;
+  position: number;
+  tileCols: number;
+  tileRows: number;
+}
+
+interface SectionInfo {
+  id: string;
+  slug: string;
+  displayType: string;
+}
 
 interface Props {
   section: string;
+  promotions?: Promotion[];
+  sectionInfo?: SectionInfo | null;
   class?: string;
 }
 
-const { section, class: className = "" } = Astro.props;
+const {
+  section,
+  promotions = [],
+  sectionInfo = null,
+  class: className = "",
+} = Astro.props;
+
+const displayType = sectionInfo?.displayType || "tiles";
+const hasPromotions = promotions.length > 0;
+
+// Pre-render promotion HTML server-side with escaping
+function renderPromoHtml(promos: Promotion[], type: string, sectionSlug: string): string {
+  if (promos.length === 0) return "";
+
+  switch (type) {
+    case "hero": return renderHero(promos[0]);
+    case "carousel": return renderCarousel(promos, sectionSlug);
+    case "split": return renderSplit(promos);
+    case "banner": return renderBanner(promos);
+    case "ribbon": return renderRibbon(promos);
+    case "tiles":
+    default: return renderTiles(promos);
+  }
+}
+
+function renderHero(p: Promotion): string {
+  const title = p.title ? `<h2 class="hero-title">${escapeHtml(p.title)}</h2>` : "";
+  const desc = p.description ? `<p class="hero-desc">${escapeHtml(p.description)}</p>` : "";
+  return `<div class="hero-promo">
+    <div class="hero-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">${title}${desc}
+      <a href="${sanitizeUrl(p.link)}" class="hero-btn">Ver más</a>
+    </div>
+  </div>`;
+}
+
+function renderCarousel(promos: Promotion[], id: string): string {
+  let html = `<div class="carousel-promo" data-carousel-id="${escapeHtml(id)}"><div class="carousel-track">`;
+  promos.forEach((p, i) => {
+    const title = p.title ? `<h3 class="slide-title">${escapeHtml(p.title)}</h3>` : "";
+    const desc = p.description ? `<p class="slide-desc">${escapeHtml(p.description)}</p>` : "";
+    html += `<div class="carousel-slide ${i === 0 ? "active" : ""}" data-index="${i}">
+      <div class="slide-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
+      <div class="slide-overlay"></div>
+      <div class="slide-content">${title}${desc}</div>
+      <a href="${sanitizeUrl(p.link)}" class="slide-link"></a>
+    </div>`;
+  });
+  html += "</div>";
+  if (promos.length > 1) {
+    html += `<div class="carousel-dots">${promos.map((_, i) => `<button class="carousel-dot ${i === 0 ? "active" : ""}" data-slide="${i}"></button>`).join("")}</div>`;
+    html += `<button class="carousel-arrow carousel-arrow--left" aria-label="Anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>`;
+    html += `<button class="carousel-arrow carousel-arrow--right" aria-label="Siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`;
+  }
+  html += "</div>";
+  return html;
+}
+
+function renderTiles(promos: Promotion[]): string {
+  let html = '<div class="tiles-promo" style="grid-template-columns:repeat(4,1fr);grid-auto-rows:160px;">';
+  promos.forEach((p) => {
+    const col = (p.position % 4) + 1;
+    const row = Math.floor(p.position / 4) + 1;
+    const title = p.title ? `<h3 class="tile-title">${escapeHtml(p.title)}</h3>` : "";
+    const desc = p.description ? `<p class="tile-desc">${escapeHtml(p.description)}</p>` : "";
+    html += `<div class="tile" style="grid-column:${col}/span ${p.tileCols};grid-row:${row}/span ${p.tileRows};">
+      <div class="tile-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
+      <div class="tile-overlay"></div>
+      <div class="tile-content">${title}${desc}</div>
+      <a href="${sanitizeUrl(p.link)}" class="tile-link"></a>
+    </div>`;
+  });
+  html += "</div>";
+  return html;
+}
+
+function renderSplit(promos: Promotion[]): string {
+  let html = '<div class="split-promo">';
+  promos.forEach((p, i) => {
+    const rev = i % 2 === 1 ? " split-item--reverse" : "";
+    const title = p.title ? `<h3 class="split-title">${escapeHtml(p.title)}</h3>` : "";
+    const desc = p.description ? `<p class="split-desc">${escapeHtml(p.description)}</p>` : "";
+    html += `<a href="${sanitizeUrl(p.link)}" class="split-item${rev}">
+      <div class="split-img"><img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.title || "")}" /></div>
+      <div class="split-text">${title}${desc}<span class="split-link">Ver más →</span></div>
+    </a>`;
+  });
+  html += "</div>";
+  return html;
+}
+
+function renderBanner(promos: Promotion[]): string {
+  let html = '<div class="banner-promo">';
+  promos.forEach((p) => {
+    const title = p.title ? `<span class="banner-title">${escapeHtml(p.title)}</span>` : "";
+    const desc = p.description ? `<span class="banner-desc">${escapeHtml(p.description)}</span>` : "";
+    html += `<a href="${sanitizeUrl(p.link)}" class="banner-item">${title}${desc}</a>`;
+  });
+  html += "</div>";
+  return html;
+}
+
+function renderRibbon(promos: Promotion[]): string {
+  let html = '<div class="ribbon-promo">';
+  promos.forEach((p) => {
+    const title = p.title ? `<span class="ribbon-title">${escapeHtml(p.title)}</span>` : "";
+    const desc = p.description ? `<span class="ribbon-desc">${escapeHtml(p.description)}</span>` : "";
+    html += `<a href="${sanitizeUrl(p.link)}" class="ribbon-item">
+      <div class="ribbon-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
+      <div class="ribbon-overlay"></div>
+      <div class="ribbon-content">${title}${desc}</div>
+    </a>`;
+  });
+  html += "</div>";
+  return html;
+}
+
+const renderedHtml = hasPromotions
+  ? renderPromoHtml(promotions, displayType, section)
+  : "";
 ---
 
 <div class={`promotion-wall ${className}`} data-section={section}>
-  <div class="promo-loading" id={`promo-loading-${section}`}>
-    <div class="cmyk-bar"><span></span><span></span><span></span></div>
-  </div>
-  <div id={`promo-content-${section}`} style="display: none;"></div>
+  {hasPromotions ? (
+    <Fragment set:html={renderedHtml} />
+  ) : (
+    <div class="promo-loading" id={`promo-loading-${section}`}>
+      <div class="cmyk-bar"><span></span><span></span><span></span></div>
+    </div>
+  )}
 </div>
 
-<script>
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
-
-  async function initPromoWall(sectionSlug: string) {
-    const content = document.getElementById(`promo-content-${sectionSlug}`);
-    const loading = document.getElementById(`promo-loading-${sectionSlug}`);
-    if (!content || !loading) return;
-
-    try {
-      const res = await fetch(`${API_URL}/api/promotions?section=${sectionSlug}`, { credentials: 'include' });
-      if (!res.ok) return;
-      const data = await res.json();
-      const { section, promotions } = data;
-      if (!promotions || promotions.length === 0) {
-        loading.style.display = 'none';
-        loading.parentElement?.setAttribute('style', 'display: none;');
-        return;
-      }
-      const displayType = section?.displayType || 'tiles';
-      loading.style.display = 'none';
-      content.style.display = '';
-
-      switch (displayType) {
-        case 'carousel': renderCarousel(content, promotions, sectionSlug); break;
-        case 'hero': renderHero(content, promotions); break;
-        case 'split': renderSplit(content, promotions); break;
-        case 'banner': renderBanner(content, promotions); break;
-        case 'ribbon': renderRibbon(content, promotions); break;
-        case 'tiles': default: renderTiles(content, promotions); break;
-      }
-    } catch (err) {
-      console.error('Error loading promotions:', err);
-      loading.style.display = 'none';
+{displayType === "carousel" && hasPromotions && (
+  <script>
+    function initCarouselLogic(el: HTMLElement) {
+      const slides = el.querySelectorAll('.carousel-slide');
+      const dots = el.querySelectorAll('.carousel-dot');
+      let current = 0, timer: any;
+      function goTo(i: number) { slides[current]?.classList.remove('active'); dots[current]?.classList.remove('active'); current = i; slides[current]?.classList.add('active'); dots[current]?.classList.add('active'); }
+      function next() { goTo((current + 1) % slides.length); }
+      function prev() { goTo((current - 1 + slides.length) % slides.length); }
+      function start() { timer = setInterval(next, 5000); }
+      function stop() { clearInterval(timer); }
+      el.querySelector('.carousel-arrow--left')?.addEventListener('click', () => { stop(); prev(); start(); });
+      el.querySelector('.carousel-arrow--right')?.addEventListener('click', () => { stop(); next(); start(); });
+      dots.forEach(d => d.addEventListener('click', () => { stop(); goTo(Number((d as HTMLElement).dataset.slide)); start(); }));
+      el.addEventListener('mouseenter', stop);
+      el.addEventListener('mouseleave', start);
+      if (slides.length > 1) start();
     }
-  }
 
-  function renderHero(c: HTMLElement, promos: any[]) {
-    const p = promos[0];
-    c.innerHTML = `<div class="hero-promo"><div class="hero-bg" style="background-image:url('${p.imageUrl}')"></div><div class="hero-overlay"></div><div class="hero-content">${p.title?`<h2 class="hero-title">${p.title}</h2>`:''}${p.description?`<p class="hero-desc">${p.description}</p>`:''}<a href="${p.link}" class="hero-btn">Ver más</a></div></div>`;
-  }
-
-  function renderCarousel(c: HTMLElement, promos: any[], id: string) {
-    let html = `<div class="carousel-promo" data-carousel-id="${id}"><div class="carousel-track">`;
-    promos.forEach((p, i) => {
-      html += `<div class="carousel-slide ${i===0?'active':''}" data-index="${i}"><div class="slide-bg" style="background-image:url('${p.imageUrl}')"></div><div class="slide-overlay"></div><div class="slide-content">${p.title?`<h3 class="slide-title">${p.title}</h3>`:''}${p.description?`<p class="slide-desc">${p.description}</p>`:''}</div><a href="${p.link}" class="slide-link"></a></div>`;
+    document.querySelectorAll('.carousel-promo').forEach((el) => {
+      initCarouselLogic(el as HTMLElement);
     });
-    html += '</div>';
-    if (promos.length > 1) {
-      html += `<div class="carousel-dots">${promos.map((_,i)=>`<button class="carousel-dot ${i===0?'active':''}" data-slide="${i}"></button>`).join('')}</div>`;
-      html += `<button class="carousel-arrow carousel-arrow--left" aria-label="Anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>`;
-      html += `<button class="carousel-arrow carousel-arrow--right" aria-label="Siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`;
-    }
-    html += '</div>';
-    c.innerHTML = html;
-    initCarouselLogic(c.querySelector('.carousel-promo')!);
-  }
-
-  function renderTiles(c: HTMLElement, promos: any[]) {
-    let html = '<div class="tiles-promo" style="grid-template-columns:repeat(4,1fr);grid-auto-rows:160px;">';
-    promos.forEach(p => {
-      const col = (p.position % 4) + 1;
-      const row = Math.floor(p.position / 4) + 1;
-      html += `<div class="tile" style="grid-column:${col}/span ${p.tileCols};grid-row:${row}/span ${p.tileRows};"><div class="tile-bg" style="background-image:url('${p.imageUrl}')"></div><div class="tile-overlay"></div><div class="tile-content">${p.title?`<h3 class="tile-title">${p.title}</h3>`:''}${p.description?`<p class="tile-desc">${p.description}</p>`:''}</div><a href="${p.link}" class="tile-link"></a></div>`;
-    });
-    c.innerHTML = html + '</div>';
-  }
-
-  function renderSplit(c: HTMLElement, promos: any[]) {
-    let html = '<div class="split-promo">';
-    promos.forEach((p, i) => {
-      const rev = i % 2 === 1 ? ' split-item--reverse' : '';
-      html += `<a href="${p.link}" class="split-item${rev}"><div class="split-img"><img src="${p.imageUrl}" alt="${p.title||''}" /></div><div class="split-text">${p.title?`<h3 class="split-title">${p.title}</h3>`:''}${p.description?`<p class="split-desc">${p.description}</p>`:''}<span class="split-link">Ver más →</span></div></a>`;
-    });
-    c.innerHTML = html + '</div>';
-  }
-
-  function renderBanner(c: HTMLElement, promos: any[]) {
-    let html = '<div class="banner-promo">';
-    promos.forEach(p => {
-      html += `<a href="${p.link}" class="banner-item">${p.title?`<span class="banner-title">${p.title}</span>`:''}${p.description?`<span class="banner-desc">${p.description}</span>`:''}</a>`;
-    });
-    c.innerHTML = html + '</div>';
-  }
-
-  function renderRibbon(c: HTMLElement, promos: any[]) {
-    let html = '<div class="ribbon-promo">';
-    promos.forEach(p => {
-      html += `<a href="${p.link}" class="ribbon-item"><div class="ribbon-bg" style="background-image:url('${p.imageUrl}')"></div><div class="ribbon-overlay"></div><div class="ribbon-content">${p.title?`<span class="ribbon-title">${p.title}</span>`:''}${p.description?`<span class="ribbon-desc">${p.description}</span>`:''}</div></a>`;
-    });
-    c.innerHTML = html + '</div>';
-  }
-
-  function initCarouselLogic(el: HTMLElement) {
-    const slides = el.querySelectorAll('.carousel-slide');
-    const dots = el.querySelectorAll('.carousel-dot');
-    let current = 0, timer: any;
-    function goTo(i: number) { slides[current]?.classList.remove('active'); dots[current]?.classList.remove('active'); current = i; slides[current]?.classList.add('active'); dots[current]?.classList.add('active'); }
-    function next() { goTo((current + 1) % slides.length); }
-    function prev() { goTo((current - 1 + slides.length) % slides.length); }
-    function start() { timer = setInterval(next, 5000); }
-    function stop() { clearInterval(timer); }
-    el.querySelector('.carousel-arrow--left')?.addEventListener('click', () => { stop(); prev(); start(); });
-    el.querySelector('.carousel-arrow--right')?.addEventListener('click', () => { stop(); next(); start(); });
-    dots.forEach(d => d.addEventListener('click', () => { stop(); goTo(Number((d as HTMLElement).dataset.slide)); start(); }));
-    el.addEventListener('mouseenter', stop);
-    el.addEventListener('mouseleave', start);
-    if (slides.length > 1) start();
-  }
-
-  document.querySelectorAll('.promotion-wall').forEach((w) => {
-    const s = (w as HTMLElement).dataset.section;
-    if (s) initPromoWall(s);
-  });
-</script>
+  </script>
+)}
 
 <style is:global>
   /* Loading */

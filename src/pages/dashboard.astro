@@ -7,11 +7,11 @@
  * Redirects to /login if not authenticated.
  */
 
-import BaseLayout from '../layouts/BaseLayout.astro';
+import AdminLayout from '../layouts/AdminLayout.astro';
 import AdminSidebar from '../components/AdminSidebar.astro';
 ---
 
-<BaseLayout title="Dashboard — Sublime E-commerce">
+<AdminLayout title="Dashboard — Sublime E-commerce">
   <div class="dashboard-layout">
     <AdminSidebar active="dashboard" />
     <main class="dashboard-main">
@@ -19,17 +19,10 @@ import AdminSidebar from '../components/AdminSidebar.astro';
       <!-- Loading state -->
       <div class="dashboard-loading" id="dashboard-loading">
         <div class="cmyk-bar"><span></span><span></span><span></span></div>
-        <p class="body-md">Verificando sesión...</p>
+        <p class="body-md">Cargando dashboard...</p>
       </div>
 
-      <!-- Unauthorized state -->
-      <div class="dashboard-unauthorized" id="dashboard-unauthorized" style="display: none;">
-        <h1 class="headline-lg-mobile">Acceso Denegado</h1>
-        <p class="body-lg">Necesitás iniciar sesión para acceder al dashboard.</p>
-        <a href="/login" class="btn btn--primary">Iniciar Sesión</a>
-      </div>
-
-      <!-- Dashboard content (shown after auth check) -->
+      <!-- Dashboard content (shown after data loads) -->
       <div class="dashboard-content" id="dashboard-content" style="display: none;">
         <div class="dashboard-header">
           <h1 class="headline-lg-mobile">Dashboard</h1>
@@ -108,7 +101,7 @@ import AdminSidebar from '../components/AdminSidebar.astro';
       </section>
     </main>
   </div>
-</BaseLayout>
+</AdminLayout>
 
 <style>
   .dashboard-layout {
@@ -140,21 +133,6 @@ import AdminSidebar from '../components/AdminSidebar.astro';
   .dashboard-loading p {
     color: var(--on-surface-variant);
     margin-top: var(--space-lg);
-  }
-
-  .dashboard-unauthorized {
-    text-align: center;
-    padding: var(--space-4xl) 0;
-  }
-
-  .dashboard-unauthorized h1 {
-    color: var(--error);
-    margin-bottom: var(--space-lg);
-  }
-
-  .dashboard-unauthorized p {
-    color: var(--on-surface-variant);
-    margin-bottom: var(--space-2xl);
   }
 
   .dashboard-header {
@@ -291,11 +269,10 @@ import AdminSidebar from '../components/AdminSidebar.astro';
 <script>
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   const loading = document.getElementById('dashboard-loading');
-  const unauthorized = document.getElementById('dashboard-unauthorized');
   const content = document.getElementById('dashboard-content');
   const welcomeMessage = document.getElementById('welcome-message');
 
-  async function checkAuth() {
+  async function loadDashboard() {
     try {
       const res = await fetch(`${API_URL}/api/me`, {
         credentials: 'include',
@@ -313,19 +290,14 @@ import AdminSidebar from '../components/AdminSidebar.astro';
           const roleText = isAdmin ? '(Admin)' : '(Cliente)';
           welcomeMessage.textContent = `Bienvenido, ${user.name || 'Usuario'} ${roleText}`;
         }
-      } else {
-        // Not authenticated — show unauthorized
-        if (loading) loading.style.display = 'none';
-        if (unauthorized) unauthorized.style.display = 'block';
       }
     } catch {
-      // Error — show unauthorized
+      // Error loading dashboard data — auth guard already handled redirect
       if (loading) loading.style.display = 'none';
-      if (unauthorized) unauthorized.style.display = 'block';
     }
   }
 
-  checkAuth();
+  loadDashboard();
 
   // Logout using Better Auth client
   document.getElementById('logout-btn')?.addEventListener('click', async () => {

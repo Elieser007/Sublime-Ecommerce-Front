@@ -6,7 +6,7 @@
  * Pattern: same as categories.astro
  */
 
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
 import Badge from '../../components/admin/Badge.astro';
@@ -29,7 +29,7 @@ const COMPONENT_OPTIONS = [
 ];
 ---
 
-<BaseLayout title="Módulos de Atributos — Admin">
+<AdminLayout title="Módulos de Atributos — Admin">
   <div class="admin-layout">
     <AdminSidebar active="attributes" />
     <main class="admin-main">
@@ -142,7 +142,7 @@ const COMPONENT_OPTIONS = [
       </div>
     </main>
   </div>
-</BaseLayout>
+</AdminLayout>
 
 <script>
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';

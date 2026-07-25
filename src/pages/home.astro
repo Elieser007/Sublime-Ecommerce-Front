@@ -2,12 +2,27 @@
 /**
  * Homepage — Sublime E-commerce
  * 
- * Hero section + featured products grid (loaded client-side).
+ * Hero section + featured products grid (SSG — fetched at build time).
  * Dark theme, CMYK accents, sharp corners.
  */
 
+import { formatPrice, getProductImageUrl } from '../lib/public-api';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Chip from '../components/Chip.astro';
+
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+
+// Fetch featured products at build time
+let featuredProducts: any[] = [];
+try {
+  const res = await fetch(`${API_URL}/api/public/products/featured`);
+  if (res.ok) {
+    const data = await res.json();
+    featuredProducts = data.products || [];
+  }
+} catch (err) {
+  console.error('Error fetching featured products at build time:', err);
+}
 ---
 
 <BaseLayout title="Sublime E-commerce — Arte & Diseño">
@@ -47,94 +62,48 @@ import Chip from '../components/Chip.astro';
         <a href="/" class="label-sm section-link">Ver todo →</a>
       </div>
 
-      <!-- Loading state -->
-      <div id="featured-loading" class="products-grid grid">
-        {[1,2,3,4].map((i) => (
-          <div class="product-skeleton" key={i}>
-            <div class="skeleton-image"></div>
-            <div class="skeleton-text"></div>
-            <div class="skeleton-text skeleton-text--short"></div>
-          </div>
-        ))}
-      </div>
-
-      <!-- Featured grid rendered by JS -->
-      <div id="featured-grid" class="products-grid grid" style="display: none;"></div>
-
-      <!-- Error state -->
-      <div id="featured-error" style="display: none; text-align: center; padding: 48px 0;">
-        <p class="body-lg" style="color: var(--on-surface-variant); margin-bottom: 16px;">
-          Error al cargar productos destacados
-        </p>
-        <button class="btn btn--primary" id="retry-featured">Reintentar</button>
-      </div>
-
-      <!-- Empty state -->
-      <div id="featured-empty" style="display: none; text-align: center; padding: 48px 0;">
-        <p class="body-lg" style="color: var(--on-surface-variant);">No hay productos destacados</p>
-      </div>
+      {featuredProducts.length > 0 ? (
+        <div class="products-grid grid" id="featured-grid">
+          {featuredProducts.map((product) => {
+            const imageUrl = getProductImageUrl(product.image_url);
+            return (
+              <div class="product-wrapper">
+                <product-card
+                  product={JSON.stringify({
+                    id: product.id,
+                    slug: product.slug,
+                    name: product.name,
+                    price: product.base_price,
+                    image: imageUrl,
+                    category: product.section_name,
+                    price_tiers: product.price_tiers || [],
+                  })}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style="text-align: center; padding: 48px 0;">
+          <p class="body-lg" style="color: var(--on-surface-variant);">No hay productos destacados</p>
+        </div>
+      )}
     </div>
   </section>
+
+  <!-- Initialize product-card Web Components -->
+  <script is:inline>
+    document.querySelectorAll('product-card').forEach((el) => {
+      const attr = el.getAttribute('product');
+      if (attr) {
+        try {
+          const data = JSON.parse(attr);
+          el.product = data;
+        } catch (e) {}
+      }
+    });
+  </script>
 </BaseLayout>
-
-<script>
-  import '../components/product-card.js';
-  import {
-    fetchFeaturedProducts,
-    formatPrice,
-    getProductImageUrl,
-  } from '../lib/public-api';
-
-  const $loading = document.getElementById('featured-loading');
-  const $grid = document.getElementById('featured-grid');
-  const $error = document.getElementById('featured-error');
-  const $empty = document.getElementById('featured-empty');
-  const $retry = document.getElementById('retry-featured');
-
-  async function loadFeatured() {
-    try {
-      $loading.style.display = '';
-      $grid.style.display = 'none';
-      $error.style.display = 'none';
-      $empty.style.display = 'none';
-
-      const products = await fetchFeaturedProducts();
-
-      $loading.style.display = 'none';
-
-      if (!products || products.length === 0) {
-        $empty.style.display = '';
-        return;
-      }
-
-      // Render product cards using Web Component
-      $grid.innerHTML = '';
-      for (const product of products) {
-        const imageUrl = getProductImageUrl(product.image_url);
-        const card = document.createElement('product-card');
-        card.setAttribute('product', JSON.stringify({
-          id: product.id,
-          slug: product.slug,
-          name: product.name,
-          price: product.base_price,
-          image: imageUrl,
-          category: product.section_name,
-          price_tiers: product.price_tiers || [],
-        }));
-        $grid.appendChild(card);
-      }
-      $grid.style.display = '';
-
-    } catch (err) {
-      $loading.style.display = 'none';
-      $error.style.display = '';
-      console.error('Error loading featured:', err);
-    }
-  }
-
-  $retry?.addEventListener('click', loadFeatured);
-  loadFeatured();
-</script>
 
 <style>
   /* Hero */
@@ -153,22 +122,4 @@ import Chip from '../components/Chip.astro';
   .section-link:hover { text-decoration: underline; }
   .products-grid { grid-template-columns: repeat(2, 1fr); }
   @media (min-width: 768px) { .products-grid { grid-template-columns: repeat(4, 1fr); } }
-
-  /* Loading skeletons */
-  .product-skeleton { border: var(--border-width) solid var(--outline-variant); }
-  .skeleton-image {
-    aspect-ratio: 1;
-    background-color: var(--surface-container);
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  .skeleton-text {
-    height: 16px; margin: var(--space-sm);
-    background-color: var(--surface-container);
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  .skeleton-text--short { width: 60%; }
-  @keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-  }
 </style>

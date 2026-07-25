@@ -3,7 +3,7 @@
  * Admin Users — User Management
  * DataTable with search, filters, pagination, create/edit modal
  */
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
 
@@ -17,7 +17,7 @@ const columns = [
 ];
 ---
 
-<BaseLayout title="Usuarios — Admin">
+<AdminLayout title="Usuarios — Admin">
   <div class="admin-layout">
     <AdminSidebar active="users" />
     <main class="admin-main">
@@ -100,7 +100,7 @@ const columns = [
       </form>
     </div>
   </div>
-</BaseLayout>
+</AdminLayout>
 
 <script>
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';

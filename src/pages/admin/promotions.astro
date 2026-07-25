@@ -5,7 +5,7 @@
  * Left: Section list with display_type selector
  * Right: Promotions for selected section + live preview
  */
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import PromotionWall from '../../components/PromotionWall.astro';
 import HeroPromo from '../../components/promo/HeroPromo.astro';
@@ -16,7 +16,7 @@ import BannerPromo from '../../components/promo/BannerPromo.astro';
 import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 ---
 
-<BaseLayout title="Promociones — Admin">
+<AdminLayout title="Promociones — Admin">
   <div class="admin-layout">
     <AdminSidebar active="promotions" />
     <main class="admin-main">
@@ -137,9 +137,11 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       </form>
     </div>
   </div>
-</BaseLayout>
+</AdminLayout>
 
 <script>
+  import { escapeHtml } from '../../lib/escape-html';
+
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   const $ = (id: string) => document.getElementById(id);
 
@@ -183,15 +185,15 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     }
 
     $('sections-list')!.innerHTML = sections.map((s: any) => `
-      <div class="section-card ${selectedSection?.id === s.id ? 'active' : ''}" data-id="${s.id}">
+      <div class="section-card ${selectedSection?.id === s.id ? 'active' : ''}" data-id="${escapeHtml(s.id)}">
         <div class="section-card-header">
           <div>
-            <strong class="body-md">${s.name}</strong>
-            <code class="slug-badge">${s.slug}</code>
+            <strong class="body-md">${escapeHtml(s.name)}</strong>
+            <code class="slug-badge">${escapeHtml(s.slug)}</code>
           </div>
-          <span class="badge badge--active">${s.display_type}</span>
+          <span class="badge badge--active">${escapeHtml(s.display_type)}</span>
         </div>
-        <p class="section-card-slug body-sm">${explainSlug(s.slug)}</p>
+        <p class="section-card-slug body-sm">${escapeHtml(explainSlug(s.slug))}</p>
       </div>
     `).join('');
 
@@ -260,19 +262,19 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     }
 
     $('promos-list')!.innerHTML = promotions.map((p: any) => `
-      <div class="promo-card" data-id="${p.id}">
+      <div class="promo-card" data-id="${escapeHtml(p.id)}">
         <div class="promo-card-img">
-          <img src="${p.imageUrl}" alt="${p.title || ''}" />
+          <img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.title || '')}" />
         </div>
         <div class="promo-card-info">
-          <strong class="body-md">${p.title || '(sin título)'}</strong>
-          <span class="body-sm">${p.description || ''}</span>
-          <code class="slug-badge">${p.link}</code>
-          ${currentDisplayType === 'tiles' ? `<span class="body-sm">${p.tileCols}×${p.tileRows} · pos ${p.position}</span>` : ''}
+          <strong class="body-md">${escapeHtml(p.title || '(sin título)')}</strong>
+          <span class="body-sm">${escapeHtml(p.description || '')}</span>
+          <code class="slug-badge">${escapeHtml(p.link)}</code>
+          ${currentDisplayType === 'tiles' ? `<span class="body-sm">${escapeHtml(p.tileCols)}×${escapeHtml(p.tileRows)} · pos ${escapeHtml(p.position)}</span>` : ''}
         </div>
         <div class="promo-card-actions">
-          <button class="ta-btn" onclick="editPromo('${p.id}')" title="Editar">✏️</button>
-          <button class="ta-btn ta-btn--delete" onclick="deletePromo('${p.id}')" title="Eliminar">🗑️</button>
+          <button class="ta-btn" onclick="editPromo('${escapeHtml(p.id)}')" title="Editar">✏️</button>
+          <button class="ta-btn ta-btn--delete" onclick="deletePromo('${escapeHtml(p.id)}')" title="Eliminar">🗑️</button>
         </div>
       </div>
     `).join('');
@@ -329,12 +331,12 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
         switch (currentDisplayType) {
           case 'hero':
             var p = promotions[0];
-            html = '<div class="hero-promo"><div class="hero-bg" style="background-image:url(\'' + p.imageUrl + '\')"></div><div class="hero-overlay"></div><div class="hero-content">' + (p.title ? '<h2 class="hero-title">' + p.title + '</h2>' : '') + (p.description ? '<p class="hero-desc">' + p.description + '</p>' : '') + '<a href="' + p.link + '" class="hero-btn">Ver más</a></div></div>';
+            html = '<div class="hero-promo"><div class="hero-bg" style="background-image:url(\'' + escapeHtml(p.imageUrl) + '\')"></div><div class="hero-overlay"></div><div class="hero-content">' + (p.title ? '<h2 class="hero-title">' + escapeHtml(p.title) + '</h2>' : '') + (p.description ? '<p class="hero-desc">' + escapeHtml(p.description) + '</p>' : '') + '<a href="' + escapeHtml(p.link) + '" class="hero-btn">Ver más</a></div></div>';
             break;
           case 'carousel':
             html = '<div class="carousel-promo" data-carousel-id="preview"><div class="carousel-track">';
             promotions.forEach(function(pt, i) {
-              html += '<div class="carousel-slide ' + (i === 0 ? 'active' : '') + '" data-index="' + i + '"><div class="slide-bg" style="background-image:url(\'' + pt.imageUrl + '\')"></div><div class="slide-overlay"></div><div class="slide-content">' + (pt.title ? '<h3 class="slide-title">' + pt.title + '</h3>' : '') + (pt.description ? '<p class="slide-desc">' + pt.description + '</p>' : '') + '</div><a href="' + pt.link + '" class="slide-link" aria-label="' + (pt.title || 'Promocion') + '"></a></div>';
+              html += '<div class="carousel-slide ' + (i === 0 ? 'active' : '') + '" data-index="' + i + '"><div class="slide-bg" style="background-image:url(\'' + escapeHtml(pt.imageUrl) + '\')"></div><div class="slide-overlay"></div><div class="slide-content">' + (pt.title ? '<h3 class="slide-title">' + escapeHtml(pt.title) + '</h3>' : '') + (pt.description ? '<p class="slide-desc">' + escapeHtml(pt.description) + '</p>' : '') + '</div><a href="' + escapeHtml(pt.link) + '" class="slide-link" aria-label="' + escapeHtml(pt.title || 'Promocion') + '"></a></div>';
             });
             html += '</div>';
             if (promotions.length > 1) {
@@ -353,7 +355,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
             promotions.forEach(function(pt) {
               var col = (pt.position % 4) + 1;
               var row = Math.floor(pt.position / 4) + 1;
-              html += '<div class="tile" style="grid-column:' + col + '/span ' + pt.tileCols + ';grid-row:' + row + '/span ' + pt.tileRows + ';"><div class="tile-bg" style="background-image:url(\'' + pt.imageUrl + '\')"></div><div class="tile-overlay"></div><div class="tile-content">' + (pt.title ? '<h3 class="tile-title">' + pt.title + '</h3>' : '') + (pt.description ? '<p class="tile-desc">' + pt.description + '</p>' : '') + '</div><a href="' + pt.link + '" class="tile-link" aria-label="' + (pt.title || 'Promocion') + '"></a></div>';
+              html += '<div class="tile" style="grid-column:' + col + '/span ' + pt.tileCols + ';grid-row:' + row + '/span ' + pt.tileRows + ';"><div class="tile-bg" style="background-image:url(\'' + escapeHtml(pt.imageUrl) + '\')"></div><div class="tile-overlay"></div><div class="tile-content">' + (pt.title ? '<h3 class="tile-title">' + escapeHtml(pt.title) + '</h3>' : '') + (pt.description ? '<p class="tile-desc">' + escapeHtml(pt.description) + '</p>' : '') + '</div><a href="' + escapeHtml(pt.link) + '" class="tile-link" aria-label="' + escapeHtml(pt.title || 'Promocion') + '"></a></div>';
             });
             html += '</div>';
             break;
@@ -361,21 +363,21 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
             html = '<div class="split-promo">';
             promotions.forEach(function(pt, i) {
               var rev = i % 2 === 1 ? ' split-item--reverse' : '';
-              html += '<a href="' + pt.link + '" class="split-item' + rev + '"><div class="split-img"><img src="' + pt.imageUrl + '" alt="' + (pt.title || '') + '" /></div><div class="split-text">' + (pt.title ? '<h3 class="split-title">' + pt.title + '</h3>' : '') + (pt.description ? '<p class="split-desc">' + pt.description + '</p>' : '') + '<span class="split-link">Ver más →</span></div></a>';
+              html += '<a href="' + escapeHtml(pt.link) + '" class="split-item' + rev + '"><div class="split-img"><img src="' + escapeHtml(pt.imageUrl) + '" alt="' + escapeHtml(pt.title || '') + '" /></div><div class="split-text">' + (pt.title ? '<h3 class="split-title">' + escapeHtml(pt.title) + '</h3>' : '') + (pt.description ? '<p class="split-desc">' + escapeHtml(pt.description) + '</p>' : '') + '<span class="split-link">Ver más →</span></div></a>';
             });
             html += '</div>';
             break;
           case 'banner':
             html = '<div class="banner-promo">';
             promotions.forEach(function(pt) {
-              html += '<a href="' + pt.link + '" class="banner-item">' + (pt.title ? '<span class="banner-title">' + pt.title + '</span>' : '') + (pt.description ? '<span class="banner-desc">' + pt.description + '</span>' : '') + '</a>';
+              html += '<a href="' + escapeHtml(pt.link) + '" class="banner-item">' + (pt.title ? '<span class="banner-title">' + escapeHtml(pt.title) + '</span>' : '') + (pt.description ? '<span class="banner-desc">' + escapeHtml(pt.description) + '</span>' : '') + '</a>';
             });
             html += '</div>';
             break;
           case 'ribbon':
             html = '<div class="ribbon-promo">';
             promotions.forEach(function(pt) {
-              html += '<a href="' + pt.link + '" class="ribbon-item"><div class="ribbon-bg" style="background-image:url(\'' + pt.imageUrl + '\')"></div><div class="ribbon-overlay"></div><div class="ribbon-content">' + (pt.title ? '<span class="ribbon-title">' + pt.title + '</span>' : '') + (pt.description ? '<span class="ribbon-desc">' + pt.description + '</span>' : '') + '</div></a>';
+              html += '<a href="' + escapeHtml(pt.link) + '" class="ribbon-item"><div class="ribbon-bg" style="background-image:url(\'' + escapeHtml(pt.imageUrl) + '\')"></div><div class="ribbon-overlay"></div><div class="ribbon-content">' + (pt.title ? '<span class="ribbon-title">' + escapeHtml(pt.title) + '</span>' : '') + (pt.description ? '<span class="ribbon-desc">' + escapeHtml(pt.description) + '</span>' : '') + '</div></a>';
             });
             html += '</div>';
             break;
