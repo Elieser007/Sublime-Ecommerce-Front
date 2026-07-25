@@ -164,13 +164,7 @@ const renderedHtml = hasPromotions
 ---
 
 <div class={`promotion-wall ${className}`} data-section={section}>
-  {hasPromotions ? (
-    <Fragment set:html={renderedHtml} />
-  ) : (
-    <div class="promo-loading" id={`promo-loading-${section}`}>
-      <div class="cmyk-bar"><span></span><span></span><span></span></div>
-    </div>
-  )}
+  {hasPromotions && <Fragment set:html={renderedHtml} />}
 </div>
 
 {displayType === "carousel" && hasPromotions && (
