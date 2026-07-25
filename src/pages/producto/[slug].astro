@@ -175,8 +175,8 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
       const res = await fetch(`${API_URL}/api/public/products/${productId}/variants`);
       if (!res.ok) return;
 
-      const data = await res.json();
-      const modules = data.available_modules || [];
+      const json = await res.json();
+      const modules = json.data?.available_modules || json.available_modules || [];
 
       if (modules.length === 0) {
         $variantSection.innerHTML = '';
@@ -184,7 +184,7 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
       }
 
       currentVariantModules = modules;
-      variantFinalPrice = data.final_price;
+      variantFinalPrice = json.data?.final_price ?? json.final_price ?? null;
 
       // Render VariantSelector via client-side HTML injection
       // The component is Astro (server-rendered), so we build the HTML here
@@ -238,9 +238,9 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
         ? `<span class="size-selector__modifier">${val.price_modifier > 0 ? '+' : ''}₲${val.price_modifier.toLocaleString('es-PY')}</span>`
         : '';
       html += `
-        <button type="button" class="size-selector__btn ${!val.available ? 'size-selector__btn--disabled' : ''}"
+        <button type="button" class="size-selector__btn ${val.available === false ? 'size-selector__btn--disabled' : ''}"
           data-module-id="${mod.module_id}" data-value-id="${val.value_id}" data-price-modifier="${val.price_modifier}"
-          role="radio" aria-checked="false" aria-disabled="${!val.available}" ${!val.available ? 'disabled' : ''}>
+          role="radio" aria-checked="false" aria-disabled="${val.available === false}" ${val.available === false ? 'disabled' : ''}>
           <span class="size-selector__label-text">${val.label}</span>${modifier}
         </button>`;
     }
@@ -257,9 +257,9 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
     for (const val of mod.values) {
       const hex = val.hex_color || val.raw_value;
       html += `
-        <button type="button" class="color-selector__circle ${!val.available ? 'color-selector__circle--disabled' : ''}"
+        <button type="button" class="color-selector__circle ${val.available === false ? 'color-selector__circle--disabled' : ''}"
           data-module-id="${mod.module_id}" data-value-id="${val.value_id}" data-price-modifier="${val.price_modifier}"
-          role="radio" aria-checked="false" aria-disabled="${!val.available}" ${!val.available ? 'disabled' : ''}
+          role="radio" aria-checked="false" aria-disabled="${val.available === false}" ${val.available === false ? 'disabled' : ''}
           aria-label="${val.label}" title="${val.label}">
           <span class="color-selector__swatch" style="background-color: ${hex};"></span>
         </button>`;
@@ -279,7 +279,7 @@ import VariantSelector from '../../components/product/VariantSelector.astro';
       const modifier = val.price_modifier !== 0
         ? ` (${val.price_modifier > 0 ? '+' : ''}₲${val.price_modifier.toLocaleString('es-PY')})`
         : '';
-      html += `<option value="${val.value_id}" disabled="${!val.available}" data-price-modifier="${val.price_modifier}">${val.label}${modifier}</option>`;
+      html += `<option value="${val.value_id}" disabled="${val.available === false}" data-price-modifier="${val.price_modifier}">${val.label}${modifier}</option>`;
     }
 
     html += `</select></div>`;
