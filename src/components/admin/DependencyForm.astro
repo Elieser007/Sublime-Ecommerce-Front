@@ -306,7 +306,7 @@ const { productId } = Astro.props;
     const res = await fetch(`${API_URL}/api/admin/attributes/modules`, { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
-    allModules = data.modules || [];
+    allModules = data.data || [];
     populateModuleSelects();
   }
 
@@ -314,7 +314,7 @@ const { productId } = Astro.props;
     const res = await fetch(`${API_URL}/api/admin/attributes/dependencies`, { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
-    dependencies = data.dependencies || [];
+    dependencies = data.data || [];
     renderDependencies();
   }
 
@@ -322,7 +322,7 @@ const { productId } = Astro.props;
     const res = await fetch(`${API_URL}/api/admin/attributes/values?module_id=${moduleId}`, { credentials: 'include' });
     if (!res.ok) return [];
     const data = await res.json();
-    return data.values || [];
+    return data.data || [];
   }
 
   // ─── RENDER ─────────────────────────────────────────────
