@@ -77,57 +77,40 @@ export function filterAvailableOptions(
   dependencies: Dependency[]
 ): ModuleWithValues[] {
   if (dependencies.length === 0) {
-    // No dependencies — all values remain available
     return modules.map((mod) => ({
       ...mod,
       values: mod.values.map((v) => ({ ...v, available: true })),
     }));
   }
 
-  // Build a map: child_module_id → Set of allowed child_value_ids
-  const allowedByModule = new Map<string, Set<string> | null>();
-
-  for (const [parentModuleId, parentValueId] of selectedAttributes) {
-    const matchingDeps = dependencies.filter(
-      (d) => d.parent_module_id === parentModuleId && d.parent_value_id === parentValueId
-    );
-
-    for (const dep of matchingDeps) {
-      if (dep.child_value_id === null) {
-        // null means all values in child module are allowed
-        allowedByModule.set(dep.child_module_id, null);
-      } else {
-        const existing = allowedByModule.get(dep.child_module_id);
-        if (existing === null) {
-          // Already marked as "all allowed" — skip
-          continue;
-        }
-        if (!existing) {
-          allowedByModule.set(dep.child_module_id, new Set());
-        }
-        allowedByModule.get(dep.child_module_id)!.add(dep.child_value_id);
-      }
-    }
-  }
-
   return modules.map((mod) => {
-    const allowed = allowedByModule.get(mod.id);
+    const relevantDeps = dependencies.filter((d) => d.child_module_id === mod.id);
 
-    // If no dependencies reference this module, all values stay available
-    if (allowed === undefined) {
-      return {
-        ...mod,
-        values: mod.values.map((v) => ({ ...v, available: true })),
-      };
+    if (relevantDeps.length === 0) {
+      return { ...mod, values: mod.values.map((v) => ({ ...v, available: true })) };
     }
 
-    // null = all allowed; Set = only specific values allowed
     return {
       ...mod,
-      values: mod.values.map((v) => ({
-        ...v,
-        available: allowed === null ? true : allowed.has(v.value_id),
-      })),
+      values: mod.values.map((value) => {
+        for (const [parentModuleId, parentValueId] of selectedAttributes) {
+          const depsForThisValue = relevantDeps.filter(
+            (d) => d.parent_module_id === parentModuleId && d.parent_value_id === parentValueId
+          );
+
+          // No deps for this parent value → no restriction
+          if (depsForThisValue.length === 0) continue;
+
+          // Check if value is allowed by this parent's restrictions
+          const isAllowed = depsForThisValue.some(
+            (d) => d.child_value_id === null || d.child_value_id === value.value_id
+          );
+
+          if (!isAllowed) return { ...value, available: false };
+        }
+
+        return { ...value, available: true };
+      }),
     };
   });
 }
