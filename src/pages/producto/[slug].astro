@@ -17,31 +17,46 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 
 export async function getStaticPaths() {
   const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
-  const listRes = await fetch(`${apiUrl}/api/public/products?limit=1000`);
-  if (!listRes.ok) {
-    throw new Error(`Failed to fetch product list: ${listRes.status}`);
-  }
-  const listData = await listRes.json();
-  const products = listData.data || [];
 
-  // NOTE: This uses an N+1 fetch pattern (1 list + N detail requests).
-  // Acceptable for ~500 products with daily deploys. The backend's
-  // /api/public/products endpoint doesn't return full product details
-  // (images, variants, all price tiers), so individual fetches are needed.
-  // If product count grows beyond 1000, consider adding a batch endpoint
-  // to the backend that returns all products with full details.
-  const paths = [];
-  for (const product of products) {
-    const detailRes = await fetch(`${apiUrl}/api/public/products/slug/${product.slug}`);
-    if (!detailRes.ok) continue;
-    const detailData = await detailRes.json();
-    paths.push({
-      params: { slug: product.slug },
-      props: { product: detailData.product },
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const listRes = await fetch(`${apiUrl}/api/public/products?limit=1000`, {
+      signal: controller.signal,
     });
-  }
+    clearTimeout(timeout);
 
-  return paths;
+    if (!listRes.ok) {
+      console.warn(`[getStaticPaths] API returned ${listRes.status} — skipping product pages`);
+      return [];
+    }
+
+    const listData = await listRes.json();
+    const products = listData.data || [];
+
+    // NOTE: This uses an N+1 fetch pattern (1 list + N detail requests).
+    // Acceptable for ~500 products with daily deploys. The backend's
+    // /api/public/products endpoint doesn't return full product details
+    // (images, variants, all price tiers), so individual fetches are needed.
+    // If product count grows beyond 1000, consider adding a batch endpoint
+    // to the backend that returns all products with full details.
+    const paths = [];
+    for (const product of products) {
+      const detailRes = await fetch(`${apiUrl}/api/public/products/slug/${product.slug}`);
+      if (!detailRes.ok) continue;
+      const detailData = await detailRes.json();
+      paths.push({
+        params: { slug: product.slug },
+        props: { product: detailData.product },
+      });
+    }
+
+    return paths;
+  } catch (err) {
+    console.warn(`[getStaticPaths] API unreachable at ${apiUrl} — skipping product pages`);
+    return [];
+  }
 }
 
 const { product } = Astro.props;
