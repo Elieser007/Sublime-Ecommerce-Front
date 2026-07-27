@@ -637,7 +637,7 @@ const { productId, productName } = Astro.props;
     const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes`, { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
-    productAttributes = data.data || [];
+    productAttributes = data.attributes || [];
     renderAssignedModules();
     populateAddModuleSelect();
     const depBtn = $('show-dependency-btn') as HTMLButtonElement;
