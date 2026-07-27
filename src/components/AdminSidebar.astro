@@ -107,6 +107,18 @@
           </a>
     </div>
 
+    <!-- Deploy (Admin only) -->
+    <div class="nav-group admin-only" id="deploy-group" style="display:none">
+      <button class="sidebar-link deploy-trigger" id="deploy-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span>Deploy Frontend</span>
+      </button>
+    </div>
+
     <!-- Logout -->
     <div class="nav-group nav-group--bottom">
       <button class="sidebar-link sidebar-link--logout" id="logout-btn">
@@ -120,6 +132,20 @@
     </div>
   </nav>
 </aside>
+
+<!-- Deploy confirmation modal -->
+<dialog id="deploy-modal" class="deploy-dialog">
+  <div class="deploy-modal-content">
+    <h3>🚀 Deploy Frontend</h3>
+    <p>Este proceso puede tardar varios minutos. Se generarán nuevas páginas estáticas.</p>
+    <p class="deploy-warning">⚠️ Límite: 200 builds por mes en Cloudflare Free. Los builds restantes son para emergencias.</p>
+    <div id="deploy-status" class="deploy-status"></div>
+    <div class="deploy-actions">
+      <button class="btn btn--secondary" id="deploy-cancel">Cancelar</button>
+      <button class="btn btn--primary" id="deploy-confirm">Deploy</button>
+    </div>
+  </div>
+</dialog>
 
 <script>
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
@@ -227,6 +253,71 @@
       });
     }
   }
+
+  // Deploy config check — show deploy group only if config exists
+  async function checkDeployConfig() {
+    try {
+      const res = await fetch(`${API_URL}/api/deploy/config`, { credentials: 'include' });
+      if (res.ok) {
+        document.getElementById('deploy-group')?.setAttribute('style', '');
+      }
+    } catch {
+      // Backend unreachable — leave hidden
+    }
+  }
+
+  // Deploy modal logic
+  const $deployBtn = document.getElementById('deploy-btn');
+  const $deployModal = document.getElementById('deploy-modal') as HTMLDialogElement;
+  const $deployCancel = document.getElementById('deploy-cancel');
+  const $deployConfirm = document.getElementById('deploy-confirm');
+  const $deployStatus = document.getElementById('deploy-status');
+
+  $deployBtn?.addEventListener('click', () => {
+    if (!$deployModal) return;
+    $deployStatus.textContent = '';
+    $deployStatus.className = 'deploy-status';
+    $deployConfirm.disabled = false;
+    $deployConfirm.textContent = 'Deploy';
+    $deployModal.showModal();
+  });
+
+  $deployCancel?.addEventListener('click', () => {
+    $deployModal?.close();
+  });
+
+  $deployConfirm?.addEventListener('click', async () => {
+    if (!$deployConfirm || !$deployStatus) return;
+    $deployConfirm.disabled = true;
+    $deployConfirm.textContent = 'Desplegando...';
+    $deployStatus.textContent = 'Iniciando deploy...';
+    $deployStatus.className = 'deploy-status deploy-status--loading';
+
+    try {
+      const res = await fetch(`${API_URL}/api/deploy`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        $deployStatus.textContent = `✅ Deploy iniciado: ${data.url || 'Ver dashboard de Cloudflare'}`;
+        $deployStatus.className = 'deploy-status deploy-status--success';
+      } else {
+        $deployStatus.textContent = `❌ Error: ${data.message || data.error || 'Deploy failed'}`;
+        $deployStatus.className = 'deploy-status deploy-status--error';
+      }
+    } catch {
+      $deployStatus.textContent = '❌ Error de conexión al intentar deploy';
+      $deployStatus.className = 'deploy-status deploy-status--error';
+    } finally {
+      $deployConfirm.disabled = false;
+      $deployConfirm.textContent = 'Deploy';
+    }
+  });
+
+  // Check deploy config after admin is confirmed
+  checkDeployConfig();
 
   initSidebar();
   setActiveLink();
@@ -384,6 +475,79 @@
   .sidebar-link--logout:hover {
     background-color: var(--error-container);
     color: var(--on-error-container);
+  }
+
+  /* Deploy styles */
+  .deploy-trigger {
+    color: var(--primary);
+  }
+
+  .deploy-trigger:hover {
+    background-color: var(--surface-container-high);
+    color: var(--primary);
+  }
+
+  .deploy-dialog {
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius-lg, 16px);
+    padding: 0;
+    max-width: 420px;
+    width: calc(100% - 2 * var(--space-lg));
+    background: var(--surface-container);
+    color: var(--on-surface);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  }
+
+  .deploy-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  .deploy-modal-content {
+    padding: var(--space-2xl);
+  }
+
+  .deploy-modal-content h3 {
+    margin: 0 0 var(--space-md) 0;
+    font-size: 1.25rem;
+  }
+
+  .deploy-modal-content p {
+    margin: 0 0 var(--space-md) 0;
+    color: var(--on-surface-variant);
+    font-size: 14px;
+  }
+
+  .deploy-warning {
+    background: var(--secondary-container, #fff3e0);
+    color: var(--on-secondary-container, #e65100);
+    padding: var(--space-md);
+    border-radius: var(--border-radius);
+    font-size: 13px;
+  }
+
+  .deploy-status {
+    min-height: 20px;
+    margin: var(--space-md) 0;
+    font-size: 14px;
+  }
+
+  .deploy-status--loading {
+    color: var(--on-surface-variant);
+  }
+
+  .deploy-status--success {
+    color: var(--primary);
+  }
+
+  .deploy-status--error {
+    color: var(--error);
+  }
+
+  .deploy-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
   }
 
   @media (max-width: 767px) {

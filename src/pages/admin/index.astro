@@ -30,15 +30,7 @@ const products = [
           <a href="/admin/nuevo" class="btn btn--primary">
             + Nuevo Producto
           </a>
-          <button class="btn btn--secondary" id="deploy-btn">
-            Deploy
-          </button>
         </div>
-      </div>
-
-      <!-- Deploy status -->
-      <div id="deploy-status" style="display: none; margin-bottom: var(--space-lg); padding: var(--space-md); border: var(--border-width) solid var(--outline-variant); border-radius: var(--border-radius);">
-        <p id="deploy-message" class="body-sm"></p>
       </div>
 
       <AdminTable products={products} />
@@ -46,72 +38,7 @@ const products = [
   </div>
 </AdminLayout>
 
-<script>
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
-  const $deployBtn = document.getElementById('deploy-btn') as HTMLButtonElement;
-  const $deployStatus = document.getElementById('deploy-status');
-  const $deployMessage = document.getElementById('deploy-message');
 
-  // Check deploy config availability on page load
-  async function checkDeployConfig() {
-    try {
-      const res = await fetch(`${API_URL}/api/deploy`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const data = await res.json();
-
-      if (res.status === 500 && data.message === 'Deploy configuration missing') {
-        // Config not set — disable button with explanation
-        $deployBtn.disabled = true;
-        $deployBtn.title = 'Deploy no disponible: faltan variables de entorno (CF_API_TOKEN, CF_ACCOUNT_ID, CF_PROJECT_NAME)';
-        $deployBtn.textContent = 'Deploy (sin configurar)';
-        $deployStatus.style.display = '';
-        $deployStatus.style.borderColor = 'var(--outline-variant)';
-        $deployMessage.textContent = 'Deploy no configurado. Setea CF_API_TOKEN, CF_ACCOUNT_ID y CF_PROJECT_NAME como secrets en Cloudflare.';
-        $deployMessage.style.color = 'var(--on-surface-variant)';
-      }
-    } catch {
-      // Backend not reachable — leave button enabled for retry
-    }
-  }
-
-  checkDeployConfig();
-
-  $deployBtn?.addEventListener('click', async () => {
-    $deployBtn.disabled = true;
-    $deployBtn.textContent = 'Desplegando...';
-    $deployStatus.style.display = 'none';
-
-    try {
-      const res = await fetch(`${API_URL}/api/deploy`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        $deployStatus.style.display = '';
-        $deployStatus.style.borderColor = 'var(--primary)';
-        $deployMessage.textContent = `Deploy iniciado: ${data.url || 'Ver dashboard de Cloudflare'}`;
-        $deployMessage.style.color = 'var(--primary)';
-      } else {
-        $deployStatus.style.display = '';
-        $deployStatus.style.borderColor = 'var(--error)';
-        $deployMessage.textContent = `Error: ${data.message || data.error || 'Deploy failed'}`;
-        $deployMessage.style.color = 'var(--error)';
-      }
-    } catch (err) {
-      $deployStatus.style.display = '';
-      $deployStatus.style.borderColor = 'var(--error)';
-      $deployMessage.textContent = 'Error de conexión al intentar deploy';
-      $deployMessage.style.color = 'var(--error)';
-    } finally {
-      $deployBtn.disabled = false;
-      $deployBtn.textContent = 'Deploy';
-    }
-  });
-</script>
 
 <style>
   .admin-layout {
