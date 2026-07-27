@@ -6,15 +6,16 @@
  * - Promotion sections (top/bottom)
  * - Desktop: sidebar with category tree (3 levels) + filters
  * - Mobile: two buttons (Categorías, Filtros) → slide-in panels
- * - Product grid
+ * - Product grid with search, filters, sort, pagination
  * 
  * SSG: All data fetched at build time via frontmatter.
- * Client-side: category filter, sort, mobile panels.
+ * Client-side: category filter, sort, search, price, pagination.
  */
 
 import { formatPrice, getProductImageUrl } from '../lib/public-api';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PromotionWall from '../components/PromotionWall.astro';
+import SearchBar from '../components/SearchBar.astro';
 
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 
@@ -101,6 +102,11 @@ function slugify(str: string): string {
     <div class="shop-grid">
       <!-- Desktop Sidebar -->
       <aside class="shop-sidebar">
+
+        <!-- Search (mobile & desktop) -->
+        <div class="sidebar-section sidebar-section--search">
+          <SearchBar placeholder="Buscar productos..." inputId="catalog-search-input" />
+        </div>
 
         <!-- Category Tree Section -->
         <div class="sidebar-section">
@@ -201,6 +207,16 @@ function slugify(str: string): string {
       <main class="shop-main">
         {products.length > 0 ? (
           <div id="products-container">
+            <!-- Product count -->
+            <div class="product-count" id="product-count">
+              <span id="product-count-text">{products.length} productos encontrados</span>
+            </div>
+
+            <!-- Clear filters (hidden by default) -->
+            <button class="clear-filters-btn btn btn--ghost" id="clear-filters" style="display: none;">
+              Limpiar filtros
+            </button>
+
             <div class="products-grid" id="products-grid">
               {products.map((product) => {
                 const imageUrl = getProductImageUrl(product.image_url);
@@ -212,7 +228,8 @@ function slugify(str: string): string {
                     data-section-slug={secSlug}
                     data-category-slug={catSlug}
                     data-product-name={product.name}
-                    data-product-category={secSlug}>
+                    data-product-category={secSlug}
+                    data-price={product.base_price}>
                     <product-card
                       product={JSON.stringify({
                         id: product.id,
@@ -227,6 +244,23 @@ function slugify(str: string): string {
                   </div>
                 );
               })}
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination" style="display: none;">
+              <button class="load-more-btn btn btn--primary" id="load-more">
+                Cargar más
+              </button>
+              <span class="page-indicator body-sm" id="page-indicator"></span>
+            </div>
+
+            <!-- Empty state (hidden by default) -->
+            <div class="empty-state" id="empty-state" style="display: none;">
+              <p class="body-lg">No se encontraron productos</p>
+              <p class="body-md" style="color: var(--on-surface-variant); margin-top: var(--space-sm);">Intenta ajustar los filtros o búsqueda</p>
+              <button class="btn btn--primary" id="empty-clear-btn" style="margin-top: var(--space-lg);">
+                Limpiar filtros
+              </button>
             </div>
           </div>
         ) : (
@@ -246,79 +280,185 @@ function slugify(str: string): string {
 </BaseLayout>
 
 <script is:inline>
-  // Initialize product-card Web Components
-  document.querySelectorAll('product-card').forEach((el) => {
-    const attr = el.getAttribute('product');
-    if (attr) {
-      try {
-        const data = JSON.parse(attr);
-        el.product = data;
-      } catch (e) {}
-    }
-  });
+  document.addEventListener('DOMContentLoaded', function() {
+    // ===== CONFIGURATION =====
+    const PRODUCTS_PER_PAGE = 24;
 
-  // Category tree toggle expand/collapse
-  document.querySelectorAll('.tree-toggle').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const id = btn.dataset.toggle;
-      const sublist = document.getElementById(`tree-sublist-${id}`);
-      if (sublist) {
-        sublist.classList.toggle('expanded');
-        btn.classList.toggle('expanded');
+    // ===== IMPORTS (inline implementations) =====
+    function sortProducts(products, mode) {
+      const copy = [...products];
+      switch (mode) {
+        case 'price-asc': return copy.sort((a, b) => a.price - b.price);
+        case 'price-desc': return copy.sort((a, b) => b.price - a.price);
+        case 'name': return copy.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+        case 'default': default: return copy;
       }
-    });
-  });
+    }
 
-  // Category filter selection
-  document.querySelectorAll('.tree-label').forEach((el) => {
-    el.addEventListener('click', () => {
-      const filter = el.dataset.filter;
-      document.querySelectorAll('.tree-label').forEach((l) => l.classList.remove('active'));
-      el.classList.add('active');
-      document.querySelectorAll('.product-wrapper').forEach((card) => {
-        if (!filter || card.dataset.category === filter) {
-          card.style.display = '';
+    function filterByPrice(products, min, max) {
+      return products.filter((p) => {
+        if (min != null && min > 0 && p.price < min) return false;
+        if (max != null && p.price > max) return false;
+        return true;
+      });
+    }
+
+    function filterBySearch(products, query) {
+      if (!query || query.trim() === '') return products;
+      const lower = query.toLowerCase();
+      return products.filter((p) => p.name.toLowerCase().includes(lower));
+    }
+
+    function paginateProducts(products, page) {
+      const totalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE);
+      const start = (page - 1) * PRODUCTS_PER_PAGE;
+      return {
+        items: products.slice(start, start + PRODUCTS_PER_PAGE),
+        totalPages,
+        hasNextPage: page < totalPages,
+      };
+    }
+
+    // ===== STATE =====
+    let allProducts = []; // Original product data from DOM
+    let filteredProducts = []; // After all filters applied
+    let currentPage = 1;
+    let currentSort = 'default';
+    let currentCategory = 'all';
+    let currentSearch = '';
+    let currentMinPrice = undefined;
+    let currentMaxPrice = undefined;
+
+    // ===== DOM REFS =====
+    const productsGrid = document.getElementById('products-grid');
+    const productCountText = document.getElementById('product-count-text');
+    const clearFiltersBtn = document.getElementById('clear-filters');
+    const emptyState = document.getElementById('empty-state');
+    const pagination = document.getElementById('pagination');
+    const loadMoreBtn = document.getElementById('load-more');
+    const pageIndicator = document.getElementById('page-indicator');
+    const emptyClearBtn = document.getElementById('empty-clear-btn');
+
+    // ===== INIT: Read product data from DOM =====
+    function initProducts() {
+      const wrappers = document.querySelectorAll('.product-wrapper');
+      allProducts = Array.from(wrappers).map((wrapper) => {
+        const card = wrapper.querySelector('product-card');
+        const attr = card?.getAttribute('product');
+        let data = {};
+        if (attr) {
+          try { data = JSON.parse(attr); } catch (e) {}
+        }
+        return {
+          ...data,
+          _wrapper: wrapper,
+          _category: wrapper.dataset.category || '',
+          _productName: wrapper.dataset.productName || '',
+        };
+      });
+      filteredProducts = [...allProducts];
+    }
+
+    // ===== RENDERING =====
+    function render() {
+      // Apply all filters
+      let result = [...allProducts];
+
+      // Category filter
+      if (currentCategory && currentCategory !== 'all') {
+        result = result.filter((p) => p._category === currentCategory);
+      }
+
+      // Search filter
+      result = filterBySearch(result, currentSearch);
+
+      // Price filter
+      result = filterByPrice(result, currentMinPrice, currentMaxPrice);
+
+      // Sort
+      result = sortProducts(result, currentSort);
+
+      filteredProducts = result;
+      currentPage = 1;
+
+      renderPage();
+      updateUI();
+    }
+
+    function renderPage() {
+      const { items, totalPages, hasNextPage } = paginateProducts(filteredProducts, currentPage);
+
+      // Show/hide wrappers
+      allProducts.forEach((p) => {
+        if (items.includes(p)) {
+          p._wrapper.style.display = '';
         } else {
-          card.style.display = 'none';
+          p._wrapper.style.display = 'none';
         }
       });
-    });
-  });
 
-  // Desktop sort filters
-  document.querySelectorAll('[data-sort]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-    });
-  });
+      // Pagination controls
+      if (totalPages > 1) {
+        pagination.style.display = '';
+        loadMoreBtn.style.display = hasNextPage ? '' : 'none';
+        pageIndicator.textContent = `Página ${currentPage} de ${totalPages}`;
+      } else {
+        pagination.style.display = 'none';
+      }
+    }
 
-  // Mobile panels for categories
-  document.getElementById('open-categories')?.addEventListener('click', () => {
-    const existingPanel = document.getElementById('mobile-category-panel');
-    if (existingPanel) { existingPanel.style.display = ''; return; }
+    function updateUI() {
+      const count = filteredProducts.length;
+      productCountText.textContent = `${count} producto${count !== 1 ? 's' : ''} encontrado${count !== 1 ? 's' : ''}`;
 
-    // Clone desktop tree into mobile panel
-    const treeHtml = document.getElementById('category-tree-container')?.innerHTML || '';
-    const panel = document.createElement('div');
-    panel.id = 'mobile-category-panel';
-    panel.className = 'mobile-panel-overlay';
-    panel.innerHTML = `
-      <div class="mobile-panel">
-        <div class="mobile-panel-header">
-          <h3 class="body-lg">Categorías</h3>
-          <button class="mobile-panel-close" id="close-categories">✕</button>
-        </div>
-        <div class="mobile-panel-body">${treeHtml}</div>
-      </div>`;
-    document.body.appendChild(panel);
-    panel.querySelector('#close-categories')?.addEventListener('click', () => { panel.style.display = 'none'; });
-    panel.addEventListener('click', (e) => {
-      if (e.target === panel) panel.style.display = 'none';
+      // Empty state
+      if (count === 0) {
+        emptyState.style.display = '';
+        productsGrid.style.display = 'none';
+        pagination.style.display = 'none';
+      } else {
+        emptyState.style.display = 'none';
+        productsGrid.style.display = '';
+      }
+
+      // Clear filters button
+      const hasActiveFilters = currentCategory !== 'all' || currentSearch !== '' ||
+        (currentMinPrice != null && currentMinPrice > 0) || (currentMaxPrice != null) || currentSort !== 'default';
+      clearFiltersBtn.style.display = hasActiveFilters ? '' : 'none';
+    }
+
+    // ===== SORT =====
+    document.querySelectorAll('[data-sort]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSort = btn.dataset.sort;
+        render();
+      });
     });
-    // Re-init tree interactions in mobile panel
-    panel.querySelectorAll('.tree-toggle').forEach((btn) => {
+
+    // ===== PRICE FILTER =====
+    document.getElementById('apply-filters-desktop')?.addEventListener('click', () => {
+      const minVal = document.getElementById('price-min-desktop')?.value;
+      const maxVal = document.getElementById('price-max-desktop')?.value;
+      currentMinPrice = minVal ? Number(minVal) : undefined;
+      currentMaxPrice = maxVal ? Number(maxVal) : undefined;
+      render();
+    });
+
+    // ===== CATEGORY FILTER (Desktop sidebar) =====
+    document.querySelectorAll('#category-tree-container .tree-label').forEach((el) => {
+      el.addEventListener('click', () => {
+        const filter = el.dataset.filter;
+        document.querySelectorAll('#category-tree-container .tree-label').forEach((l) => l.classList.remove('active'));
+        el.classList.add('active');
+        currentCategory = filter || 'all';
+        render();
+      });
+    });
+
+    // ===== CATEGORY TREE TOGGLE (Desktop) =====
+    document.querySelectorAll('#category-tree-container .tree-toggle').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const id = btn.dataset.toggle;
@@ -329,19 +469,181 @@ function slugify(str: string): string {
         }
       });
     });
-    panel.querySelectorAll('.tree-label').forEach((el) => {
-      el.addEventListener('click', () => {
-        const filter = el.dataset.filter;
-        document.querySelectorAll('.product-wrapper').forEach((card) => {
-          if (!filter || card.dataset.category === filter) {
-            c.style.display = '';
-          } else {
-            c.style.display = 'none';
+
+    // ===== SEARCH (wired via SearchBar component) =====
+    let searchTimeout = null;
+    const searchInput = document.getElementById('catalog-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          currentSearch = searchInput.value;
+          render();
+        }, 300);
+      });
+    }
+
+    // ===== CLEAR FILTERS =====
+    function clearAllFilters() {
+      currentSort = 'default';
+      currentCategory = 'all';
+      currentSearch = '';
+      currentMinPrice = undefined;
+      currentMaxPrice = undefined;
+
+      // Reset UI
+      document.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
+      document.querySelector('[data-sort="default"]')?.classList.add('active');
+      document.querySelectorAll('.tree-label').forEach((l) => l.classList.remove('active'));
+      document.querySelector('.tree-label[data-filter="all"]')?.classList.add('active');
+      const minInput = document.getElementById('price-min-desktop');
+      const maxInput = document.getElementById('price-max-desktop');
+      if (minInput) minInput.value = '';
+      if (maxInput) maxInput.value = '';
+      if (searchInput) searchInput.value = '';
+
+      render();
+    }
+
+    clearFiltersBtn?.addEventListener('click', clearAllFilters);
+    emptyClearBtn?.addEventListener('click', clearAllFilters);
+
+    // ===== LOAD MORE (Pagination) =====
+    loadMoreBtn?.addEventListener('click', () => {
+      currentPage++;
+      renderPage();
+    });
+
+    // ===== PRODUCT-CARD WEB COMPONENT INIT =====
+    document.querySelectorAll('product-card').forEach((el) => {
+      const attr = el.getAttribute('product');
+      if (attr) {
+        try {
+          const data = JSON.parse(attr);
+          el.product = data;
+        } catch (e) {}
+      }
+    });
+
+    // ===== MOBILE CATEGORY PANEL =====
+    document.getElementById('open-categories')?.addEventListener('click', () => {
+      const existingPanel = document.getElementById('mobile-category-panel');
+      if (existingPanel) { existingPanel.style.display = ''; return; }
+
+      const treeHtml = document.getElementById('category-tree-container')?.innerHTML || '';
+      const panel = document.createElement('div');
+      panel.id = 'mobile-category-panel';
+      panel.className = 'mobile-panel-overlay';
+      panel.innerHTML = `
+        <div class="mobile-panel">
+          <div class="mobile-panel-header">
+            <h3 class="body-lg">Categorías</h3>
+            <button class="mobile-panel-close" id="close-categories">✕</button>
+          </div>
+          <div class="mobile-panel-body">${treeHtml}</div>
+        </div>`;
+      document.body.appendChild(panel);
+      panel.querySelector('#close-categories')?.addEventListener('click', () => { panel.style.display = 'none'; });
+      panel.addEventListener('click', (e) => {
+        if (e.target === panel) panel.style.display = 'none';
+      });
+
+      // Re-init tree toggle in mobile panel
+      panel.querySelectorAll('.tree-toggle').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.toggle;
+          const sublist = document.getElementById(`tree-sublist-${id}`);
+          if (sublist) {
+            sublist.classList.toggle('expanded');
+            btn.classList.toggle('expanded');
           }
         });
+      });
+
+      // Category filter in mobile panel
+      panel.querySelectorAll('.tree-label').forEach((el) => {
+        el.addEventListener('click', () => {
+          const filter = el.dataset.filter;
+          currentCategory = filter || 'all';
+          // Update desktop sidebar active state too
+          document.querySelectorAll('#category-tree-container .tree-label').forEach((l) => l.classList.remove('active'));
+          document.querySelector(`#category-tree-container .tree-label[data-filter="${filter}"]`)?.classList.add('active');
+          render();
+          panel.style.display = 'none';
+        });
+      });
+    });
+
+    // ===== MOBILE FILTERS PANEL =====
+    document.getElementById('open-filters')?.addEventListener('click', () => {
+      const existingPanel = document.getElementById('mobile-filters-panel');
+      if (existingPanel) { existingPanel.style.display = ''; return; }
+
+      const panel = document.createElement('div');
+      panel.id = 'mobile-filters-panel';
+      panel.className = 'mobile-panel-overlay';
+      panel.innerHTML = `
+        <div class="mobile-panel">
+          <div class="mobile-panel-header">
+            <h3 class="body-lg">Filtros</h3>
+            <button class="mobile-panel-close" id="close-filters">✕</button>
+          </div>
+          <div class="mobile-panel-body">
+            <div class="filter-group">
+              <h3 class="filter-group-title">Ordenar por</h3>
+              <div class="filter-options">
+                <button class="filter-option ${currentSort === 'default' ? 'active' : ''}" data-sort="default">Destacados</button>
+                <button class="filter-option ${currentSort === 'price-asc' ? 'active' : ''}" data-sort="price-asc">Menor precio</button>
+                <button class="filter-option ${currentSort === 'price-desc' ? 'active' : ''}" data-sort="price-desc">Mayor precio</button>
+                <button class="filter-option ${currentSort === 'name' ? 'active' : ''}" data-sort="name">Nombre A-Z</button>
+              </div>
+            </div>
+            <div class="filter-group">
+              <h3 class="filter-group-title">Precio</h3>
+              <div class="price-range">
+                <input type="number" class="price-input" placeholder="Mín" id="price-min-mobile" value="${currentMinPrice || ''}" />
+                <span class="price-separator">—</span>
+                <input type="number" class="price-input" placeholder="Máx" id="price-max-mobile" value="${currentMaxPrice || ''}" />
+              </div>
+            </div>
+            <button class="apply-filters-btn btn btn--primary" id="apply-filters-mobile">Aplicar</button>
+          </div>
+        </div>`;
+      document.body.appendChild(panel);
+      panel.querySelector('#close-filters')?.addEventListener('click', () => { panel.style.display = 'none'; });
+      panel.addEventListener('click', (e) => {
+        if (e.target === panel) panel.style.display = 'none';
+      });
+
+      // Sort in mobile
+      panel.querySelectorAll('[data-sort]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          panel.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentSort = btn.dataset.sort;
+        });
+      });
+
+      // Apply in mobile
+      panel.querySelector('#apply-filters-mobile')?.addEventListener('click', () => {
+        const minVal = panel.querySelector('#price-min-mobile')?.value;
+        const maxVal = panel.querySelector('#price-max-mobile')?.value;
+        currentMinPrice = minVal ? Number(minVal) : undefined;
+        currentMaxPrice = maxVal ? Number(maxVal) : undefined;
+
+        // Sync desktop sort buttons
+        document.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
+        document.querySelector(`[data-sort="${currentSort}"]`)?.classList.add('active');
+
+        render();
         panel.style.display = 'none';
       });
     });
+
+    // ===== INIT =====
+    initProducts();
+    updateUI();
   });
 </script>
 
@@ -412,6 +714,10 @@ function slugify(str: string): string {
 
   .sidebar-section:last-child {
     border-bottom: none;
+  }
+
+  .sidebar-section--search {
+    padding-bottom: var(--space-lg);
   }
 
   .sidebar-title {
@@ -680,6 +986,21 @@ function slugify(str: string): string {
     margin-top: var(--space-md);
   }
 
+  /* Product count */
+  .product-count {
+    margin-bottom: var(--space-md);
+    color: var(--on-surface-variant);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* Clear filters */
+  .clear-filters-btn {
+    margin-bottom: var(--space-lg);
+  }
+
   /* Products Grid */
   .products-grid {
     display: grid;
@@ -688,6 +1009,30 @@ function slugify(str: string): string {
   }
   @media (min-width: 768px) { .products-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); } }
   @media (min-width: 1024px) { .products-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }
+
+  /* Pagination */
+  .pagination {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+    margin-top: var(--space-2xl);
+  }
+
+  .load-more-btn {
+    min-width: 200px;
+  }
+
+  .page-indicator {
+    color: var(--on-surface-variant);
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: var(--space-4xl) 0;
+    color: var(--on-surface-variant);
+  }
 
   /* Mobile panel */
   .mobile-panel-overlay {

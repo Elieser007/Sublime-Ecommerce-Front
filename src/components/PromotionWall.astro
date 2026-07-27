@@ -68,11 +68,12 @@ function renderPromoHtml(promos: Promotion[], type: string, sectionSlug: string)
 function renderHero(p: Promotion): string {
   const title = p.title ? `<h2 class="hero-title">${escapeHtml(p.title)}</h2>` : "";
   const desc = p.description ? `<p class="hero-desc">${escapeHtml(p.description)}</p>` : "";
+  const href = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
   return `<div class="hero-promo">
     <div class="hero-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
     <div class="hero-overlay"></div>
     <div class="hero-content">${title}${desc}
-      <a href="${sanitizeUrl(p.link)}" class="hero-btn">Ver más</a>
+      <a href="${href}" class="hero-btn">Ver más</a>
     </div>
   </div>`;
 }
@@ -82,11 +83,12 @@ function renderCarousel(promos: Promotion[], id: string): string {
   promos.forEach((p, i) => {
     const title = p.title ? `<h3 class="slide-title">${escapeHtml(p.title)}</h3>` : "";
     const desc = p.description ? `<p class="slide-desc">${escapeHtml(p.description)}</p>` : "";
+    const slideHref = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
     html += `<div class="carousel-slide ${i === 0 ? "active" : ""}" data-index="${i}">
       <div class="slide-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
       <div class="slide-overlay"></div>
       <div class="slide-content">${title}${desc}</div>
-      <a href="${sanitizeUrl(p.link)}" class="slide-link"></a>
+      <a href="${slideHref}" class="slide-link"></a>
     </div>`;
   });
   html += "</div>";
@@ -106,11 +108,12 @@ function renderTiles(promos: Promotion[]): string {
     const row = Math.floor(p.position / 4) + 1;
     const title = p.title ? `<h3 class="tile-title">${escapeHtml(p.title)}</h3>` : "";
     const desc = p.description ? `<p class="tile-desc">${escapeHtml(p.description)}</p>` : "";
+    const tileHref = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
     html += `<div class="tile" style="grid-column:${col}/span ${p.tileCols};grid-row:${row}/span ${p.tileRows};">
       <div class="tile-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
       <div class="tile-overlay"></div>
       <div class="tile-content">${title}${desc}</div>
-      <a href="${sanitizeUrl(p.link)}" class="tile-link"></a>
+      <a href="${tileHref}" class="tile-link"></a>
     </div>`;
   });
   html += "</div>";
@@ -123,7 +126,8 @@ function renderSplit(promos: Promotion[]): string {
     const rev = i % 2 === 1 ? " split-item--reverse" : "";
     const title = p.title ? `<h3 class="split-title">${escapeHtml(p.title)}</h3>` : "";
     const desc = p.description ? `<p class="split-desc">${escapeHtml(p.description)}</p>` : "";
-    html += `<a href="${sanitizeUrl(p.link)}" class="split-item${rev}">
+    const splitHref = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
+    html += `<a href="${splitHref}" class="split-item${rev}">
       <div class="split-img"><img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.title || "")}" /></div>
       <div class="split-text">${title}${desc}<span class="split-link">Ver más →</span></div>
     </a>`;
@@ -137,7 +141,8 @@ function renderBanner(promos: Promotion[]): string {
   promos.forEach((p) => {
     const title = p.title ? `<span class="banner-title">${escapeHtml(p.title)}</span>` : "";
     const desc = p.description ? `<span class="banner-desc">${escapeHtml(p.description)}</span>` : "";
-    html += `<a href="${sanitizeUrl(p.link)}" class="banner-item">${title}${desc}</a>`;
+    const bannerHref = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
+    html += `<a href="${bannerHref}" class="banner-item">${title}${desc}</a>`;
   });
   html += "</div>";
   return html;
@@ -148,7 +153,8 @@ function renderRibbon(promos: Promotion[]): string {
   promos.forEach((p) => {
     const title = p.title ? `<span class="ribbon-title">${escapeHtml(p.title)}</span>` : "";
     const desc = p.description ? `<span class="ribbon-desc">${escapeHtml(p.description)}</span>` : "";
-    html += `<a href="${sanitizeUrl(p.link)}" class="ribbon-item">
+    const ribbonHref = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
+    html += `<a href="${ribbonHref}" class="ribbon-item">
       <div class="ribbon-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
       <div class="ribbon-overlay"></div>
       <div class="ribbon-content">${title}${desc}</div>

@@ -148,6 +148,7 @@ const basePriceFormatted = formatPrice(product.base_price);
   import { getTierPrice, getTierForQuantity } from '../../lib/price-utils';
   import { buildCartMessage } from '../../lib/whatsapp';
   import { computeFinalPrice, isSelectionComplete } from '../../lib/variant-logic';
+  import { addToCartWithOptions, getCartCount } from '../../lib/cart.js';
 
   const API_URL = (typeof import.meta !== "undefined" && import.meta.env?.PUBLIC_API_URL) || "http://localhost:8787";
 
@@ -620,7 +621,7 @@ const basePriceFormatted = formatPrice(product.base_price);
     
     const hasAttributes = Object.keys(selectedAttributes).length > 0;
     
-    const product = {
+    addToCartWithOptions({
       id: currentProduct.id,
       name: currentProduct.name,
       price: unitPrice,
@@ -630,45 +631,16 @@ const basePriceFormatted = formatPrice(product.base_price);
           : null
       ),
       quantity: selectedQty,
-      // Store tier info for WhatsApp
       selected_tier_id: selectedTier?.id,
       selected_tier_price: unitPrice,
       selected_tier_min_qty: tierMinQty,
-      // Store variant attributes
       ...(hasAttributes ? { selected_attributes: selectedAttributes } : {}),
-    };
-    
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const existing = cart.find((item: any) => {
-      // Match by id + same attributes
-      if (item.id !== product.id) return false;
-      if (!hasAttributes && !item.selected_attributes) return true;
-      if (hasAttributes && item.selected_attributes) {
-        return JSON.stringify(item.selected_attributes) === JSON.stringify(product.selected_attributes);
-      }
-      return false;
     });
     
-    if (existing) { 
-      existing.quantity += selectedQty; 
-      // Update tier info if same tier
-      if (existing.selected_tier_id === product.selected_tier_id) {
-        // Keep existing tier
-      } else {
-        // New tier selected
-        existing.selected_tier_id = product.selected_tier_id;
-        existing.selected_tier_price = product.selected_tier_price;
-        existing.selected_tier_min_qty = product.selected_tier_min_qty;
-      }
-    } else { 
-      cart.push(product); 
-    }
-    localStorage.setItem('cart', JSON.stringify(cart));
-    
+    // Update header cart badge
     const badge = document.querySelector('.cart-badge');
     if (badge) {
-      const total = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
-      badge.textContent = total.toString();
+      badge.textContent = getCartCount().toString();
     }
     
     $addCart.textContent = '¡Agregado!';

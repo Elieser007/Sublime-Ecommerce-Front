@@ -3,14 +3,15 @@
  * SearchBar component — Chromatic High-Contrast
  * 
  * Bottom-border input with search icon.
- * Client-side filtering of products by name.
+ * Pure presentational — filtering logic is handled by the parent page.
  */
 
 interface Props {
   placeholder?: string;
+  inputId?: string;
 }
 
-const { placeholder = 'Buscar productos...' } = Astro.props;
+const { placeholder = 'Buscar productos...', inputId = 'search-input' } = Astro.props;
 ---
 
 <div class="search-bar">
@@ -22,7 +23,7 @@ const { placeholder = 'Buscar productos...' } = Astro.props;
     type="text"
     class="search-input"
     placeholder={placeholder}
-    id="search-input"
+    id={inputId}
   />
 </div>
 
@@ -63,17 +64,3 @@ const { placeholder = 'Buscar productos...' } = Astro.props;
     border-bottom-color: var(--tertiary);
   }
 </style>
-
-<script>
-  // Client-side search filtering
-  const searchInput = document.getElementById('search-input');
-  searchInput?.addEventListener('input', () => {
-    const query = (searchInput as HTMLInputElement).value.toLowerCase();
-
-    document.querySelectorAll('[data-product-name]').forEach((card) => {
-      const el = card as HTMLElement;
-      const name = el.dataset.productName?.toLowerCase() || '';
-      el.style.display = name.includes(query) ? '' : 'none';
-    });
-  });
-</script>
