@@ -247,7 +247,7 @@ const columns = [
     padding: 4px 8px;
     background-color: rgba(53, 53, 53, 0.5);
     border: 1px solid rgba(62, 72, 80, 0.3);
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
     font-family: 'Space Mono', monospace;
     font-size: 11px;
     border-radius: 0px;
@@ -262,26 +262,26 @@ const columns = [
     flex-direction: column;
     gap: 6px;
   }
-  .detail-group .label-sm { color: #82cfff; }
+  .detail-group .label-sm { color: var(--primary); }
   .detail-section {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
-  .detail-section .label-sm { color: #82cfff; }
+  .detail-section .label-sm { color: var(--primary); }
   .items-table { width: 100%; border-collapse: collapse; }
   .items-table th,
   .items-table td {
     padding: 12px;
     text-align: left;
     border-bottom: 1px solid rgba(62, 72, 80, 0.2);
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-size: 14px;
   }
   .items-table th {
     font-family: 'Space Mono', monospace;
     font-size: 11px;
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
   }
   .status-form {
     display: flex;
@@ -291,7 +291,7 @@ const columns = [
     border-top: 1px solid rgba(62, 72, 80, 0.3);
   }
   :global(.badge--pending) { background-color: rgba(213, 202, 0, 0.15); color: #d5ca00; border: 1px solid rgba(213, 202, 0, 0.4); }
-  :global(.badge--confirmed) { background-color: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.3); }
+  :global(.badge--confirmed) { background-color: rgba(130, 207, 255, 0.1); color: var(--primary); border: 1px solid rgba(130, 207, 255, 0.3); }
   :global(.badge--preparing) { background-color: rgba(0, 188, 212, 0.1); color: #00bcd4; border: 1px solid rgba(0, 188, 212, 0.3); }
   :global(.badge--shipped) { background-color: rgba(179, 157, 219, 0.15); color: #b39ddb; border: 1px solid rgba(179, 157, 219, 0.4); }
   :global(.badge--delivered) { background-color: rgba(129, 199, 132, 0.15); color: #81c784; border: 1px solid rgba(129, 199, 132, 0.4); }

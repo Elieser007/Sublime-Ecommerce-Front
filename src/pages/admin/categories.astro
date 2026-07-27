@@ -312,9 +312,9 @@ const subcategoryColumns = [
 <style>
   /* ─── Categories-specific styles ─────────────────────────── */
   .tabs { display: flex; gap: 0; margin-bottom: var(--space-2xl); border-bottom: 1px solid rgba(62, 72, 80, 0.3); }
-  .tab { display: flex; align-items: center; gap: 8px; padding: 12px 24px; background: transparent; border: none; border-bottom: 2px solid transparent; color: #bdc8d1; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; transition: all 0.2s ease; margin-bottom: -2px; }
-  .tab:hover { color: #e2e2e2; background-color: rgba(255, 255, 255, 0.03); }
-  .tab.active { color: #82cfff; border-bottom-color: #82cfff; background-color: rgba(130, 207, 255, 0.08); }
+  .tab { display: flex; align-items: center; gap: 8px; padding: 12px 24px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--on-surface-variant); cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; transition: all 0.2s ease; margin-bottom: -2px; }
+  .tab:hover { color: var(--on-surface); background-color: rgba(255, 255, 255, 0.03); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); background-color: rgba(130, 207, 255, 0.08); }
   .tab-content { display: none; animation: fadeIn 0.2s ease; }
   .tab-content.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -323,6 +323,6 @@ const subcategoryColumns = [
   .content-desc { color: var(--on-surface-variant); }
   .examples { color: var(--on-surface-variant); margin-bottom: var(--space-xl); }
   .example-tag { display: inline-block; padding: 2px 8px; background-color: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); font-family: 'Space Mono', monospace; font-size: 11px; margin: 0 2px; }
-  .slug-badge { display: inline-block; padding: 4px 10px; background-color: rgba(53, 53, 53, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
-  .parent-badge { display: inline-block; padding: 4px 10px; background-color: rgba(130, 207, 255, 0.1); border: 1px solid rgba(130, 207, 255, 0.3); color: #82cfff; font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
+  .slug-badge { display: inline-block; padding: 4px 10px; background-color: rgba(53, 53, 53, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); color: var(--on-surface-variant); font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
+  .parent-badge { display: inline-block; padding: 4px 10px; background-color: rgba(130, 207, 255, 0.1); border: 1px solid rgba(130, 207, 255, 0.3); color: var(--primary); font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
 </style>

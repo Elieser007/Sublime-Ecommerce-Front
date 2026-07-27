@@ -424,7 +424,7 @@ const columns = [
   .self-tag {
     font-family: 'Space Mono', monospace;
     font-size: 10px;
-    color: #82cfff;
+    color: var(--primary);
     border: 1px solid rgba(130, 207, 255, 0.3);
     padding: 2px 6px;
   }
@@ -442,7 +442,7 @@ const columns = [
     align-items: center;
     justify-content: center;
     background: rgba(130, 207, 255, 0.1);
-    color: #82cfff;
+    color: var(--primary);
     font-family: 'Space Mono', monospace;
     font-size: 14px;
     font-weight: 600;
@@ -459,15 +459,15 @@ const columns = [
     justify-content: center;
     position: relative;
   }
-  .avatar-upload-area:hover { border-color: #82cfff; }
-  .avatar-upload-area--dragover { border-color: #82cfff; background: rgba(130, 207, 255, 0.05); }
+  .avatar-upload-area:hover { border-color: var(--primary); }
+  .avatar-upload-area--dragover { border-color: var(--primary); background: rgba(130, 207, 255, 0.05); }
   .avatar-preview { width: 100%; text-align: center; }
   .avatar-empty {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
     padding: 16px;
   }
   .avatar-empty svg { opacity: 0.5; }

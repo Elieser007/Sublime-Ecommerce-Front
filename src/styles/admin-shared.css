@@ -70,7 +70,7 @@
 .form-select:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #82cfff;
+  border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.2);
 }
 
@@ -88,7 +88,7 @@
   gap: 8px;
 }
 .form-group label {
-  color: #bdc8d1;
+  color: var(--on-surface-variant);
   font-family: 'Space Mono', monospace;
   font-size: 12px;
   text-transform: uppercase;
@@ -113,7 +113,7 @@
 .empty-cell {
   text-align: center;
   padding: 48px !important;
-  color: #bdc8d1;
+  color: var(--on-surface-variant);
 }
 
 .cell-actions {
@@ -131,7 +131,7 @@ tr:hover .cell-actions {
 .slug-display {
   font-family: 'Space Mono', monospace;
   font-size: 12px;
-  color: #82cfff;
+  color: var(--primary);
   background: rgba(130, 207, 255, 0.1);
   padding: 2px 6px;
   border-radius: 2px;
@@ -147,7 +147,7 @@ tr:hover .cell-actions {
 }
 .tag--section {
   background: rgba(130, 207, 255, 0.1);
-  color: #82cfff;
+  color: var(--primary);
   border: 1px solid rgba(130, 207, 255, 0.3);
 }
 
@@ -206,7 +206,7 @@ tr:hover .cell-actions {
   border-radius: 0px;
   width: 36px;
   height: 36px;
-  color: #bdc8d1;
+  color: var(--on-surface-variant);
   cursor: pointer;
   font-size: 18px;
 }
@@ -223,55 +223,8 @@ tr:hover .cell-actions {
 }
 
 /* ─── Buttons ────────────────────────────────────────────────── */
-:global(.btn) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 24px;
-  font-family: 'Space Mono', monospace;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  border-radius: 0px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-:global(.btn:hover) {
-  transform: scale(1.05);
-}
-:global(.btn:active) {
-  transform: scale(0.95);
-}
-:global(.btn--primary) {
-  background-color: rgba(130, 207, 255, 0.1);
-  color: #82cfff;
-  border: 1px solid rgba(130, 207, 255, 0.5);
-}
-:global(.btn--primary:hover) {
-  background-color: rgba(130, 207, 255, 0.2);
-}
-:global(.btn--secondary) {
-  background-color: transparent;
-  color: #e2e2e2;
-  border: 1px solid rgba(62, 72, 80, 0.5);
-}
-:global(.btn--secondary:hover) {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-:global(.btn-icon) {
-  font-size: 18px;
-  line-height: 1;
-}
-:global(.btn--danger) {
-  background-color: rgba(255, 180, 171, 0.15);
-  color: #ffb4ab;
-  border: 1px solid rgba(255, 180, 171, 0.5);
-}
-:global(.btn--danger:hover) {
-  background-color: rgba(255, 180, 171, 0.25);
-}
+/* .btn, .btn--primary, .btn--secondary, .btn--danger defined in global.css */
+/* Admin-specific button overrides: */
 
 /* ─── Table Action Buttons ───────────────────────────────────── */
 :global(.ta-btn) {
@@ -284,7 +237,7 @@ tr:hover .cell-actions {
   background: rgba(130, 207, 255, 0.08);
   border: 1px solid rgba(130, 207, 255, 0.2);
   border-radius: 0px;
-  color: #82cfff;
+  color: var(--primary);
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 14px;
@@ -344,7 +297,7 @@ tr:hover .cell-actions {
 }
 :global(.badge--active) {
   background-color: rgba(130, 207, 255, 0.1);
-  color: #82cfff;
+  color: var(--primary);
   border: 1px solid rgba(130, 207, 255, 0.3);
 }
 :global(.badge--inactive) {
@@ -381,7 +334,7 @@ tr:hover .cell-actions {
   padding: 8px 0;
 }
 .upload-status p {
-  color: #bdc8d1;
+  color: var(--on-surface-variant);
 }
 .upload-info {
   padding: 8px 12px;
@@ -389,7 +342,7 @@ tr:hover .cell-actions {
   border: 1px solid rgba(130, 207, 255, 0.3);
 }
 .upload-info p {
-  color: #82cfff;
+  color: var(--primary);
 }
 .cmyk-bar {
   display: flex;
@@ -398,7 +351,7 @@ tr:hover .cell-actions {
 .cmyk-bar span {
   flex: 1;
   height: 3px;
-  background: #82cfff;
+  background: var(--primary);
   animation: cmyk-pulse 1.2s ease-in-out infinite;
 }
 .cmyk-bar span:nth-child(2) {
@@ -419,7 +372,7 @@ tr:hover .cell-actions {
   max-width: 420px;
 }
 .delete-message {
-  color: #bdc8d1;
+  color: var(--on-surface-variant);
   line-height: 1.6;
   padding: 8px 0;
 }
@@ -501,8 +454,8 @@ tr:hover .cell-actions {
     transition: all 0.15s ease;
   }
   .sidebar-toggle:hover {
-    border-color: #82cfff;
-    color: #82cfff;
+    border-color: var(--primary);
+    color: var(--primary);
   }
 
   .admin-sidebar {
@@ -553,7 +506,7 @@ tr:hover .cell-actions {
   .dt-table tbody td::before {
     content: attr(data-label);
     font-weight: 600;
-    color: #82cfff;
+    color: var(--primary);
     text-transform: uppercase;
     font-family: 'Space Mono', monospace;
     font-size: 11px;
