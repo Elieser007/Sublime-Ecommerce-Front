@@ -330,6 +330,8 @@ img {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   text-decoration: none;
+  color: var(--on-surface);
+  border: 1px solid var(--outline-variant);
   border-radius: 0px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -385,6 +387,18 @@ img {
   color: var(--on-surface);
   border-color: var(--outline-variant);
   background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Outline: Border-only, cyan text — for inline buttons on dark bg */
+.btn--outline {
+  background-color: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.btn--outline:hover {
+  background-color: rgba(130, 207, 255, 0.1);
+  border-color: var(--primary);
 }
 
 /* Disabled state */
