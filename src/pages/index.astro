@@ -55,15 +55,6 @@ try {
   console.error('Error fetching catalog data at build time:', err);
 }
 
-// Helper: normalize string to slug (matches backend slugify)
-function slugify(str: string): string {
-  if (!str) return '';
-  return str.toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
 ---
 
 <BaseLayout title="Sublime — Shop">
@@ -220,13 +211,16 @@ function slugify(str: string): string {
             <div class="products-grid" id="products-grid">
               {products.map((product) => {
                 const imageUrl = getProductImageUrl(product.image_url);
-                const secSlug = slugify(product.section_name);
-                const catSlug = slugify(product.category_name);
+                const secSlug = product.section_slug || '';
+                const catSlug = product.category_slug || '';
+                // NULL from DB (no subcategory) → '' which won't match any real slug in filtering
+                const subSlug = product.subcategory_slug || '';
                 return (
                   <div class="product-wrapper"
                     data-category={secSlug}
                     data-section-slug={secSlug}
                     data-category-slug={catSlug}
+                    data-subcategory-slug={subSlug}
                     data-product-name={product.name}
                     data-product-category={secSlug}
                     data-price={product.base_price}>
@@ -452,6 +446,7 @@ function slugify(str: string): string {
           _category: wrapper.dataset.category || '',
           _sectionSlug: wrapper.dataset.sectionSlug || '',
           _categorySlug: wrapper.dataset.categorySlug || '',
+          _subcategorySlug: wrapper.dataset.subcategorySlug || '',
           _productName: wrapper.dataset.productName || '',
         };
       });
@@ -472,15 +467,8 @@ function slugify(str: string): string {
           // Category filter
           result = result.filter((p) => p._categorySlug === currentCategory);
         } else if (currentFilterLevel === 3) {
-          // Subcategory filter — find parent category from tree DOM
-          const subLabel = document.querySelector(`#category-tree-container .tree-label[data-filter="${currentCategory}"]`);
-          if (subLabel) {
-            const parentCatItem = subLabel.closest('.tree-item--cat');
-            if (parentCatItem) {
-              const parentCatSlug = parentCatItem.dataset.filter;
-              result = result.filter((p) => p._categorySlug === parentCatSlug);
-            }
-          }
+          // Subcategory filter — direct match
+          result = result.filter((p) => p._subcategorySlug === currentCategory);
         }
       }
 

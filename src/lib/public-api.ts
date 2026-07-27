@@ -20,6 +20,9 @@ export interface PublicProduct {
   section_name: string | null;
   category_name: string | null;
   subcategory_name: string | null;
+  section_slug: string | null;
+  category_slug: string | null;
+  subcategory_slug: string | null;
   image_url: string | null;
   created_at: number;
   price_tiers?: PriceTier[];
