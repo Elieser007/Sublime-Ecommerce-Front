@@ -638,15 +638,15 @@ const columns = [
     if (items.length === 0) { tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">No hay productos</td></tr>'; }
     else {
       tbody.innerHTML = items.map((p: any) => `<tr>
-        <td><strong>${p.name}</strong></td>
-        <td><code class="slug-display">${p.slug || '—'}</code></td>
-        <td><span class="tag tag--section">${p.section_name || '—'}</span></td>
-        <td>${p.category_name || '—'}</td>
-        <td>${p.subcategory_name || '—'}</td>
-        <td>${fmt(p.base_price)}</td>
-        <td><span class="attr-badge">${p.attribute_count || 0} módulos</span></td>
-        <td><span class="badge ${p.is_active ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${p.is_active ? 'Activo' : 'Inactivo'}</span></td>
-        <td><div class="cell-actions">
+        <td data-label="Nombre"><strong>${p.name}</strong></td>
+        <td data-label="Slug"><code class="slug-display">${p.slug || '—'}</code></td>
+        <td data-label="Sección"><span class="tag tag--section">${p.section_name || '—'}</span></td>
+        <td data-label="Categoría">${p.category_name || '—'}</td>
+        <td data-label="Subcategoría">${p.subcategory_name || '—'}</td>
+        <td data-label="Precio Base">${fmt(p.base_price)}</td>
+        <td data-label="Atributos"><span class="attr-badge">${p.attribute_count || 0} módulos</span></td>
+        <td data-label="Estado"><span class="badge ${p.is_active ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${p.is_active ? 'Activo' : 'Inactivo'}</span></td>
+        <td data-label="Acciones"><div class="cell-actions">
           <button class="ta-btn ta-btn--attr" onclick="openAttributeManager('${p.id}', '${p.name.replace(/'/g, "\\'")}')" title="Atributos">🏷️</button>
           <button class="ta-btn" onclick="editProduct('${p.id}')" title="Editar">✏️</button>
           <button class="ta-btn ta-btn--price" onclick="openPricing('${p.id}')" title="Precios">💰</button>

@@ -1,0 +1,59 @@
+/**
+ * Data-Label Attributes — Test Suite
+ *
+ * Tests that admin-shared.css contains responsive table CSS
+ * and that admin pages include data-label attributes in table cells.
+ */
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
+const CSS_PATH = resolve(__dirname, '../styles/admin-shared.css');
+const css = readFileSync(CSS_PATH, 'utf-8');
+
+function readPage(name: string): string {
+  return readFileSync(resolve(__dirname, `../pages/admin/${name}.astro`), 'utf-8');
+}
+
+describe('Responsive table CSS', () => {
+  it('has .dt-table styles in admin-shared.css', () => {
+    expect(css).toContain('.dt-table');
+  });
+
+  it('hides thead on mobile', () => {
+    expect(css).toContain('thead');
+    expect(css).toContain('display: none');
+  });
+
+  it('makes tbody tr display as block on mobile', () => {
+    expect(css).toContain('tbody');
+    expect(css).toContain('display: block');
+  });
+
+  it('makes td display as flex on mobile', () => {
+    expect(css).toContain('td');
+    expect(css).toContain('display: flex');
+  });
+
+  it('uses attr(data-label) for ::before pseudo-element', () => {
+    expect(css).toContain('attr(data-label)');
+  });
+});
+
+describe('data-label in admin pages', () => {
+  const pages = [
+    { name: 'products', label: 'data-label' },
+    { name: 'orders', label: 'data-label' },
+    { name: 'users', label: 'data-label' },
+    { name: 'branches', label: 'data-label' },
+    { name: 'categories', label: 'data-label' },
+    { name: 'attribute-modules', label: 'data-label' },
+  ];
+
+  for (const page of pages) {
+    it(`${page.name}.astro contains data-label attributes`, () => {
+      const content = readPage(page.name);
+      expect(content).toContain(page.label);
+    });
+  }
+});

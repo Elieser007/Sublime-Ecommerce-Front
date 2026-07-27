@@ -213,18 +213,18 @@ const COMPONENT_OPTIONS = [
 
       return `
         <tr class="module-row ${isExpanded ? 'expanded' : ''}" data-module-id="${m.id}">
-          <td>
+          <td data-label="Nombre">
             <button class="expand-btn" onclick="toggleExpand('${m.id}')" title="Ver valores">
               <span class="expand-icon">${isExpanded ? '▼' : '▶'}</span>
               <strong>${m.name}</strong>
             </button>
           </td>
-          <td><code class="slug-badge">${m.slug}</code></td>
-          <td><span class="component-badge">${componentLabel}</span></td>
-          <td class="center">${m.value_count ?? 0}</td>
-          <td class="center">${m.sort_order}</td>
-          <td><span class="badge badge--${statusClass}"><span class="badge-dot"></span>${statusLabel}</span></td>
-          <td>
+          <td data-label="Slug"><code class="slug-badge">${m.slug}</code></td>
+          <td data-label="Componente"><span class="component-badge">${componentLabel}</span></td>
+          <td data-label="Valores" class="center">${m.value_count ?? 0}</td>
+          <td data-label="Orden" class="center">${m.sort_order}</td>
+          <td data-label="Estado"><span class="badge badge--${statusClass}"><span class="badge-dot"></span>${statusLabel}</span></td>
+          <td data-label="Acciones">
             <div class="cell-actions">
               <button class="ta-btn" onclick="editModule('${m.id}')" title="Editar">✏️</button>
               <button class="ta-btn ta-btn--delete" onclick="deleteModule('${m.id}')" title="Eliminar">🗑️</button>

@@ -196,13 +196,13 @@ const columns = [
           ? `<img src="${u.image}" alt="${u.name}" class="user-avatar" />`
           : `<div class="user-avatar user-avatar--placeholder">${u.name?.charAt(0)?.toUpperCase() || '?'}</div>`;
         return `<tr>
-          <td>${avatarHtml}</td>
-          <td><strong>${u.name}</strong></td>
-          <td>${u.email}</td>
-          <td><span class="badge ${u.role === 'admin' ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${u.role === 'admin' ? 'Admin' : 'Cliente'}</span></td>
-          <td>${u.branch_names || '—'}</td>
-          <td>${new Date(u.created_at * 1000).toLocaleDateString('es-PY')}</td>
-          <td><div class="cell-actions">
+          <td data-label="Avatar">${avatarHtml}</td>
+          <td data-label="Nombre"><strong>${u.name}</strong></td>
+          <td data-label="Email">${u.email}</td>
+          <td data-label="Rol"><span class="badge ${u.role === 'admin' ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${u.role === 'admin' ? 'Admin' : 'Cliente'}</span></td>
+          <td data-label="Sucursal">${u.branch_names || '—'}</td>
+          <td data-label="Creado">${new Date(u.created_at * 1000).toLocaleDateString('es-PY')}</td>
+          <td data-label="Acciones"><div class="cell-actions">
             <button class="ta-btn" onclick="editUser('${u.id}')" title="Editar">✏️</button>
             ${isSelf ? '<span class="self-tag">Tú</span>' : `<button class="ta-btn ta-btn--delete" onclick="deleteUser('${u.id}')" title="Eliminar">🗑️</button>`}
           </div></td>

@@ -161,14 +161,14 @@ const columns = [
       tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">No hay pedidos</td></tr>';
     } else {
       tbody.innerHTML = items.map((o: any) => `<tr>
-        <td><code class="id-badge">${shortId(o.id)}</code></td>
-        <td><strong>${o.customer_name}</strong></td>
-        <td>${o.customer_phone}</td>
-        <td>${o.branch_name || '—'}</td>
-        <td>${formatPrice(o.total)}</td>
-        <td>${statusBadge(o.status)}</td>
-        <td>${new Date(o.created_at * 1000).toLocaleDateString('es-PY')}</td>
-        <td><div class="cell-actions"><button class="ta-btn" onclick="viewOrder('${o.id}')" title="Ver">👁️</button></div></td>
+        <td data-label="ID"><code class="id-badge">${shortId(o.id)}</code></td>
+        <td data-label="Cliente"><strong>${o.customer_name}</strong></td>
+        <td data-label="Teléfono">${o.customer_phone}</td>
+        <td data-label="Sucursal">${o.branch_name || '—'}</td>
+        <td data-label="Total">${formatPrice(o.total)}</td>
+        <td data-label="Estado">${statusBadge(o.status)}</td>
+        <td data-label="Creado">${new Date(o.created_at * 1000).toLocaleDateString('es-PY')}</td>
+        <td data-label="Acciones"><div class="cell-actions"><button class="ta-btn" onclick="viewOrder('${o.id}')" title="Ver">👁️</button></div></td>
       </tr>`).join('');
     }
     updatePagination();

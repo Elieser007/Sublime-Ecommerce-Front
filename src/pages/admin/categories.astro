@@ -187,11 +187,11 @@ const subcategoryColumns = [
     if (sections.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No hay secciones</td></tr>'; return; }
     tbody.innerHTML = sections.map((s) => `
       <tr>
-        <td><strong>${s.name}</strong></td>
-        <td><code class="slug-badge">${s.slug}</code></td>
-        <td>${s.description || '—'}</td>
-        <td><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
-        <td>
+        <td data-label="Nombre"><strong>${s.name}</strong></td>
+        <td data-label="Slug"><code class="slug-badge">${s.slug}</code></td>
+        <td data-label="Descripción">${s.description || '—'}</td>
+        <td data-label="Estado"><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
+        <td data-label="Acciones">
           <div class="cell-actions">
             <button class="ta-btn" onclick="editItem('section','${s.id}')" title="Editar">✏️</button>
             <button class="ta-btn ta-btn--delete" onclick="deleteItem('section','${s.id}')" title="Eliminar">🗑️</button>
@@ -208,11 +208,11 @@ const subcategoryColumns = [
     tbody.innerHTML = categories.map((c) => {
       const sec = sections.find((s) => s.id === c.section_id);
       return `<tr>
-        <td><strong>${c.name}</strong></td>
-        <td><span class="parent-badge">${sec?.name || '—'}</span></td>
-        <td><code class="slug-badge">${c.slug}</code></td>
-        <td><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
-        <td><div class="cell-actions">
+        <td data-label="Nombre"><strong>${c.name}</strong></td>
+        <td data-label="Sección"><span class="parent-badge">${sec?.name || '—'}</span></td>
+        <td data-label="Slug"><code class="slug-badge">${c.slug}</code></td>
+        <td data-label="Estado"><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
+        <td data-label="Acciones"><div class="cell-actions">
           <button class="ta-btn" onclick="editItem('category','${c.id}')" title="Editar">✏️</button>
           <button class="ta-btn ta-btn--delete" onclick="deleteItem('category','${c.id}')" title="Eliminar">🗑️</button>
         </div></td>
@@ -227,11 +227,11 @@ const subcategoryColumns = [
     tbody.innerHTML = subcategories.map((s) => {
       const cat = categories.find((c) => c.id === s.category_id);
       return `<tr>
-        <td><strong>${s.name}</strong></td>
-        <td><span class="parent-badge">${cat?.name || '—'}</span></td>
-        <td><code class="slug-badge">${s.slug}</code></td>
-        <td><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
-        <td><div class="cell-actions">
+        <td data-label="Nombre"><strong>${s.name}</strong></td>
+        <td data-label="Categoría"><span class="parent-badge">${cat?.name || '—'}</span></td>
+        <td data-label="Slug"><code class="slug-badge">${s.slug}</code></td>
+        <td data-label="Estado"><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
+        <td data-label="Acciones"><div class="cell-actions">
           <button class="ta-btn" onclick="editItem('subcategory','${s.id}')" title="Editar">✏️</button>
           <button class="ta-btn ta-btn--delete" onclick="deleteItem('subcategory','${s.id}')" title="Eliminar">🗑️</button>
         </div></td>

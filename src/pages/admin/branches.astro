@@ -136,12 +136,12 @@ const columns = [
       tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">No hay sucursales</td></tr>';
     } else {
       tbody.innerHTML = items.map((b: any) => `<tr>
-        <td><strong>${b.name}</strong></td>
-        <td><code class="slug-badge">${b.slug}</code></td>
-        <td>${b.address || '—'}</td>
-        <td>${b.phone || '—'}</td>
-        <td><span class="badge ${b.is_active ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${b.is_active ? 'Activo' : 'Inactivo'}</span></td>
-        <td><div class="cell-actions">
+        <td data-label="Nombre"><strong>${b.name}</strong></td>
+        <td data-label="Slug"><code class="slug-badge">${b.slug}</code></td>
+        <td data-label="Dirección">${b.address || '—'}</td>
+        <td data-label="Teléfono">${b.phone || '—'}</td>
+        <td data-label="Estado"><span class="badge ${b.is_active ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${b.is_active ? 'Activo' : 'Inactivo'}</span></td>
+        <td data-label="Acciones"><div class="cell-actions">
           <button class="ta-btn" onclick="editBranch('${b.id}')" title="Editar">✏️</button>
           <button class="ta-btn ta-btn--delete" onclick="deleteBranch('${b.id}')" title="Desactivar">🗑️</button>
         </div></td>
