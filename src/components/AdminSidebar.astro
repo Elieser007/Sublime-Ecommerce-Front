@@ -18,7 +18,7 @@
 
 <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
-<aside class="admin-sidebar" id="admin-sidebar" data-active={Astro.props.active || ''} aria-hidden="true" role="navigation">
+<aside class="admin-sidebar" id="admin-sidebar" data-active={Astro.props.active || ''} role="navigation">
   <!-- User Info (populated by JS) -->
   <div class="sidebar-user" id="sidebar-user">
     <div class="user-avatar">
@@ -337,12 +337,28 @@
   const $toggle = document.getElementById('sidebar-toggle');
   const $overlay = document.getElementById('sidebar-overlay');
 
+  // Set initial aria-hidden based on viewport (mobile = hidden, desktop = visible)
+  function syncAriaHidden() {
+    if (window.innerWidth <= 767) {
+      $sidebar?.setAttribute('aria-hidden', 'true');
+    } else {
+      $sidebar?.removeAttribute('aria-hidden');
+    }
+  }
+  syncAriaHidden();
+  window.addEventListener('resize', syncAriaHidden);
+
   function openSidebar() {
     $sidebar?.classList.add('is-open');
     $overlay?.classList.add('is-visible');
     $sidebar?.setAttribute('aria-hidden', 'false');
     $toggle?.setAttribute('aria-expanded', 'true');
     document.body.style.overflow = 'hidden';
+    // Focus first focusable element in drawer
+    const firstFocusable = $sidebar?.querySelector<HTMLElement>(
+      'a[href], button:not([disabled]), select, input, [tabindex]:not([tabindex="-1"])'
+    );
+    firstFocusable?.focus();
   }
 
   function closeSidebar() {
@@ -351,6 +367,10 @@
     $sidebar?.setAttribute('aria-hidden', 'true');
     $toggle?.setAttribute('aria-expanded', 'false');
     document.body.style.overflow = '';
+    // Return focus to hamburger button (only if visible on mobile)
+    if ($toggle && window.getComputedStyle($toggle).display !== 'none') {
+      $toggle.focus();
+    }
   }
 
   function toggleSidebar() {
@@ -368,9 +388,36 @@
     }
   });
 
-  // Close drawer when a nav link is clicked
+  // Focus trap: keep Tab/Shift+Tab inside drawer when open
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || !$sidebar?.classList.contains('is-open')) return;
+
+    const focusables = $sidebar?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), select, input, [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusables || focusables.length === 0) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
+
+  // Close drawer when a nav link is clicked (exclude deploy button)
   $sidebar?.querySelectorAll('.sidebar-link').forEach((link) => {
-    link.addEventListener('click', closeSidebar);
+    if (link.id !== 'deploy-btn') {
+      link.addEventListener('click', closeSidebar);
+    }
   });
 </script>
 
@@ -603,8 +650,8 @@
 
   @media (max-width: 767px) {
     .sidebar-nav {
-      flex-direction: row;
-      overflow-x: auto;
+      flex-direction: column;
+      overflow-y: auto;
     }
 
     .sidebar-link.active {
