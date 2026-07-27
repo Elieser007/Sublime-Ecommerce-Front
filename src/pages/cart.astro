@@ -258,72 +258,10 @@ import CartSummary from '../components/CartSummary.astro';
     letter-spacing: 0.05em;
   }
 
-  /* Quantity Control */
+  /* Quantity Control — rendered by QuantityControl.astro (scoped styles) */
   :global(.cart-item-qty) {
     display: flex;
     align-items: center;
-  }
-
-  :global(.quantity-control) {
-    display: inline-flex;
-    align-items: center;
-    border: var(--border-width) solid var(--outline-variant);
-    background-color: var(--surface-container-low);
-  }
-
-  :global(.qty-btn) {
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-body);
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--on-surface);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  :global(.qty-btn:hover:not(:disabled)) {
-    background-color: var(--surface-container-high);
-    color: var(--primary);
-  }
-
-  :global(.qty-btn:active:not(:disabled)) {
-    transform: scale(0.92);
-  }
-
-  :global(.qty-btn:disabled) {
-    color: var(--outline);
-    cursor: not-allowed;
-    opacity: 0.4;
-  }
-
-  :global(.qty-input) {
-    width: 48px;
-    height: 44px;
-    text-align: center;
-    font-family: var(--font-mono);
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--on-surface);
-    background: transparent;
-    border: none;
-    border-left: var(--border-width) solid var(--outline-variant);
-    border-right: var(--border-width) solid var(--outline-variant);
-    outline: none;
-    -moz-appearance: textfield;
-  }
-
-  :global(.qty-input::-webkit-outer-spin-button),
-  :global(.qty-input::-webkit-inner-spin-button) {
-    -webkit-appearance: none;
-    margin: 0;
   }
 
   /* Subtotal */
