@@ -32,8 +32,8 @@ const VIEWPORTS = [
 
 describe('Admin Responsive — CSS Rules', () => {
   describe('Form stacking at ≤768px', () => {
-    it('has @media (max-width: 768px) block', () => {
-      expect(css).toContain('@media (max-width: 768px)');
+    it('has @media (max-width: 767px) block', () => {
+      expect(css).toContain('@media (max-width: 767px)');
     });
 
     it('form-row has flex-direction: column', () => {

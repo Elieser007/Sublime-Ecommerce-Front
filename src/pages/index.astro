@@ -15,7 +15,6 @@
 import { formatPrice, getProductImageUrl } from '../lib/public-api';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PromotionWall from '../components/PromotionWall.astro';
-import SearchBar from '../components/SearchBar.astro';
 
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 
@@ -93,11 +92,6 @@ try {
     <div class="shop-grid">
       <!-- Desktop Sidebar -->
       <aside class="shop-sidebar">
-
-        <!-- Search (mobile & desktop) -->
-        <div class="sidebar-section sidebar-section--search">
-          <SearchBar placeholder="Buscar productos..." inputId="catalog-search-input" />
-        </div>
 
         <!-- Category Tree Section -->
         <div class="sidebar-section">
@@ -597,9 +591,9 @@ try {
       });
     });
 
-    // ===== SEARCH (wired via SearchBar component) =====
+    // ===== SEARCH (wired via Header nav search) =====
     let searchTimeout = null;
-    const searchInput = document.getElementById('catalog-search-input');
+    const searchInput = document.getElementById('search-input');
     if (searchInput) {
       searchInput.addEventListener('input', () => {
         clearTimeout(searchTimeout);
@@ -608,6 +602,36 @@ try {
           render();
         }, 300);
       });
+      // Prevent Header search form from navigating away on catalog page
+      const searchForm = searchInput?.closest('form');
+      if (searchForm) {
+        searchForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          currentSearch = searchInput.value;
+          render();
+        });
+      }
+    }
+
+    // ===== MOBILE SEARCH OVERLAY (Header) =====
+    const mobileSearchInput = document.getElementById('search-overlay-input');
+    if (mobileSearchInput) {
+      mobileSearchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          currentSearch = mobileSearchInput.value;
+          render();
+        }, 300);
+      });
+      // Also prevent form submit on mobile overlay
+      const mobileSearchForm = mobileSearchInput?.closest('form');
+      if (mobileSearchForm) {
+        mobileSearchForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          currentSearch = mobileSearchInput.value;
+          render();
+        });
+      }
     }
 
     // ===== CLEAR FILTERS =====
@@ -630,7 +654,10 @@ try {
       const maxInput = document.getElementById('price-max-desktop');
       if (minInput) minInput.value = '';
       if (maxInput) maxInput.value = '';
-      if (searchInput) searchInput.value = '';
+      const headerSearchInput = document.getElementById('search-input');
+      if (headerSearchInput) headerSearchInput.value = '';
+      const mobileSearchOverlay = document.getElementById('search-overlay-input');
+      if (mobileSearchOverlay) mobileSearchOverlay.value = '';
 
       render();
     }
@@ -868,10 +895,6 @@ try {
 
   .sidebar-section:last-child {
     border-bottom: none;
-  }
-
-  .sidebar-section--search {
-    padding-bottom: var(--space-lg);
   }
 
   .sidebar-title {

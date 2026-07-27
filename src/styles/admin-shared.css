@@ -26,6 +26,10 @@
 }
 
 .admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
   margin-bottom: var(--space-2xl);
 }
 .admin-header h1 {
@@ -223,11 +227,23 @@ tr:hover .cell-actions {
 }
 
 /* ─── Buttons ────────────────────────────────────────────────── */
-/* .btn, .btn--primary, .btn--secondary, .btn--danger defined in global.css */
+/* .btn, .btn--primary, .btn--secondary defined in global.css */
 /* Admin-specific button overrides: */
 
+/* Danger: Red/error accent for destructive actions */
+.btn--danger {
+  background-color: rgba(255, 180, 171, 0.1);
+  color: var(--error);
+  border: 1px solid rgba(255, 180, 171, 0.5);
+}
+
+.btn--danger:hover {
+  background-color: rgba(255, 180, 171, 0.2);
+  border-color: var(--error);
+}
+
 /* ─── Table Action Buttons ───────────────────────────────────── */
-:global(.ta-btn) {
+.ta-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -242,41 +258,41 @@ tr:hover .cell-actions {
   transition: all 0.15s ease;
   font-size: 14px;
 }
-:global(.ta-btn:hover) {
+.ta-btn:hover {
   background: rgba(130, 207, 255, 0.15);
   border-color: rgba(130, 207, 255, 0.5);
   transform: scale(1.1);
 }
-:global(.ta-btn--price) {
+.ta-btn--price {
   background: rgba(213, 202, 0, 0.08);
   border-color: rgba(213, 202, 0, 0.2);
   color: #d5ca00;
 }
-:global(.ta-btn--price:hover) {
+.ta-btn--price:hover {
   background: rgba(213, 202, 0, 0.15);
   border-color: rgba(213, 202, 0, 0.5);
 }
-:global(.ta-btn--delete) {
+.ta-btn--delete {
   background: rgba(255, 180, 171, 0.08);
   border-color: rgba(255, 180, 171, 0.2);
   color: #ffb4ab;
 }
-:global(.ta-btn--delete:hover) {
+.ta-btn--delete:hover {
   background: rgba(255, 180, 171, 0.15);
   border-color: rgba(255, 180, 171, 0.5);
 }
-:global(.ta-btn--attr) {
+.ta-btn--attr {
   background: rgba(213, 202, 0, 0.08);
   border-color: rgba(213, 202, 0, 0.2);
   color: #d5ca00;
 }
-:global(.ta-btn--attr:hover) {
+.ta-btn--attr:hover {
   background: rgba(213, 202, 0, 0.15);
   border-color: rgba(213, 202, 0, 0.5);
 }
 
 /* ─── Badges ─────────────────────────────────────────────────── */
-:global(.badge) {
+.badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -289,18 +305,18 @@ tr:hover .cell-actions {
   border-radius: 0px;
   white-space: nowrap;
 }
-:global(.badge-dot) {
+.badge-dot {
   width: 6px;
   height: 6px;
   border-radius: 0px;
   background-color: currentColor;
 }
-:global(.badge--active) {
+.badge--active {
   background-color: rgba(130, 207, 255, 0.1);
   color: var(--primary);
   border: 1px solid rgba(130, 207, 255, 0.3);
 }
-:global(.badge--inactive) {
+.badge--inactive {
   background-color: rgba(255, 180, 171, 0.1);
   color: #ffb4ab;
   border: 1px solid rgba(255, 180, 171, 0.3);
@@ -381,7 +397,7 @@ tr:hover .cell-actions {
    RESPONSIVE BREAKPOINTS
    ═══════════════════════════════════════════════════════════════ */
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   /* ─── Form Row Stacking ──────────────────────────────────── */
   .form-row {
     flex-direction: column;
@@ -438,7 +454,7 @@ tr:hover .cell-actions {
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .sidebar-toggle {
     display: flex;
     align-items: center;

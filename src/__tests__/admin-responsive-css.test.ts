@@ -13,14 +13,14 @@ const css = readFileSync(CSS_PATH, 'utf-8');
 
 describe('admin-shared.css responsive breakpoints', () => {
   describe('Form Row Stacking', () => {
-    it('has @media (max-width: 768px) rule for .form-row', () => {
-      expect(css).toContain('@media (max-width: 768px)');
+    it('has @media (max-width: 767px) rule for .form-row', () => {
+      expect(css).toContain('@media (max-width: 767px)');
       expect(css).toContain('.form-row');
     });
 
     it('sets flex-direction: column on .form-row at mobile', () => {
       // Find the media query block and verify it contains the stacking rule
-      const mediaMatch = css.match(/@media\s*\(max-width:\s*768px\)\s*\{[^}]*\.form-row[^}]*flex-direction:\s*column/);
+      const mediaMatch = css.match(/@media\s*\(max-width:\s*767px\)\s*\{[^}]*\.form-row[^}]*flex-direction:\s*column/);
       expect(mediaMatch).not.toBeNull();
     });
   });
@@ -32,8 +32,8 @@ describe('admin-shared.css responsive breakpoints', () => {
     });
 
     it('sets min-width: 100% on form inputs at mobile', () => {
-      // Check that within a max-width: 768px block, form-input has min-width: 100%
-      const hasMobileBlock = css.includes('@media (max-width: 768px)');
+      // Check that within a max-width: 767px block, form-input has min-width: 100%
+      const hasMobileBlock = css.includes('@media (max-width: 767px)');
       const hasFormInputMinWidth = css.includes('.form-input') && css.includes('min-width: 100%');
       expect(hasMobileBlock && hasFormInputMinWidth).toBe(true);
     });
@@ -53,8 +53,8 @@ describe('admin-shared.css responsive breakpoints', () => {
     });
 
     it('sets 1-column grid at mobile breakpoint', () => {
-      // Verify single-column grid at 768px
-      const hasMobileBreakpoint = css.includes('@media (max-width: 768px)');
+      // Verify single-column grid at 767px
+      const hasMobileBreakpoint = css.includes('@media (max-width: 767px)');
       const hasSingleCol = css.includes('.tiles-promo') && css.includes('grid-template-columns: 1fr');
       expect(hasMobileBreakpoint && hasSingleCol).toBe(true);
     });

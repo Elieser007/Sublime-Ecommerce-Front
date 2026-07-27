@@ -52,8 +52,8 @@ describe('AdminSidebar drawer', () => {
       expect(css).toContain('.is-visible');
     });
 
-    it('hamburger is visible at max-width: 768px', () => {
-      const hasMobileRule = css.includes('@media (max-width: 768px)');
+    it('hamburger is visible at max-width: 767px', () => {
+      const hasMobileRule = css.includes('@media (max-width: 767px)');
       const hasToggleDisplay = css.includes('.sidebar-toggle') && css.includes('display: flex');
       expect(hasMobileRule && hasToggleDisplay).toBe(true);
     });
