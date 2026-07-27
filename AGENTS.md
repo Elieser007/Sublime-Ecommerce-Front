@@ -1,3 +1,28 @@
+## Worktree Agent Setup
+
+This project uses Git worktrees for parallel agent work. Each agent has isolated ports.
+
+### IMPORTANT: Start your servers FIRST
+
+Before doing ANY work, you MUST start your backend and frontend servers.
+
+1. Run `./start.sh` from the worktree root (parent of this directory)
+2. The script reads `.agent-env` for your port assignments
+3. Backend runs on the port specified in `.agent-env`
+4. Frontend runs on the port specified in `.agent-env`
+
+### Your ports
+
+Check `.agent-env` in the worktree root for your specific ports. Do NOT guess ports.
+
+### Verify servers are running
+
+After starting, verify with:
+- Backend: `curl -s http://localhost:YOUR_BACK_PORT/` should return 200
+- Frontend: `curl -s http://localhost:YOUR_FRONT_PORT/` should return 200
+
+If ports conflict with other agents, something is wrong. Check `.agent-env`.
+
 # AGENTS.md — Sublime E-commerce Frontend
 
 ## Stack
