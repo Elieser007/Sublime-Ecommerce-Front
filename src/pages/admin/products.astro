@@ -190,9 +190,10 @@ const columns = [
 </AdminLayout>
 
 <script>
-  import { addImage, removeImage } from '../../lib/admin-gallery';
+  import { removeImage } from '../../lib/admin-gallery';
   import { getImageById, getImageCount } from '../../lib/gallery-utils';
   import { deleteImage, associateImage } from '../../lib/image-utils';
+  import { loadProductList, uploadGalleryImages } from '../../lib/admin-products';
 
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   const fmt = (c: number) => `₲ ${(c || 0).toLocaleString('es-PY')}`;
@@ -615,39 +616,20 @@ const columns = [
   async function loadProducts() {
     const tbody = document.querySelector('tbody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Cargando...</td></tr>';
-    const params = new URLSearchParams();
-    params.set('page', String(currentPage));
-    params.set('limit', String(limit));
-    if (currentSearch) params.set('search', currentSearch);
-    if (currentSection) params.set('section_id', currentSection);
-    if (currentCategory) params.set('category_id', currentCategory);
-    if (currentSubcategory) params.set('subcategory_id', currentSubcategory);
     try {
-      const res = await fetch(`${API_URL}/api/products?${params.toString()}`, { credentials: 'include' });
-      if (res.status === 401) { window.location.href = '/login'; return; }
-      const data = await res.json();
-      items = data.data || [];
-      totalItems = data.total || 0;
-      totalPages = data.pages || 1;
-      await loadAttributeCounts();
+      const result = await loadProductList(API_URL, {
+        page: currentPage,
+        limit,
+        search: currentSearch || undefined,
+        sectionId: currentSection || undefined,
+        categoryId: currentCategory || undefined,
+        subcategoryId: currentSubcategory || undefined,
+      });
+      items = result.items;
+      totalItems = result.total;
+      totalPages = result.totalPages;
       render();
     } catch { if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Error</td></tr>'; }
-  }
-
-  async function loadAttributeCounts() {
-    for (const product of items) {
-      try {
-        const res = await fetch(`${API_URL}/api/admin/products/${product.id}/attributes`, { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          product.attribute_count = (data.attributes || []).length;
-        } else {
-          product.attribute_count = 0;
-        }
-      } catch {
-        product.attribute_count = 0;
-      }
-    }
   }
 
   function render() {
@@ -900,27 +882,15 @@ const columns = [
         // If not new, primary image is already associated — nothing to do
       }
 
-      // Step 4: Upload and associate new gallery images — use admin-gallery for sort_order
-      let currentImages = [...gallery.images];
-      for (const newImg of gallery.newImages) {
-        const formData = new FormData();
-        const fileName = newImg.originalName?.replace(/\.[^.]+$/, '.webp') || 'gallery.webp';
-        formData.append('image', new File([newImg.blob], fileName, { type: 'image/webp' }));
+      // Step 4: Upload and associate new gallery images — concurrent via Promise.allSettled
+      if (gallery.newImages.length > 0) {
+        const files = gallery.newImages.map((img: any) => img.blob);
+        const uploadResults = await uploadGalleryImages(files, productId, API_URL);
 
-        const uploadRes = await fetch(`${API_URL}/api/upload`, {
-          method: 'POST',
-          body: formData,
-          credentials: 'include',
-        });
-
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          // Use admin-gallery module to add with correct sort_order
-          const tempImage = { id: `temp-${Date.now()}`, url: uploadData.url, alt: '', is_primary: false, sort_order: 0 };
-          currentImages = addImage(currentImages, tempImage);
-          const sortOrder = currentImages[currentImages.length - 1].sort_order;
-
-          await associateImage('products', productId, uploadData.url, API_URL, '', { is_primary: 0, sort_order: sortOrder });
+        // Log any failures for debugging
+        const failures = uploadResults.filter((r: any) => r.status === 'rejected');
+        if (failures.length > 0) {
+          console.warn(`${failures.length} gallery image(s) failed to upload`);
         }
       }
 
@@ -999,82 +969,8 @@ const columns = [
 </script>
 
 <style>
-  .admin-layout { display: grid; grid-template-columns: 1fr; min-height: calc(100vh - 72px); }
-  @media (min-width: 768px) { .admin-layout { grid-template-columns: 260px 1fr; } }
-  .admin-main { padding: var(--space-2xl); overflow-y: auto; }
-  .admin-header { margin-bottom: var(--space-2xl); }
-  .admin-header h1 { color: var(--on-surface); margin-bottom: var(--space-sm); }
-  .admin-subtitle { color: var(--on-surface-variant); }
-  .content-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md); flex-wrap: wrap; gap: var(--space-md); }
-  .toolbar { display: flex; gap: 12px; flex-wrap: wrap; flex: 1; }
-  .form-input, .form-select, .form-textarea { padding: 12px; background-color: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; color: #e2e2e2; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; min-width: 130px; }
-  .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: #82cfff; box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.2); }
-  .form-row { display: flex; gap: 16px; }
-  .form-row .form-group { flex: 1; }
-  .empty-cell { text-align: center; padding: 48px !important; color: #bdc8d1; }
-  .cell-actions { display: flex; gap: 6px; justify-content: flex-end; opacity: 0.6; transition: opacity 0.2s ease; }
-  tr:hover .cell-actions { opacity: 1; }
-  .slug-display { font-family: 'Space Mono', monospace; font-size: 12px; color: #82cfff; background: rgba(130, 207, 255, 0.1); padding: 2px 6px; border-radius: 2px; }
-  .tag { display: inline-block; padding: 2px 8px; font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
-  .tag--section { background: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.3); }
-  .pagination-bar { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-xl); flex-wrap: wrap; gap: var(--space-md); }
-  .page-nav { display: flex; gap: 12px; align-items: center; }
-  .modal-overlay { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .modal { background-color: #131313; border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
-  .modal--wide { max-width: 700px; }
-  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 24px; border-bottom: 1px solid rgba(62, 72, 80, 0.3); }
-  .modal-header h3 { color: #e2e2e2; }
-  .modal-close { background: none; border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; width: 36px; height: 36px; color: #bdc8d1; cursor: pointer; font-size: 18px; }
-  .modal-close:hover { border-color: #ffb4ab; color: #ffb4ab; }
-  .modal-form, .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-  .form-group { display: flex; flex-direction: column; gap: 8px; }
-  .form-group label { color: #bdc8d1; font-family: 'Space Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .form-error { color: #ffb4ab; font-size: 14px; min-height: 20px; }
-  .form-actions { display: flex; gap: 12px; justify-content: flex-end; padding-top: 16px; border-top: 1px solid rgba(62, 72, 80, 0.3); }
-  .price-product-info { padding: 12px; background: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; color: #e2e2e2; }
-  .price-form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
-  .price-form-row .form-select, .price-form-row .form-input { min-width: 120px; }
-  .prices-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  .prices-table th, .prices-table td { padding: 10px; text-align: left; border-bottom: 1px solid rgba(62, 72, 80, 0.2); color: #e2e2e2; font-size: 14px; }
-  .prices-table th { font-family: 'Space Mono', monospace; font-size: 11px; color: #bdc8d1; }
-  :global(.btn) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 24px; font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 0px; cursor: pointer; transition: all 0.2s ease; }
-  :global(.btn:hover) { transform: scale(1.05); }
-  :global(.btn:active) { transform: scale(0.95); }
-  :global(.btn--primary) { background-color: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.5); }
-  :global(.btn--primary:hover) { background-color: rgba(130, 207, 255, 0.2); }
-  :global(.btn--secondary) { background-color: transparent; color: #e2e2e2; border: 1px solid rgba(62, 72, 80, 0.5); }
-  :global(.btn--secondary:hover) { background-color: rgba(255, 255, 255, 0.05); }
-  :global(.btn-icon) { font-size: 18px; line-height: 1; }
-  :global(.ta-btn) { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: rgba(130, 207, 255, 0.08); border: 1px solid rgba(130, 207, 255, 0.2); border-radius: 0px; color: #82cfff; cursor: pointer; transition: all 0.15s ease; font-size: 14px; }
-  :global(.ta-btn:hover) { background: rgba(130, 207, 255, 0.15); border-color: rgba(130, 207, 255, 0.5); transform: scale(1.1); }
-  :global(.ta-btn--price) { background: rgba(213, 202, 0, 0.08); border-color: rgba(213, 202, 0, 0.2); color: #d5ca00; }
-  :global(.ta-btn--price:hover) { background: rgba(213, 202, 0, 0.15); border-color: rgba(213, 202, 0, 0.5); }
-  :global(.ta-btn--delete) { background: rgba(255, 180, 171, 0.08); border-color: rgba(255, 180, 171, 0.2); color: #ffb4ab; }
-  :global(.ta-btn--delete:hover) { background: rgba(255, 180, 171, 0.15); border-color: rgba(255, 180, 171, 0.5); }
-  :global(.badge) { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 0px; white-space: nowrap; }
-  :global(.badge-dot) { width: 6px; height: 6px; border-radius: 0px; background-color: currentColor; }
-  :global(.badge--active) { background-color: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.3); }
-  :global(.badge--inactive) { background-color: rgba(255, 180, 171, 0.1); color: #ffb4ab; border: 1px solid rgba(255, 180, 171, 0.3); }
-  .attr-badge { display: inline-flex; align-items: center; padding: 4px 10px; font-family: 'Space Mono', monospace; font-size: 11px; color: #d5ca00; background: rgba(213, 202, 0, 0.1); border: 1px solid rgba(213, 202, 0, 0.3); border-radius: 0px; }
-  :global(.ta-btn--attr) { background: rgba(213, 202, 0, 0.08); border-color: rgba(213, 202, 0, 0.2); color: #d5ca00; }
-  :global(.ta-btn--attr:hover) { background: rgba(213, 202, 0, 0.15); border-color: rgba(213, 202, 0, 0.5); }
-
-  /* Hidden Upload Input */
-  .upload-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-
-  /* Upload Status */
-  .upload-status { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
-  .upload-status p { color: #bdc8d1; }
-  .upload-info { padding: 8px 12px; background: rgba(130, 207, 255, 0.1); border: 1px solid rgba(130, 207, 255, 0.3); }
-  .upload-info p { color: #82cfff; }
-  .cmyk-bar { display: flex; gap: 4px; }
-  .cmyk-bar span { flex: 1; height: 3px; background: #82cfff; animation: cmyk-pulse 1.2s ease-in-out infinite; }
-  .cmyk-bar span:nth-child(2) { background: #ffb4ab; animation-delay: 0.2s; }
-  .cmyk-bar span:nth-child(3) { background: #d5ca00; animation-delay: 0.4s; }
-  @keyframes cmyk-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
-
   /* ═══════════════════════════════════════════════════════════ */
-  /* PRIMARY IMAGE — Upload Area                                */
+  /* PRIMARY IMAGE — Upload Area (products-specific)            */
   /* ═══════════════════════════════════════════════════════════ */
   .primary-upload-area {
     position: relative;
@@ -1141,7 +1037,7 @@ const columns = [
   }
 
   /* ═══════════════════════════════════════════════════════════ */
-  /* GALLERY — Horizontal Scrollable Strip                      */
+  /* GALLERY — Horizontal Scrollable Strip (products-specific)  */
   /* ═══════════════════════════════════════════════════════════ */
   .gallery-strip-container {
     display: flex;
@@ -1230,22 +1126,12 @@ const columns = [
   }
 
   /* ═══════════════════════════════════════════════════════════ */
-  /* DELETE CONFIRMATION MODAL                                   */
+  /* PRICING TABLE (products-specific)                          */
   /* ═══════════════════════════════════════════════════════════ */
-  .modal--confirm {
-    max-width: 420px;
-  }
-  .delete-message {
-    color: #bdc8d1;
-    line-height: 1.6;
-    padding: 8px 0;
-  }
-  :global(.btn--danger) {
-    background-color: rgba(255, 180, 171, 0.15);
-    color: #ffb4ab;
-    border: 1px solid rgba(255, 180, 171, 0.5);
-  }
-  :global(.btn--danger:hover) {
-    background-color: rgba(255, 180, 171, 0.25);
-  }
+  .price-product-info { padding: 12px; background: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; color: #e2e2e2; }
+  .price-form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .price-form-row .form-select, .price-form-row .form-input { min-width: 120px; }
+  .prices-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  .prices-table th, .prices-table td { padding: 10px; text-align: left; border-bottom: 1px solid rgba(62, 72, 80, 0.2); color: #e2e2e2; font-size: 14px; }
+  .prices-table th { font-family: 'Space Mono', monospace; font-size: 11px; color: #bdc8d1; }
 </style>
