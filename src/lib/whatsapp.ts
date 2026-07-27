@@ -14,6 +14,7 @@
  */
 
 import type { PriceTier } from "./public-api";
+import { formatPrice } from "./format";
 
 export interface CartItem {
   id: string;
@@ -35,15 +36,12 @@ export interface CartItem {
 
 /**
  * Format a number as Guaraníes (Gs.)
- * Uses dot as thousands separator, no decimals.
+ * Delegates to shared formatPrice utility.
  * 
  * @example formatGuaranies(120000) → "120.000"
  */
 export function formatGuaranies(amount: number): string {
-  return new Intl.NumberFormat("es-PY", {
-    style: "decimal",
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return formatPrice(amount);
 }
 
 /**

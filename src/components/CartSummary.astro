@@ -1,15 +1,16 @@
 ---
 /**
- * CartSummary component — Chromatic High-Contrast
+ * CartSummary component — Premium sidebar design
  * 
- * Order summary with total and WhatsApp checkout button.
+ * Order summary with item count, total and WhatsApp checkout button.
  * Reads from LocalStorage and generates wa.me link.
  */
 
 ---
 
 <div class="cart-summary" id="cart-summary">
-  <h3 class="headline-lg-mobile">Resumen del Pedido</h3>
+  <h3 class="summary-title">Resumen del Pedido</h3>
+  <p class="summary-count" id="summary-count">0 productos en tu carrito</p>
 
   <div class="summary-rows">
     <div class="summary-row">
@@ -22,14 +23,14 @@
     </div>
     <div class="summary-divider"></div>
     <div class="summary-row summary-total">
-      <span class="headline-lg-mobile">Total</span>
-      <span class="headline-lg-mobile" id="summary-total">Gs. 0</span>
+      <span class="summary-total-label">Total</span>
+      <span class="summary-total-value" id="summary-total">Gs. 0</span>
     </div>
   </div>
 
   <a
     href="#"
-    class="btn btn--primary checkout-btn"
+    class="checkout-btn"
     id="checkout-whatsapp"
     target="_blank"
     rel="noopener"
@@ -39,86 +40,38 @@
     </svg>
     Finalizar por WhatsApp
   </a>
+
+  <div class="summary-footer">
+    <a href="/" class="continue-link">← Seguir comprando</a>
+  </div>
 </div>
 
-<style>
-  .cart-summary {
-    background-color: var(--surface-container);
-    padding: var(--space-xl);
-    border: var(--border-width) solid var(--outline-variant);
-  }
-
-  .cart-summary h3 {
-    color: var(--on-surface);
-    margin-bottom: var(--space-xl);
-  }
-
-  .summary-rows {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
-    margin-bottom: var(--space-xl);
-  }
-
-  .summary-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .summary-shipping {
-    color: var(--on-surface-variant);
-    font-style: italic;
-  }
-
-  .summary-divider {
-    height: var(--border-width);
-    background-color: var(--outline-variant);
-    margin: var(--space-sm) 0;
-  }
-
-  .summary-total {
-    color: var(--primary);
-  }
-
-  .checkout-btn {
-    width: 100%;
-    justify-content: center;
-    gap: var(--space-sm);
-  }
-</style>
-
 <script>
-  // WhatsApp checkout — uses whatsapp.ts functions
-  // @ts-ignore — module will be resolved at runtime
-  import { generateWhatsAppUrl, formatGuaranies, getCartFromStorage } from '/src/lib/whatsapp.ts';
+  import { generateWhatsAppUrl, formatGuaranies, getCartFromStorage, calculateCartTotals } from '../lib/whatsapp.ts';
 
-  // WhatsApp phone number (replace with actual)
   const WHATSAPP_PHONE = '595991969608';
 
-  // Update summary display
   function updateSummary() {
     const cart = getCartFromStorage();
+    const { subtotal, itemCount } = calculateCartTotals(cart);
 
-    let total = 0;
-    cart.forEach((item: any) => {
-      total += item.price * item.quantity;
-    });
-
+    const countEl = document.getElementById('summary-count');
     const subtotalEl = document.getElementById('summary-subtotal');
     const totalEl = document.getElementById('summary-total');
     const checkoutBtn = document.getElementById('checkout-whatsapp');
 
-    if (subtotalEl) subtotalEl.textContent = `Gs. ${formatGuaranies(total)}`;
-    if (totalEl) totalEl.textContent = `Gs. ${formatGuaranies(total)}`;
+    if (countEl) {
+      countEl.textContent = itemCount === 1
+        ? '1 producto en tu carrito'
+        : `${itemCount} productos en tu carrito`;
+    }
+    if (subtotalEl) subtotalEl.textContent = `Gs. ${formatGuaranies(subtotal)}`;
+    if (totalEl) totalEl.textContent = `Gs. ${formatGuaranies(subtotal)}`;
     if (checkoutBtn) {
       checkoutBtn.setAttribute('href', generateWhatsAppUrl(cart, WHATSAPP_PHONE));
     }
   }
 
-  // Listen for cart changes
   window.addEventListener('cart-updated', updateSummary);
-
-  // Initial update
   document.addEventListener('DOMContentLoaded', updateSummary);
 </script>

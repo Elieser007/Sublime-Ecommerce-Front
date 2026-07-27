@@ -183,6 +183,7 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
   }
   updateCartCount();
   window.addEventListener("storage", updateCartCount);
+  window.addEventListener("cart-updated", updateCartCount);
 
   // Session check — update user icon
   const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
