@@ -8,7 +8,17 @@
  */
 ---
 
-<aside class="admin-sidebar" id="admin-sidebar" data-active={Astro.props.active || ''}>
+<button class="sidebar-toggle" id="sidebar-toggle" aria-expanded="false" aria-label="Abrir menú de navegación">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <line x1="3" y1="6" x2="21" y2="6"/>
+    <line x1="3" y1="12" x2="21" y2="12"/>
+    <line x1="3" y1="18" x2="21" y2="18"/>
+  </svg>
+</button>
+
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<aside class="admin-sidebar" id="admin-sidebar" data-active={Astro.props.active || ''} aria-hidden="true" role="navigation">
   <!-- User Info (populated by JS) -->
   <div class="sidebar-user" id="sidebar-user">
     <div class="user-avatar">
@@ -321,6 +331,47 @@
 
   initSidebar();
   setActiveLink();
+
+  // ─── Sidebar Drawer Toggle ────────────────────────────────
+  const $sidebar = document.getElementById('admin-sidebar');
+  const $toggle = document.getElementById('sidebar-toggle');
+  const $overlay = document.getElementById('sidebar-overlay');
+
+  function openSidebar() {
+    $sidebar?.classList.add('is-open');
+    $overlay?.classList.add('is-visible');
+    $sidebar?.setAttribute('aria-hidden', 'false');
+    $toggle?.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSidebar() {
+    $sidebar?.classList.remove('is-open');
+    $overlay?.classList.remove('is-visible');
+    $sidebar?.setAttribute('aria-hidden', 'true');
+    $toggle?.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+
+  function toggleSidebar() {
+    const isOpen = $sidebar?.classList.contains('is-open');
+    if (isOpen) closeSidebar(); else openSidebar();
+  }
+
+  $toggle?.addEventListener('click', toggleSidebar);
+  $overlay?.addEventListener('click', closeSidebar);
+
+  // ESC key closes drawer
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && $sidebar?.classList.contains('is-open')) {
+      closeSidebar();
+    }
+  });
+
+  // Close drawer when a nav link is clicked
+  $sidebar?.querySelectorAll('.sidebar-link').forEach((link) => {
+    link.addEventListener('click', closeSidebar);
+  });
 </script>
 
 <style>

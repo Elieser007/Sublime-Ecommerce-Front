@@ -472,3 +472,60 @@ tr:hover .cell-actions {
     grid-template-columns: repeat(2, 1fr) !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR DRAWER — Mobile Only
+   ═══════════════════════════════════════════════════════════════ */
+
+.sidebar-toggle {
+  display: none;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: 1px solid rgba(62, 72, 80, 0.3);
+    border-radius: 0px;
+    color: #e2e2e2;
+    cursor: pointer;
+    font-size: 20px;
+    transition: all 0.15s ease;
+  }
+  .sidebar-toggle:hover {
+    border-color: #82cfff;
+    color: #82cfff;
+  }
+
+  .admin-sidebar {
+    position: fixed;
+    left: -280px;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+  }
+
+  .admin-sidebar.is-open {
+    left: 0;
+  }
+
+  .sidebar-overlay.is-visible {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    backdrop-filter: blur(2px);
+  }
+}
