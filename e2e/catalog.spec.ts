@@ -183,18 +183,22 @@ test.describe("Product Card", () => {
 });
 
 test.describe("Mobile Panels", () => {
-  test("mobile categories button opens panel", async ({ page }) => {
+  test("mobile categories button opens panel from left", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
     await page.click("#open-categories");
-    await expect(page.locator("#mobile-category-panel")).toBeVisible();
+    const panel = page.locator("#mobile-category-panel");
+    await expect(panel).toHaveClass(/open/);
+    await expect(panel).toBeVisible();
   });
 
-  test("mobile filters button opens panel", async ({ page }) => {
+  test("mobile filters button opens panel from right", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
     await page.click("#open-filters");
-    await expect(page.locator("#mobile-filters-panel")).toBeVisible();
+    const panel = page.locator("#mobile-filters-panel");
+    await expect(panel).toHaveClass(/open/);
+    await expect(panel).toBeVisible();
   });
 });
 
@@ -216,6 +220,20 @@ test.describe("Mobile Catalog", () => {
     await expect(panel).not.toHaveClass(/open/);
   });
 
+  test("category panel tree toggle expands subcategories", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#open-categories");
+    const panel = page.locator("#mobile-category-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    // Find a tree toggle button (if any exist)
+    const toggle = panel.locator(".tree-toggle").first();
+    if (await toggle.isVisible()) {
+      await toggle.click();
+      await expect(toggle).toHaveClass(/expanded/);
+    }
+  });
+
   test("filter drawer opens, sorts, and closes", async ({ page }) => {
     await page.goto("/");
     await page.click("#open-filters");
@@ -225,20 +243,85 @@ test.describe("Mobile Catalog", () => {
     // Select a sort option
     await panel.locator('[data-sort="price-asc"]').click();
     await panel.locator("#apply-filters-mobile").click();
-    
+
     // Panel should close (wait for animation + hidden class)
     await page.waitForTimeout(500);
     await expect(panel).not.toHaveClass(/open/);
-    
+
     // Desktop sidebar sort should be updated (the one inside aside)
     await expect(page.locator("aside [data-sort='price-asc']")).toHaveClass(/active/);
+  });
+
+  test("filter panel price range inputs work", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#open-filters");
+    const panel = page.locator("#mobile-filters-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    // Fill price range
+    await panel.locator("#price-min-mobile").fill("50000");
+    await panel.locator("#price-max-mobile").fill("150000");
+    await panel.locator("#apply-filters-mobile").click();
+
+    await page.waitForTimeout(500);
+    // Clear filters should appear (price filter was applied)
+    await expect(page.locator("#clear-filters")).toBeVisible();
+  });
+
+  test("category panel close button closes panel", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#open-categories");
+    const panel = page.locator("#mobile-category-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    // Click close button
+    await panel.locator("#close-categories").click();
+    await page.waitForTimeout(500);
+    await expect(panel).not.toHaveClass(/open/);
+  });
+
+  test("filter panel close button closes panel", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#open-filters");
+    const panel = page.locator("#mobile-filters-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    // Click close button
+    await panel.locator("#close-filters").click();
+    await page.waitForTimeout(500);
+    await expect(panel).not.toHaveClass(/open/);
+  });
+
+  test("category panel backdrop click closes panel", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#open-categories");
+    const panel = page.locator("#mobile-category-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    // Click the overlay backdrop (the panel element itself, not the inner content)
+    // The overlay is the parent; clicking outside the inner panel triggers close
+    await panel.click({ position: { x: 10, y: 10 } });
+    await page.waitForTimeout(500);
+    await expect(panel).not.toHaveClass(/open/);
+  });
+
+  test("filter panel backdrop click closes panel", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#open-filters");
+    const panel = page.locator("#mobile-filters-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    // Click the overlay backdrop
+    await panel.click({ position: { x: 10, y: 10 } });
+    await page.waitForTimeout(500);
+    await expect(panel).not.toHaveClass(/open/);
   });
 
   test("search overlay works on mobile", async ({ page }) => {
     await page.goto("/");
     await page.click("#search-toggle");
     await expect(page.locator("#search-overlay")).toHaveClass(/open/);
-    
+
     // Type in search
     await page.fill("#search-overlay-input", "test");
     await expect(page.locator("#search-overlay-input")).toHaveValue("test");
@@ -248,6 +331,54 @@ test.describe("Mobile Catalog", () => {
     await page.goto("/");
     const loadMore = page.locator("#load-more");
     await expect(loadMore).toBeAttached();
+  });
+});
+
+test.describe("Mobile Panels Hidden on Desktop", () => {
+  test("mobile action buttons are hidden on desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/");
+    await expect(page.locator(".mobile-actions")).toBeHidden();
+  });
+
+  test("mobile category panel is hidden on desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/");
+    const panel = page.locator("#mobile-category-panel");
+    await expect(panel).toHaveClass(/hidden/);
+  });
+
+  test("mobile filters panel is hidden on desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/");
+    const panel = page.locator("#mobile-filters-panel");
+    await expect(panel).toHaveClass(/hidden/);
+  });
+});
+
+test.describe("Button Colors", () => {
+  test("primary buttons have visible text color", async ({ page }) => {
+    await page.goto("/");
+    // Check the apply filters button on desktop
+    const btn = page.locator("#apply-filters-desktop");
+    await expect(btn).toBeVisible();
+    const color = await btn.evaluate((el) => getComputedStyle(el).color);
+    // Should be black (#000) for contrast on cyan background
+    expect(color).toBe("rgb(0, 0, 0)");
+  });
+
+  test("primary button on product detail has visible text", async ({ page }) => {
+    await page.goto("/");
+    const productLink = page.locator('a[href*="/producto/"]').first();
+    if (await productLink.isVisible()) {
+      await productLink.click();
+      await page.waitForLoadState("networkidle");
+      const btn = page.locator("#detail-add-cart");
+      if (await btn.isVisible()) {
+        const color = await btn.evaluate((el) => getComputedStyle(el).color);
+        expect(color).toBe("rgb(0, 0, 0)");
+      }
+    }
   });
 });
 

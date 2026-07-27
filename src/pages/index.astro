@@ -275,8 +275,104 @@ function slugify(str: string): string {
   <!-- Bottom banner (SSG — fetched at build time) -->
   <PromotionWall section="always-catalog-bottom" promotions={bottomPromotions} sectionInfo={bottomSectionInfo} />
 
-  <!-- Mobile Panels (rendered by JS) -->
-  <div id="mobile-category-panel-container"></div>
+  <!-- Mobile Category Panel (SSG — rendered server-side, toggled by JS) -->
+  <div id="mobile-category-panel" class="mobile-panel-overlay hidden">
+    <div class="mobile-panel">
+      <div class="mobile-panel-header">
+        <h3 class="body-lg">Categorías</h3>
+        <button class="mobile-panel-close" id="close-categories" aria-label="Cerrar panel">✕</button>
+      </div>
+      <div class="mobile-panel-body">
+        {tree.length > 0 ? (
+          <ul class="tree-list">
+            <li class="tree-item tree-item--root active" data-filter="all">
+              <span class="tree-label tree-label--root" data-filter="all">Todos</span>
+            </li>
+            {tree.map((section) => (
+              <li class="tree-item tree-item--root" data-filter={section.slug}>
+                <div class="tree-row">
+                  {section.categories && section.categories.length > 0 ? (
+                    <button class="tree-toggle" data-toggle={section.slug} aria-label="Expandir">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </button>
+                  ) : (
+                    <span class="tree-spacer"></span>
+                  )}
+                  <span class="tree-label tree-label--root" data-filter={section.slug}>{section.name}</span>
+                </div>
+                {section.categories && section.categories.length > 0 && (
+                  <ul class="tree-sublist" id={`mobile-tree-sublist-${section.slug}`}>
+                    {section.categories.map((cat: any) => (
+                      <li class="tree-item tree-item--cat" data-filter={cat.slug}>
+                        <div class="tree-row">
+                          {cat.subcategories && cat.subcategories.length > 0 ? (
+                            <button class="tree-toggle tree-toggle--sm" data-toggle={cat.slug} aria-label="Expandir">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polyline points="6 9 12 15 18 9"/>
+                              </svg>
+                            </button>
+                          ) : (
+                            <span class="tree-spacer tree-spacer--sm"></span>
+                          )}
+                          <span class="tree-label tree-label--cat" data-filter={cat.slug}>{cat.name}</span>
+                        </div>
+                        {cat.subcategories && cat.subcategories.length > 0 && (
+                          <ul class="tree-sublist tree-sublist--sub" id={`mobile-tree-sublist-${cat.slug}`}>
+                            {cat.subcategories.map((sub: any) => (
+                              <li class="tree-item tree-item--sub" data-filter={sub.slug}>
+                                <div class="tree-row">
+                                  <span class="tree-spacer tree-spacer--sm"></span>
+                                  <span class="tree-label tree-label--sub" data-filter={sub.slug}>{sub.name}</span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="body-sm">Sin categorías</p>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Filters Panel (SSG — rendered server-side, toggled by JS) -->
+  <div id="mobile-filters-panel" class="mobile-panel-overlay mobile-panel-overlay--right hidden">
+    <div class="mobile-panel mobile-panel--right">
+      <div class="mobile-panel-header">
+        <h3 class="body-lg">Filtros</h3>
+        <button class="mobile-panel-close" id="close-filters" aria-label="Cerrar filtros">✕</button>
+      </div>
+      <div class="mobile-panel-body">
+        <div class="filter-group">
+          <h3 class="filter-group-title">Ordenar por</h3>
+          <div class="filter-options">
+            <button class="filter-option active" data-sort="default">Destacados</button>
+            <button class="filter-option" data-sort="price-asc">Menor precio</button>
+            <button class="filter-option" data-sort="price-desc">Mayor precio</button>
+            <button class="filter-option" data-sort="name">Nombre A-Z</button>
+          </div>
+        </div>
+        <div class="filter-group">
+          <h3 class="filter-group-title">Precio</h3>
+          <div class="price-range">
+            <input type="number" class="price-input" placeholder="Mín" id="price-min-mobile" />
+            <span class="price-separator">—</span>
+            <input type="number" class="price-input" placeholder="Máx" id="price-max-mobile" />
+          </div>
+        </div>
+        <button class="apply-filters-btn btn btn--primary" id="apply-filters-mobile">Aplicar</button>
+      </div>
+    </div>
+  </div>
 </BaseLayout>
 
 <script is:inline>
@@ -525,54 +621,67 @@ function slugify(str: string): string {
       }
     });
 
-    // ===== MOBILE CATEGORY PANEL =====
+    // ===== MOBILE CATEGORY PANEL (server-rendered, toggled by class) =====
+    function closeCategoriesPanel() {
+      const panel = document.getElementById('mobile-category-panel');
+      if (!panel) return;
+      panel.classList.remove('open');
+      document.body.style.overflow = '';
+      setTimeout(() => panel.classList.add('hidden'), 300);
+    }
+
     document.getElementById('open-categories')?.addEventListener('click', () => {
-      const existingPanel = document.getElementById('mobile-category-panel');
-      if (existingPanel) {
-        existingPanel.classList.remove('hidden');
-        requestAnimationFrame(() => existingPanel.classList.add('open'));
-        document.body.style.overflow = 'hidden';
-        return;
-      }
-
-      const treeHtml = document.getElementById('category-tree-container')?.innerHTML || '';
-      const panel = document.createElement('div');
-      panel.id = 'mobile-category-panel';
-      panel.className = 'mobile-panel-overlay';
-      panel.innerHTML = `
-        <div class="mobile-panel">
-          <div class="mobile-panel-header">
-            <h3 class="body-lg">Categorías</h3>
-            <button class="mobile-panel-close" id="close-categories" aria-label="Cerrar panel">✕</button>
-          </div>
-          <div class="mobile-panel-body">${treeHtml}</div>
-        </div>`;
-      document.body.appendChild(panel);
+      const panel = document.getElementById('mobile-category-panel');
+      if (!panel) return;
+      panel.classList.remove('hidden');
+      requestAnimationFrame(() => panel.classList.add('open'));
       document.body.style.overflow = 'hidden';
+    });
 
-      // Animate in
-      requestAnimationFrame(() => {
-        panel.classList.add('open');
+    // ===== MOBILE FILTERS PANEL (server-rendered, toggled by class) =====
+    function closeFiltersPanel() {
+      const panel = document.getElementById('mobile-filters-panel');
+      if (!panel) return;
+      panel.classList.remove('open');
+      document.body.style.overflow = '';
+      setTimeout(() => panel.classList.add('hidden'), 300);
+    }
+
+    document.getElementById('open-filters')?.addEventListener('click', () => {
+      const panel = document.getElementById('mobile-filters-panel');
+      if (!panel) return;
+      panel.classList.remove('hidden');
+      requestAnimationFrame(() => panel.classList.add('open'));
+      document.body.style.overflow = 'hidden';
+    });
+
+    // ===== MOBILE PANEL CLOSE HANDLERS =====
+    // Category panel: close button + backdrop click
+    const catPanel = document.getElementById('mobile-category-panel');
+    if (catPanel) {
+      catPanel.querySelector('#close-categories')?.addEventListener('click', closeCategoriesPanel);
+      catPanel.addEventListener('click', (e) => {
+        if (e.target === catPanel) closeCategoriesPanel();
       });
+    }
 
-      const closePanel = () => {
-        panel.classList.remove('open');
-        document.body.style.overflow = '';
-        setTimeout(() => panel.classList.add('hidden'), 300);
-      };
-
-      panel.querySelector('#close-categories')?.addEventListener('click', closePanel);
-      panel.addEventListener('click', (e) => {
-        if (e.target === panel) closePanel();
+    // Filters panel: close button + backdrop click
+    const filterPanel = document.getElementById('mobile-filters-panel');
+    if (filterPanel) {
+      filterPanel.querySelector('#close-filters')?.addEventListener('click', closeFiltersPanel);
+      filterPanel.addEventListener('click', (e) => {
+        if (e.target === filterPanel) closeFiltersPanel();
       });
+    }
 
-      // Re-init tree toggle in mobile panel
-      panel.querySelectorAll('.tree-toggle').forEach((btn) => {
+    // ===== MOBILE CATEGORY PANEL: TREE + FILTER INTERACTIONS =====
+    if (catPanel) {
+      // Tree toggle (expand/collapse subcategories)
+      catPanel.querySelectorAll('.tree-toggle').forEach((btn) => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const id = btn.dataset.toggle;
-          // Find sublist within the mobile panel (not the desktop tree)
-          const sublist = panel.querySelector(`#tree-sublist-${id}`);
+          const sublist = document.getElementById(`mobile-tree-sublist-${id}`);
           if (sublist) {
             sublist.classList.toggle('expanded');
             btn.classList.toggle('expanded');
@@ -580,92 +689,35 @@ function slugify(str: string): string {
         });
       });
 
-      // Category filter in mobile panel
-      panel.querySelectorAll('.tree-label').forEach((el) => {
+      // Category filter click
+      catPanel.querySelectorAll('.tree-label').forEach((el) => {
         el.addEventListener('click', () => {
           const filter = el.dataset.filter;
           currentCategory = filter || 'all';
-          // Update desktop sidebar active state too
+          // Sync desktop sidebar active state
           document.querySelectorAll('#category-tree-container .tree-label').forEach((l) => l.classList.remove('active'));
           document.querySelector(`#category-tree-container .tree-label[data-filter="${filter}"]`)?.classList.add('active');
           render();
-          closePanel();
+          closeCategoriesPanel();
         });
       });
-    });
+    }
 
-    // ===== MOBILE FILTERS PANEL =====
-    document.getElementById('open-filters')?.addEventListener('click', () => {
-      const existingPanel = document.getElementById('mobile-filters-panel');
-      if (existingPanel) {
-        existingPanel.classList.remove('hidden');
-        requestAnimationFrame(() => existingPanel.classList.add('open'));
-        document.body.style.overflow = 'hidden';
-        return;
-      }
-
-      const panel = document.createElement('div');
-      panel.id = 'mobile-filters-panel';
-      panel.className = 'mobile-panel-overlay mobile-panel-overlay--right';
-      panel.innerHTML = `
-        <div class="mobile-panel mobile-panel--right">
-          <div class="mobile-panel-header">
-            <h3 class="body-lg">Filtros</h3>
-            <button class="mobile-panel-close" id="close-filters" aria-label="Cerrar filtros">✕</button>
-          </div>
-          <div class="mobile-panel-body">
-            <div class="filter-group">
-              <h3 class="filter-group-title">Ordenar por</h3>
-              <div class="filter-options">
-                <button class="filter-option ${currentSort === 'default' ? 'active' : ''}" data-sort="default">Destacados</button>
-                <button class="filter-option ${currentSort === 'price-asc' ? 'active' : ''}" data-sort="price-asc">Menor precio</button>
-                <button class="filter-option ${currentSort === 'price-desc' ? 'active' : ''}" data-sort="price-desc">Mayor precio</button>
-                <button class="filter-option ${currentSort === 'name' ? 'active' : ''}" data-sort="name">Nombre A-Z</button>
-              </div>
-            </div>
-            <div class="filter-group">
-              <h3 class="filter-group-title">Precio</h3>
-              <div class="price-range">
-                <input type="number" class="price-input" placeholder="Mín" id="price-min-mobile" value="${currentMinPrice || ''}" />
-                <span class="price-separator">—</span>
-                <input type="number" class="price-input" placeholder="Máx" id="price-max-mobile" value="${currentMaxPrice || ''}" />
-              </div>
-            </div>
-            <button class="apply-filters-btn btn btn--primary" id="apply-filters-mobile">Aplicar</button>
-          </div>
-        </div>`;
-      document.body.appendChild(panel);
-      document.body.style.overflow = 'hidden';
-
-      // Animate in
-      requestAnimationFrame(() => {
-        panel.classList.add('open');
-      });
-
-      const closePanel = () => {
-        panel.classList.remove('open');
-        document.body.style.overflow = '';
-        setTimeout(() => panel.classList.add('hidden'), 300);
-      };
-
-      panel.querySelector('#close-filters')?.addEventListener('click', closePanel);
-      panel.addEventListener('click', (e) => {
-        if (e.target === panel) closePanel();
-      });
-
-      // Sort in mobile
-      panel.querySelectorAll('[data-sort]').forEach((btn) => {
+    // ===== MOBILE FILTER PANEL: SORT + PRICE INTERACTIONS =====
+    if (filterPanel) {
+      // Sort buttons in mobile panel
+      filterPanel.querySelectorAll('[data-sort]').forEach((btn) => {
         btn.addEventListener('click', () => {
-          panel.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
+          filterPanel.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
           btn.classList.add('active');
           currentSort = btn.dataset.sort;
         });
       });
 
-      // Apply in mobile
-      panel.querySelector('#apply-filters-mobile')?.addEventListener('click', () => {
-        const minVal = panel.querySelector('#price-min-mobile')?.value;
-        const maxVal = panel.querySelector('#price-max-mobile')?.value;
+      // Apply filters button in mobile panel
+      filterPanel.querySelector('#apply-filters-mobile')?.addEventListener('click', () => {
+        const minVal = filterPanel.querySelector('#price-min-mobile')?.value;
+        const maxVal = filterPanel.querySelector('#price-max-mobile')?.value;
         currentMinPrice = minVal ? Number(minVal) : undefined;
         currentMaxPrice = maxVal ? Number(maxVal) : undefined;
 
@@ -674,9 +726,9 @@ function slugify(str: string): string {
         document.querySelector(`[data-sort="${currentSort}"]`)?.classList.add('active');
 
         render();
-        closePanel();
+        closeFiltersPanel();
       });
-    });
+    }
 
     // ===== INIT =====
     initProducts();
@@ -942,12 +994,16 @@ function slugify(str: string): string {
   }
 
 
-  /* ====== DESKTOP FILTERS ====== */
+  /* ====== FILTERS (used in both desktop sidebar and mobile panels) ====== */
   .filter-group {
     margin-bottom: var(--space-lg);
   }
+  :global(.filter-group) {
+    margin-bottom: var(--space-lg);
+  }
 
-  .filter-group:last-of-type {
+  .filter-group:last-of-type,
+  :global(.filter-group:last-of-type) {
     margin-bottom: var(--space-md);
   }
 
@@ -959,8 +1015,21 @@ function slugify(str: string): string {
     letter-spacing: 0.05em;
     margin-bottom: var(--space-sm);
   }
+  :global(.filter-group-title) {
+    color: var(--on-surface-variant);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-sm);
+  }
 
   .filter-options {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  :global(.filter-options) {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -976,14 +1045,26 @@ function slugify(str: string): string {
     text-align: left;
     transition: all 0.15s ease;
   }
+  :global(.filter-option) {
+    padding: var(--space-sm) var(--space-md);
+    background: none;
+    border: none;
+    border-left: 3px solid transparent;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+  }
 
-  .filter-option:hover {
+  .filter-option:hover,
+  :global(.filter-option:hover) {
     background-color: var(--surface-container);
     color: var(--on-surface);
     border-left-color: var(--outline-variant);
   }
 
-  .filter-option.active {
+  .filter-option.active,
+  :global(.filter-option.active) {
     color: var(--primary);
     border-left-color: var(--primary);
     background-color: var(--primary-container);
@@ -991,6 +1072,11 @@ function slugify(str: string): string {
   }
 
   .price-range {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+  :global(.price-range) {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
@@ -1008,14 +1094,28 @@ function slugify(str: string): string {
     min-width: 0;
     transition: border-color 0.15s ease;
   }
+  :global(.price-input) {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    font-family: var(--font-body);
+    font-size: 14px;
+    min-width: 0;
+    transition: border-color 0.15s ease;
+  }
 
-  .price-input:focus {
+  .price-input:focus,
+  :global(.price-input:focus) {
     outline: none;
     border-color: var(--primary);
     background-color: var(--surface);
   }
 
-  .price-input::placeholder {
+  .price-input::placeholder,
+  :global(.price-input::placeholder) {
     color: var(--outline);
   }
 
@@ -1023,8 +1123,16 @@ function slugify(str: string): string {
     color: var(--outline);
     flex-shrink: 0;
   }
+  :global(.price-separator) {
+    color: var(--outline);
+    flex-shrink: 0;
+  }
 
   .apply-filters-btn {
+    width: 100%;
+    margin-top: var(--space-md);
+  }
+  :global(.apply-filters-btn) {
     width: 100%;
     margin-top: var(--space-md);
   }
@@ -1077,8 +1185,8 @@ function slugify(str: string): string {
     color: var(--on-surface-variant);
   }
 
-  /* Mobile panel */
-  .mobile-panel-overlay {
+  /* Mobile panel — server-rendered, toggled via JS classList */
+  :global(.mobile-panel-overlay) {
     position: fixed;
     inset: 0;
     background-color: rgba(0, 0, 0, 0.7);
@@ -1089,16 +1197,16 @@ function slugify(str: string): string {
     opacity: 0;
     transition: opacity 0.3s ease;
   }
-  .mobile-panel-overlay.hidden {
+  :global(.mobile-panel-overlay.hidden) {
     display: none;
   }
-  .mobile-panel-overlay.open {
+  :global(.mobile-panel-overlay.open) {
     opacity: 1;
   }
-  .mobile-panel-overlay--right {
+  :global(.mobile-panel-overlay--right) {
     justify-content: flex-end;
   }
-  .mobile-panel {
+  :global(.mobile-panel) {
     width: 85%;
     max-width: 360px;
     height: 100%;
@@ -1108,15 +1216,15 @@ function slugify(str: string): string {
     transform: translateX(-100%);
     transition: transform 0.3s ease;
   }
-  .mobile-panel--right {
+  :global(.mobile-panel--right) {
     border-right: none;
     border-left: var(--border-width) solid var(--outline-variant);
     transform: translateX(100%);
   }
-  .mobile-panel-overlay.open .mobile-panel {
+  :global(.mobile-panel-overlay.open .mobile-panel) {
     transform: translateX(0);
   }
-  .mobile-panel-header {
+  :global(.mobile-panel-header) {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1127,7 +1235,7 @@ function slugify(str: string): string {
     background-color: var(--surface);
     z-index: 1;
   }
-  .mobile-panel-close {
+  :global(.mobile-panel-close) {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1140,8 +1248,8 @@ function slugify(str: string): string {
     font-size: 18px;
     border-radius: var(--border-radius);
   }
-  .mobile-panel-close:hover {
+  :global(.mobile-panel-close:hover) {
     background-color: var(--surface-container);
   }
-  .mobile-panel-body { padding: var(--space-md); }
+  :global(.mobile-panel-body) { padding: var(--space-md); }
 </style>

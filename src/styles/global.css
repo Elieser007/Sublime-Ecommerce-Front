@@ -350,10 +350,10 @@ img {
   font-size: 18px;
 }
 
-/* Primary: Cyan accent, semi-transparent bg */
+/* Primary: Cyan accent, semi-transparent bg — BLACK text for contrast */
 .btn--primary {
   background-color: rgba(130, 207, 255, 0.1);
-  color: var(--primary);
+  color: #000;
   border: 1px solid rgba(130, 207, 255, 0.5);
 }
 
