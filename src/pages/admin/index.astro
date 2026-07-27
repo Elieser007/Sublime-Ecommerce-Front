@@ -41,38 +41,17 @@ const products = [
 
 
 <style>
-  .admin-layout {
-    display: grid;
-    grid-template-columns: 1fr;
-    min-height: calc(100vh - 72px);
-  }
-
-  @media (min-width: 768px) {
-    .admin-layout {
-      grid-template-columns: 240px 1fr;
-    }
-  }
-
-  .admin-main {
-    padding: var(--space-2xl);
-  }
-
+  /* ─── Index-specific styles ────────────────────────────────── */
   .admin-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: var(--space-2xl);
     flex-wrap: wrap;
     gap: var(--space-md);
   }
-
   .admin-header-actions {
     display: flex;
     gap: var(--space-md);
     flex-wrap: wrap;
-  }
-
-  .admin-header h1 {
-    color: var(--on-surface);
   }
 </style>

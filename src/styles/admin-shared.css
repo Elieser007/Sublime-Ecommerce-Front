@@ -3,6 +3,10 @@
    Extracted from 9 admin pages to eliminate duplication.
    ═══════════════════════════════════════════════════════════════ */
 
+:root {
+  --admin-sidebar-width: 260px;
+}
+
 /* ─── Layout Grid ────────────────────────────────────────────── */
 .admin-layout {
   display: grid;
@@ -11,7 +15,7 @@
 }
 @media (min-width: 768px) {
   .admin-layout {
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: var(--admin-sidebar-width) 1fr;
   }
 }
 
