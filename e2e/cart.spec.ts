@@ -242,4 +242,32 @@ test.describe("Cart Page — Mobile", () => {
     // Button should be wide enough (accounting for page padding)
     expect(box!.width).toBeGreaterThan(viewport.width * 0.6);
   });
+
+  test("no horizontal overflow on cart page", async ({ page }) => {
+    await page.goto("/cart");
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
+  });
+
+  test("remove item works on mobile", async ({ page }) => {
+    await page.goto("/cart");
+    const cartItems = page.locator(".cart-item");
+    await expect(cartItems).toHaveCount(2);
+
+    await cartItems.nth(0).locator(".cart-item-remove").click();
+    await page.waitForTimeout(400);
+
+    await expect(page.locator(".cart-item")).toHaveCount(1);
+  });
+
+  test("quantity increase works on mobile", async ({ page }) => {
+    await page.goto("/cart");
+    const firstItem = page.locator(".cart-item").nth(0);
+    const qtyInput = firstItem.locator(".qty-input");
+
+    await expect(qtyInput).toHaveValue("2");
+    await firstItem.locator('[data-action="increase"]').click();
+    await expect(qtyInput).toHaveValue("3");
+  });
 });

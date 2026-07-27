@@ -823,6 +823,27 @@ const basePriceFormatted = formatPrice(product.base_price);
     flex-wrap: wrap;
   }
 
+  /* Mobile product detail */
+  @media (max-width: 639px) {
+    .detail-image-container {
+      aspect-ratio: 1;
+      max-height: 400px;
+    }
+
+    .detail-actions {
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+
+    .detail-add-btn,
+    #detail-whatsapp {
+      width: 100%;
+      min-height: 48px;
+      padding: var(--space-lg) var(--space-xl);
+      justify-content: center;
+    }
+  }
+
   /* Skeleton loading */
   .detail-image-skeleton {
     aspect-ratio: 1;
@@ -941,7 +962,7 @@ const basePriceFormatted = formatPrice(product.base_price);
   }
 
   .size-selector__modifier {
-    font-size: 10px;
+    font-size: 11px;
     opacity: 0.8;
     margin-top: 2px;
   }

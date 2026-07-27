@@ -132,7 +132,7 @@ class ProductCard extends HTMLElement {
 
         .volume-badge {
           display: none;
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 500;
           color: var(--_primary);
           background: color-mix(in srgb, var(--_primary) 10%, transparent);

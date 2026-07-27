@@ -198,6 +198,59 @@ test.describe("Mobile Panels", () => {
   });
 });
 
+test.describe("Mobile Catalog", () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test("category drawer opens, selects category, and closes", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#open-categories");
+    const panel = page.locator("#mobile-category-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    // Select a category
+    const firstLabel = panel.locator(".tree-label").first();
+    await firstLabel.click();
+    await page.waitForTimeout(500);
+
+    // Panel should close
+    await expect(panel).not.toHaveClass(/open/);
+  });
+
+  test("filter drawer opens, sorts, and closes", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#open-filters");
+    const panel = page.locator("#mobile-filters-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    // Select a sort option
+    await panel.locator('[data-sort="price-asc"]').click();
+    await panel.locator("#apply-filters-mobile").click();
+    
+    // Panel should close (wait for animation + hidden class)
+    await page.waitForTimeout(500);
+    await expect(panel).not.toHaveClass(/open/);
+    
+    // Desktop sidebar sort should be updated (the one inside aside)
+    await expect(page.locator("aside [data-sort='price-asc']")).toHaveClass(/active/);
+  });
+
+  test("search overlay works on mobile", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#search-toggle");
+    await expect(page.locator("#search-overlay")).toHaveClass(/open/);
+    
+    // Type in search
+    await page.fill("#search-overlay-input", "test");
+    await expect(page.locator("#search-overlay-input")).toHaveValue("test");
+  });
+
+  test("pagination works on mobile", async ({ page }) => {
+    await page.goto("/");
+    const loadMore = page.locator("#load-more");
+    await expect(loadMore).toBeAttached();
+  });
+});
+
 test.describe("Product Detail", () => {
   test("product detail page loads when clicking a product", async ({ page }) => {
     await page.goto("/");

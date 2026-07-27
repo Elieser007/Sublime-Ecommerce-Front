@@ -280,7 +280,7 @@ function slugify(str: string): string {
 </BaseLayout>
 
 <script is:inline>
-  document.addEventListener('DOMContentLoaded', function() {
+  function initCatalog() {
     // ===== CONFIGURATION =====
     const PRODUCTS_PER_PAGE = 24;
 
@@ -528,7 +528,12 @@ function slugify(str: string): string {
     // ===== MOBILE CATEGORY PANEL =====
     document.getElementById('open-categories')?.addEventListener('click', () => {
       const existingPanel = document.getElementById('mobile-category-panel');
-      if (existingPanel) { existingPanel.style.display = ''; return; }
+      if (existingPanel) {
+        existingPanel.classList.remove('hidden');
+        requestAnimationFrame(() => existingPanel.classList.add('open'));
+        document.body.style.overflow = 'hidden';
+        return;
+      }
 
       const treeHtml = document.getElementById('category-tree-container')?.innerHTML || '';
       const panel = document.createElement('div');
@@ -538,14 +543,27 @@ function slugify(str: string): string {
         <div class="mobile-panel">
           <div class="mobile-panel-header">
             <h3 class="body-lg">Categorías</h3>
-            <button class="mobile-panel-close" id="close-categories">✕</button>
+            <button class="mobile-panel-close" id="close-categories" aria-label="Cerrar panel">✕</button>
           </div>
           <div class="mobile-panel-body">${treeHtml}</div>
         </div>`;
       document.body.appendChild(panel);
-      panel.querySelector('#close-categories')?.addEventListener('click', () => { panel.style.display = 'none'; });
+      document.body.style.overflow = 'hidden';
+
+      // Animate in
+      requestAnimationFrame(() => {
+        panel.classList.add('open');
+      });
+
+      const closePanel = () => {
+        panel.classList.remove('open');
+        document.body.style.overflow = '';
+        setTimeout(() => panel.classList.add('hidden'), 300);
+      };
+
+      panel.querySelector('#close-categories')?.addEventListener('click', closePanel);
       panel.addEventListener('click', (e) => {
-        if (e.target === panel) panel.style.display = 'none';
+        if (e.target === panel) closePanel();
       });
 
       // Re-init tree toggle in mobile panel
@@ -553,7 +571,8 @@ function slugify(str: string): string {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const id = btn.dataset.toggle;
-          const sublist = document.getElementById(`tree-sublist-${id}`);
+          // Find sublist within the mobile panel (not the desktop tree)
+          const sublist = panel.querySelector(`#tree-sublist-${id}`);
           if (sublist) {
             sublist.classList.toggle('expanded');
             btn.classList.toggle('expanded');
@@ -570,7 +589,7 @@ function slugify(str: string): string {
           document.querySelectorAll('#category-tree-container .tree-label').forEach((l) => l.classList.remove('active'));
           document.querySelector(`#category-tree-container .tree-label[data-filter="${filter}"]`)?.classList.add('active');
           render();
-          panel.style.display = 'none';
+          closePanel();
         });
       });
     });
@@ -578,16 +597,21 @@ function slugify(str: string): string {
     // ===== MOBILE FILTERS PANEL =====
     document.getElementById('open-filters')?.addEventListener('click', () => {
       const existingPanel = document.getElementById('mobile-filters-panel');
-      if (existingPanel) { existingPanel.style.display = ''; return; }
+      if (existingPanel) {
+        existingPanel.classList.remove('hidden');
+        requestAnimationFrame(() => existingPanel.classList.add('open'));
+        document.body.style.overflow = 'hidden';
+        return;
+      }
 
       const panel = document.createElement('div');
       panel.id = 'mobile-filters-panel';
-      panel.className = 'mobile-panel-overlay';
+      panel.className = 'mobile-panel-overlay mobile-panel-overlay--right';
       panel.innerHTML = `
-        <div class="mobile-panel">
+        <div class="mobile-panel mobile-panel--right">
           <div class="mobile-panel-header">
             <h3 class="body-lg">Filtros</h3>
-            <button class="mobile-panel-close" id="close-filters">✕</button>
+            <button class="mobile-panel-close" id="close-filters" aria-label="Cerrar filtros">✕</button>
           </div>
           <div class="mobile-panel-body">
             <div class="filter-group">
@@ -611,9 +635,22 @@ function slugify(str: string): string {
           </div>
         </div>`;
       document.body.appendChild(panel);
-      panel.querySelector('#close-filters')?.addEventListener('click', () => { panel.style.display = 'none'; });
+      document.body.style.overflow = 'hidden';
+
+      // Animate in
+      requestAnimationFrame(() => {
+        panel.classList.add('open');
+      });
+
+      const closePanel = () => {
+        panel.classList.remove('open');
+        document.body.style.overflow = '';
+        setTimeout(() => panel.classList.add('hidden'), 300);
+      };
+
+      panel.querySelector('#close-filters')?.addEventListener('click', closePanel);
       panel.addEventListener('click', (e) => {
-        if (e.target === panel) panel.style.display = 'none';
+        if (e.target === panel) closePanel();
       });
 
       // Sort in mobile
@@ -637,14 +674,20 @@ function slugify(str: string): string {
         document.querySelector(`[data-sort="${currentSort}"]`)?.classList.add('active');
 
         render();
-        panel.style.display = 'none';
+        closePanel();
       });
     });
 
     // ===== INIT =====
     initProducts();
     updateUI();
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCatalog);
+  } else {
+    initCatalog();
+  }
 </script>
 
 <style>
@@ -1004,10 +1047,10 @@ function slugify(str: string): string {
   /* Products Grid */
   .products-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: 1fr;
     gap: var(--gutter);
   }
-  @media (min-width: 768px) { .products-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); } }
+  @media (min-width: 640px) { .products-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (min-width: 1024px) { .products-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); } }
 
   /* Pagination */
@@ -1043,6 +1086,17 @@ function slugify(str: string): string {
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .mobile-panel-overlay.hidden {
+    display: none;
+  }
+  .mobile-panel-overlay.open {
+    opacity: 1;
+  }
+  .mobile-panel-overlay--right {
+    justify-content: flex-end;
   }
   .mobile-panel {
     width: 85%;
@@ -1051,6 +1105,16 @@ function slugify(str: string): string {
     background-color: var(--surface);
     border-right: var(--border-width) solid var(--outline-variant);
     overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  .mobile-panel--right {
+    border-right: none;
+    border-left: var(--border-width) solid var(--outline-variant);
+    transform: translateX(100%);
+  }
+  .mobile-panel-overlay.open .mobile-panel {
+    transform: translateX(0);
   }
   .mobile-panel-header {
     display: flex;
@@ -1058,15 +1122,26 @@ function slugify(str: string): string {
     justify-content: space-between;
     padding: var(--space-lg);
     border-bottom: var(--border-width) solid var(--outline-variant);
+    position: sticky;
+    top: 0;
+    background-color: var(--surface);
+    z-index: 1;
   }
   .mobile-panel-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
     background: none;
     border: var(--border-width) solid var(--outline-variant);
-    width: 36px;
-    height: 36px;
     color: var(--on-surface);
     cursor: pointer;
     font-size: 18px;
+    border-radius: var(--border-radius);
+  }
+  .mobile-panel-close:hover {
+    background-color: var(--surface-container);
   }
   .mobile-panel-body { padding: var(--space-md); }
 </style>

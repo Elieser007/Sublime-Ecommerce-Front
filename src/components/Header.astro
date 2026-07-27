@@ -138,6 +138,14 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
         </svg>
       </a>
 
+      <!-- Mobile Search Toggle -->
+      <button class="search-toggle" aria-label="Buscar" id="search-toggle">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </button>
+
       <!-- Mobile Menu Toggle -->
       <button class="menu-toggle" aria-label="Abrir menú" id="menu-toggle">
         <span></span>
@@ -145,6 +153,31 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
         <span></span>
       </button>
     </div>
+  </div>
+
+  <!-- Mobile Search Overlay -->
+  <div class="search-overlay" id="search-overlay">
+    <form class="search-overlay-form" action="/" method="GET">
+      <input
+        type="search"
+        name="q"
+        class="search-overlay-input"
+        placeholder="Buscar productos..."
+        id="search-overlay-input"
+        autocomplete="off"
+      />
+      <button type="submit" class="search-overlay-submit" aria-label="Buscar">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </button>
+      <button type="button" class="search-overlay-close" id="search-overlay-close" aria-label="Cerrar búsqueda">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </form>
   </div>
 
   <!-- Mobile Nav -->
@@ -166,6 +199,35 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
   toggle?.addEventListener("click", () => {
     nav?.classList.toggle("open");
     toggle?.classList.toggle("open");
+  });
+
+  // Mobile search overlay
+  const searchToggle = document.getElementById("search-toggle");
+  const searchOverlay = document.getElementById("search-overlay");
+  const searchOverlayClose = document.getElementById("search-overlay-close");
+  const searchOverlayInput = document.getElementById("search-overlay-input") as HTMLInputElement;
+
+  searchToggle?.addEventListener("click", () => {
+    searchOverlay?.classList.add("open");
+    document.body.style.overflow = "hidden";
+    setTimeout(() => searchOverlayInput?.focus(), 100);
+  });
+
+  function closeSearchOverlay() {
+    searchOverlay?.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  searchOverlayClose?.addEventListener("click", closeSearchOverlay);
+
+  searchOverlay?.addEventListener("click", (e) => {
+    if (e.target === searchOverlay) closeSearchOverlay();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && searchOverlay?.classList.contains("open")) {
+      closeSearchOverlay();
+    }
   });
 
   // Cart count from LocalStorage
@@ -361,7 +423,7 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
     height: 18px;
     padding: 0 4px;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     color: var(--on-secondary);
     background-color: var(--secondary);
@@ -369,6 +431,91 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* Mobile Search Toggle */
+  .search-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: none;
+    color: var(--on-surface);
+    cursor: pointer;
+    border-radius: var(--border-radius);
+  }
+
+  .search-toggle:hover {
+    background-color: var(--surface-container);
+  }
+
+  /* Search Overlay */
+  .search-overlay {
+    position: fixed;
+    inset: 0;
+    top: 72px;
+    background-color: var(--surface);
+    z-index: 150;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .search-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .search-overlay-form {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--margin-mobile);
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+
+  .search-overlay-input {
+    flex: 1;
+    padding: var(--space-md);
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--on-surface);
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    outline: none;
+  }
+
+  .search-overlay-input:focus {
+    border-color: var(--primary);
+  }
+
+  .search-overlay-submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background-color: var(--primary);
+    color: var(--on-primary);
+    border: var(--border-width) solid var(--primary);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .search-overlay-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: none;
+    border: var(--border-width) solid var(--outline-variant);
+    color: var(--on-surface);
+    cursor: pointer;
+    flex-shrink: 0;
   }
 
   /* Mobile Menu Toggle */
@@ -407,11 +554,16 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
       display: none;
     }
 
+    .search-toggle {
+      display: flex;
+    }
+
     .menu-toggle {
       display: flex;
     }
 
-    .action-btn:nth-child(1) {
+    /* Hide wishlist on mobile */
+    #wishlist-btn {
       display: none;
     }
   }

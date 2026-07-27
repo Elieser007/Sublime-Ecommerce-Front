@@ -277,7 +277,7 @@ const renderedHtml = hasPromotions
   .banner-item:hover { background: linear-gradient(135deg, var(--surface-container-highest), var(--surface-container-high)); border-color: var(--primary); text-decoration: none; }
   .banner-title { font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--on-surface); font-weight: 600; }
   .banner-desc { font-size: 13px; color: var(--primary); }
-  @media (max-width: 767px) { .banner-item { flex-direction: column; gap: var(--space-sm); padding: var(--space-md); } }
+  @media (max-width: 767px) { .banner-item { flex-direction: column; gap: var(--space-sm); padding: var(--space-md); } .banner-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; } .banner-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; } }
 
   /* Ribbon */
   .ribbon-promo { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; border: var(--border-width) solid var(--outline-variant); }
@@ -289,5 +289,5 @@ const renderedHtml = hasPromotions
   .ribbon-content { position: relative; z-index: 2; display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); }
   .ribbon-title { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
   .ribbon-desc { font-size: 12px; opacity: 0.8; white-space: nowrap; }
-  @media (max-width: 767px) { .ribbon-item { min-width: 160px; min-height: 60px; } .ribbon-content { padding: var(--space-sm) var(--space-md); } .ribbon-title, .ribbon-desc { font-size: 10px; } }
+  @media (max-width: 767px) { .ribbon-item { min-width: 160px; min-height: 60px; } .ribbon-content { padding: var(--space-sm) var(--space-md); } .ribbon-title, .ribbon-desc { font-size: 11px; } }
 </style>
