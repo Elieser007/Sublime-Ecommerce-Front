@@ -980,18 +980,18 @@ const columns = [
     width: 100%;
     aspect-ratio: 1;
     max-height: 320px;
-    background: rgba(31, 31, 31, 0.5);
-    border: 2px dashed rgba(62, 72, 80, 0.5);
+    background: var(--surface-container);
+    border: 2px dashed var(--outline-variant);
     cursor: pointer;
     transition: all 0.2s ease;
     overflow: hidden;
   }
   .primary-upload-area:hover {
-    border-color: #82cfff;
+    border-color: var(--primary);
     background: rgba(130, 207, 255, 0.03);
   }
   .primary-upload-area--dragover {
-    border-color: #82cfff;
+    border-color: var(--primary);
     background: rgba(130, 207, 255, 0.08);
   }
   .primary-preview {
@@ -1006,7 +1006,7 @@ const columns = [
     flex-direction: column;
     align-items: center;
     gap: 12px;
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
   }
   .primary-empty svg { opacity: 0.4; }
   .primary-image {
@@ -1048,7 +1048,7 @@ const columns = [
     scroll-behavior: smooth;
   }
   .gallery-strip-container::-webkit-scrollbar { height: 4px; }
-  .gallery-strip-container::-webkit-scrollbar-track { background: rgba(31, 31, 31, 0.5); }
+  .gallery-strip-container::-webkit-scrollbar-track { background: var(--surface-container); }
   .gallery-strip-container::-webkit-scrollbar-thumb { background: rgba(130, 207, 255, 0.3); }
 
   .gallery-strip {
@@ -1062,8 +1062,8 @@ const columns = [
     width: 80px;
     height: 80px;
     flex-shrink: 0;
-    background: rgba(31, 31, 31, 0.5);
-    border: 2px solid rgba(62, 72, 80, 0.3);
+    background: var(--surface-container);
+    border: 2px solid var(--outline-variant);
     cursor: pointer;
     overflow: hidden;
     transition: border-color 0.15s ease;
@@ -1077,7 +1077,7 @@ const columns = [
     border-color: rgba(130, 207, 255, 0.5);
   }
   .gallery-thumb--selected {
-    border-color: #82cfff;
+    border-color: var(--primary);
     box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.3);
   }
 
@@ -1105,8 +1105,8 @@ const columns = [
     height: 80px;
     flex-shrink: 0;
     background: transparent;
-    border: 2px dashed rgba(62, 72, 80, 0.5);
-    color: #bdc8d1;
+    border: 2px dashed var(--outline-variant);
+    color: var(--on-surface-variant);
     font-size: 24px;
     cursor: pointer;
     display: flex;
@@ -1115,23 +1115,23 @@ const columns = [
     transition: all 0.15s ease;
   }
   .gallery-add-btn:hover {
-    border-color: #82cfff;
-    color: #82cfff;
+    border-color: var(--primary);
+    color: var(--primary);
     background: rgba(130, 207, 255, 0.05);
   }
 
   .gallery-count {
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
     margin-top: 4px;
   }
 
   /* ═══════════════════════════════════════════════════════════ */
   /* PRICING TABLE (products-specific)                          */
   /* ═══════════════════════════════════════════════════════════ */
-  .price-product-info { padding: 12px; background: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); border-radius: 0px; color: #e2e2e2; }
+  .price-product-info { padding: 12px; background: var(--surface-container); border: 1px solid var(--outline-variant); border-radius: 0px; color: var(--on-surface); }
   .price-form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .price-form-row .form-select, .price-form-row .form-input { min-width: 120px; }
   .prices-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  .prices-table th, .prices-table td { padding: 10px; text-align: left; border-bottom: 1px solid rgba(62, 72, 80, 0.2); color: #e2e2e2; font-size: 14px; }
-  .prices-table th { font-family: 'Space Mono', monospace; font-size: 11px; color: #bdc8d1; }
+  .prices-table th, .prices-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--outline-variant); color: var(--on-surface); font-size: 14px; }
+  .prices-table th { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--on-surface-variant); }
 </style>
