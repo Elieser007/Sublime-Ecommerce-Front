@@ -40,6 +40,9 @@ const columns = [
           <select id="limit" class="form-select body-md">
             <option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option>
           </select>
+          <select id="status-filter" class="form-select body-md">
+            <option value="">Todos</option><option value="1">Activos</option><option value="0">Inactivos</option>
+          </select>
         </div>
         <button class="btn btn--primary" id="add-product"><span class="btn-icon">+</span> Nuevo</button>
       </div>
@@ -187,6 +190,23 @@ const columns = [
       </div>
     </div>
   </div>
+
+  <!-- Status Toggle Confirmation Modal -->
+  <div class="modal-overlay" id="status-overlay" style="display: none;">
+    <div class="modal modal--confirm">
+      <div class="modal-header">
+        <h3 class="headline-lg-mobile" id="status-modal-title">⚠️ Cambiar estado</h3>
+        <button class="modal-close" id="status-cancel-x">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="body-md" id="status-modal-message"></p>
+        <div class="form-actions">
+          <button class="btn btn--secondary" id="status-cancel">Cancelar</button>
+          <button class="btn btn--primary" id="status-confirm">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </AdminLayout>
 
 <script>
@@ -200,7 +220,7 @@ const columns = [
 
   let items: any[] = [];
   let currentPage = 1, limit = 25, totalItems = 0, totalPages = 0;
-  let currentSearch = '', currentSection = '', currentCategory = '', currentSubcategory = '';
+  let currentSearch = '', currentSection = '', currentCategory = '', currentSubcategory = '', currentStatus = '';
   let sections: any[] = [], categories: any[] = [], subcategories: any[] = [];
   let editingProductId: string | null = null;
   let pricingProductId: string | null = null;
@@ -624,6 +644,7 @@ const columns = [
         sectionId: currentSection || undefined,
         categoryId: currentCategory || undefined,
         subcategoryId: currentSubcategory || undefined,
+        isActive: currentStatus !== '' ? currentStatus === '1' : undefined,
       });
       items = result.items;
       totalItems = result.total;
@@ -637,22 +658,29 @@ const columns = [
     if (!tbody) return;
     if (items.length === 0) { tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">No hay productos</td></tr>'; }
     else {
-      tbody.innerHTML = items.map((p: any) => `<tr>
-        <td data-label="Nombre"><strong>${p.name}</strong></td>
-        <td data-label="Slug"><code class="slug-display">${p.slug || '—'}</code></td>
-        <td data-label="Sección"><span class="tag tag--section">${p.section_name || '—'}</span></td>
-        <td data-label="Categoría">${p.category_name || '—'}</td>
-        <td data-label="Subcategoría">${p.subcategory_name || '—'}</td>
-        <td data-label="Precio Base">${fmt(p.base_price)}</td>
-        <td data-label="Atributos"><span class="attr-badge">${p.attribute_count || 0} módulos</span></td>
-        <td data-label="Estado"><span class="badge ${p.is_active ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${p.is_active ? 'Activo' : 'Inactivo'}</span></td>
-        <td data-label="Acciones"><div class="cell-actions">
-          <button class="ta-btn ta-btn--attr" onclick="openAttributeManager('${p.id}', '${p.name.replace(/'/g, "\\'")}')" title="Atributos">🏷️</button>
-          <button class="ta-btn" onclick="editProduct('${p.id}')" title="Editar">✏️</button>
-          <button class="ta-btn ta-btn--price" onclick="openPricing('${p.id}')" title="Precios">💰</button>
-          <button class="ta-btn ta-btn--delete" onclick="deleteProduct('${p.id}')" title="Desactivar">🗑️</button>
-        </div></td>
-      </tr>`).join('');
+      tbody.innerHTML = items.map((p: any) => {
+        const isActive = !!p.is_active;
+        const rowClass = isActive ? '' : 'row--inactive';
+        const statusAction = isActive
+          ? `<button class="ta-btn ta-btn--delete" onclick="confirmToggleStatus('${p.id}', '${p.name.replace(/'/g, "\\'")}', false)" title="Desactivar">🗑️</button>`
+          : `<button class="ta-btn ta-btn--reactivate" onclick="confirmToggleStatus('${p.id}', '${p.name.replace(/'/g, "\\'")}', true)" title="Reactivar">🔄</button>`;
+        return `<tr class="${rowClass}">
+          <td data-label="Nombre"><strong>${p.name}</strong></td>
+          <td data-label="Slug"><code class="slug-display">${p.slug || '—'}</code></td>
+          <td data-label="Sección"><span class="tag tag--section">${p.section_name || '—'}</span></td>
+          <td data-label="Categoría">${p.category_name || '—'}</td>
+          <td data-label="Subcategoría">${p.subcategory_name || '—'}</td>
+          <td data-label="Precio Base">${fmt(p.base_price)}</td>
+          <td data-label="Atributos"><span class="attr-badge">${p.attribute_count || 0} módulos</span></td>
+          <td data-label="Estado"><span class="badge ${isActive ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${isActive ? 'Activo' : 'Inactivo'}</span></td>
+          <td data-label="Acciones"><div class="cell-actions">
+            <button class="ta-btn ta-btn--attr" onclick="openAttributeManager('${p.id}', '${p.name.replace(/'/g, "\\'")}')" title="Atributos">🏷️</button>
+            <button class="ta-btn" onclick="editProduct('${p.id}')" title="Editar">✏️</button>
+            <button class="ta-btn ta-btn--price" onclick="openPricing('${p.id}')" title="Precios">💰</button>
+            ${statusAction}
+          </div></td>
+        </tr>`;
+      }).join('');
     }
     updatePagination();
   }
@@ -793,6 +821,7 @@ const columns = [
   $('category-filter')?.addEventListener('change', onCategoryFilterChange);
   $('subcategory-filter')?.addEventListener('change', (e) => { currentSubcategory = (e.target as HTMLSelectElement).value; currentPage = 1; loadProducts(); });
   $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadProducts(); });
+  $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadProducts(); });
   $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadProducts(); } });
   $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadProducts(); } });
 
@@ -933,11 +962,43 @@ const columns = [
     if (product) openModal(true, product);
   };
 
-  (window as any).deleteProduct = async (id: string) => {
-    if (!confirm('¿Desactivar este producto?')) return;
-    const res = await fetch(`${API_URL}/api/products/${id}`, { method: 'DELETE', credentials: 'include' });
-    if (res.ok) loadProducts();
+  // ═══════════════════════════════════════════════════════════
+  // STATUS TOGGLE — Modal confirmation
+  // ═══════════════════════════════════════════════════════════
+  let pendingStatusToggle: { id: string; name: string; activate: boolean } | null = null;
+
+  (window as any).confirmToggleStatus = (id: string, name: string, activate: boolean) => {
+    pendingStatusToggle = { id, name, activate };
+    const action = activate ? 'reactivar' : 'desactivar';
+    $('status-modal-title')!.textContent = activate ? '🔄 Reactivar producto' : '⚠️ Desactivar producto';
+    $('status-modal-message')!.textContent = activate
+      ? `¿Reactivar "${name}"? El producto volverá a estar visible en la tienda.`
+      : `¿Desactivar "${name}"? El producto dejará de aparecer en la tienda.`;
+    const confirmBtn = $('status-confirm') as HTMLButtonElement;
+    confirmBtn.className = activate ? 'btn btn--primary' : 'btn btn--danger';
+    confirmBtn.textContent = activate ? 'Reactivar' : 'Desactivar';
+    $('status-overlay')!.style.display = '';
   };
+
+  async function executeStatusToggle() {
+    if (!pendingStatusToggle) return;
+    const { id, activate } = pendingStatusToggle;
+    $('status-overlay')!.style.display = 'none';
+    pendingStatusToggle = null;
+
+    const res = await fetch(`${API_URL}/api/products/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ isActive: activate }),
+    });
+    if (res.ok) loadProducts();
+  }
+
+  $('status-confirm')?.addEventListener('click', executeStatusToggle);
+  $('status-cancel')?.addEventListener('click', () => { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; });
+  $('status-cancel-x')?.addEventListener('click', () => { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; });
+  $('status-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; } });
 
   (window as any).openPricing = openPricing;
 
@@ -1134,4 +1195,21 @@ const columns = [
   .prices-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
   .prices-table th, .prices-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--outline-variant); color: var(--on-surface); font-size: 14px; }
   .prices-table th { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--on-surface-variant); }
+
+  /* ═══════════════════════════════════════════════════════════ */
+  /* INACTIVE ROW + REACTIVATE BUTTON                           */
+  /* ═══════════════════════════════════════════════════════════ */
+  tr.row--inactive { opacity: 0.55; }
+  tr.row--inactive:hover { opacity: 0.85; }
+  .ta-btn--reactivate {
+    background: rgba(76, 175, 80, 0.12);
+    border: 1px solid rgba(76, 175, 80, 0.4);
+    color: #4caf50;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .ta-btn--reactivate:hover {
+    background: rgba(76, 175, 80, 0.25);
+    border-color: #4caf50;
+  }
 </style>

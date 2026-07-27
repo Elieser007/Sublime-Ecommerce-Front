@@ -15,6 +15,7 @@ export interface ProductListParams {
   sectionId?: string;
   categoryId?: string;
   subcategoryId?: string;
+  isActive?: boolean;
 }
 
 export interface ProductListResult {
@@ -49,6 +50,7 @@ export async function loadProductList(
     if (params.sectionId) query.set("section_id", params.sectionId);
     if (params.categoryId) query.set("category_id", params.categoryId);
     if (params.subcategoryId) query.set("subcategory_id", params.subcategoryId);
+    if (params.isActive !== undefined) query.set("is_active", params.isActive ? "1" : "0");
 
     const res = await fetch(`${apiUrl}/api/products?${query.toString()}`, {
       credentials: "include",
