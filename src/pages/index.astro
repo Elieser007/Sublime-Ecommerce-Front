@@ -421,6 +421,7 @@ function slugify(str: string): string {
     let currentPage = 1;
     let currentSort = 'default';
     let currentCategory = 'all';
+    let currentFilterLevel = 0; // 0=all, 1=section, 2=category, 3=subcategory
     let currentSearch = '';
     let currentMinPrice = undefined;
     let currentMaxPrice = undefined;
@@ -449,6 +450,8 @@ function slugify(str: string): string {
           ...data,
           _wrapper: wrapper,
           _category: wrapper.dataset.category || '',
+          _sectionSlug: wrapper.dataset.sectionSlug || '',
+          _categorySlug: wrapper.dataset.categorySlug || '',
           _productName: wrapper.dataset.productName || '',
         };
       });
@@ -462,7 +465,23 @@ function slugify(str: string): string {
 
       // Category filter
       if (currentCategory && currentCategory !== 'all') {
-        result = result.filter((p) => p._category === currentCategory);
+        if (currentFilterLevel === 1) {
+          // Section filter
+          result = result.filter((p) => p._sectionSlug === currentCategory);
+        } else if (currentFilterLevel === 2) {
+          // Category filter
+          result = result.filter((p) => p._categorySlug === currentCategory);
+        } else if (currentFilterLevel === 3) {
+          // Subcategory filter — find parent category from tree DOM
+          const subLabel = document.querySelector(`#category-tree-container .tree-label[data-filter="${currentCategory}"]`);
+          if (subLabel) {
+            const parentCatItem = subLabel.closest('.tree-item--cat');
+            if (parentCatItem) {
+              const parentCatSlug = parentCatItem.dataset.filter;
+              result = result.filter((p) => p._categorySlug === parentCatSlug);
+            }
+          }
+        }
       }
 
       // Search filter
@@ -546,9 +565,33 @@ function slugify(str: string): string {
     document.querySelectorAll('#category-tree-container .tree-label').forEach((el) => {
       el.addEventListener('click', () => {
         const filter = el.dataset.filter;
+        const treeItem = el.closest('.tree-item');
+        let filterLevel = 0;
+
+        if (treeItem) {
+          if (filter === 'all') {
+            filterLevel = 0;
+          } else if (treeItem.classList.contains('tree-item--root')) {
+            filterLevel = 1; // section
+          } else if (treeItem.classList.contains('tree-item--cat')) {
+            filterLevel = 2; // category
+          } else if (treeItem.classList.contains('tree-item--sub')) {
+            filterLevel = 3; // subcategory
+          }
+        }
+
+        // Update active state on labels
         document.querySelectorAll('#category-tree-container .tree-label').forEach((l) => l.classList.remove('active'));
         el.classList.add('active');
+
+        // Update active state on tree items (for visual feedback)
+        document.querySelectorAll('#category-tree-container .tree-item').forEach((item) => {
+          item.classList.remove('active');
+        });
+        treeItem?.classList.add('active');
+
         currentCategory = filter || 'all';
+        currentFilterLevel = filterLevel;
         render();
       });
     });
@@ -583,6 +626,7 @@ function slugify(str: string): string {
     function clearAllFilters() {
       currentSort = 'default';
       currentCategory = 'all';
+      currentFilterLevel = 0;
       currentSearch = '';
       currentMinPrice = undefined;
       currentMaxPrice = undefined;
@@ -592,6 +636,8 @@ function slugify(str: string): string {
       document.querySelector('[data-sort="default"]')?.classList.add('active');
       document.querySelectorAll('.tree-label').forEach((l) => l.classList.remove('active'));
       document.querySelector('.tree-label[data-filter="all"]')?.classList.add('active');
+      document.querySelectorAll('.tree-item').forEach((item) => item.classList.remove('active'));
+      document.querySelector('.tree-item[data-filter="all"]')?.classList.add('active');
       const minInput = document.getElementById('price-min-desktop');
       const maxInput = document.getElementById('price-max-desktop');
       if (minInput) minInput.value = '';
@@ -693,10 +739,35 @@ function slugify(str: string): string {
       catPanel.querySelectorAll('.tree-label').forEach((el) => {
         el.addEventListener('click', () => {
           const filter = el.dataset.filter;
+          const treeItem = el.closest('.tree-item');
+          let filterLevel = 0;
+
+          if (treeItem) {
+            if (filter === 'all') {
+              filterLevel = 0;
+            } else if (treeItem.classList.contains('tree-item--root')) {
+              filterLevel = 1;
+            } else if (treeItem.classList.contains('tree-item--cat')) {
+              filterLevel = 2;
+            } else if (treeItem.classList.contains('tree-item--sub')) {
+              filterLevel = 3;
+            }
+          }
+
           currentCategory = filter || 'all';
+          currentFilterLevel = filterLevel;
+
           // Sync desktop sidebar active state
           document.querySelectorAll('#category-tree-container .tree-label').forEach((l) => l.classList.remove('active'));
           document.querySelector(`#category-tree-container .tree-label[data-filter="${filter}"]`)?.classList.add('active');
+
+          // Sync desktop tree-item active state
+          document.querySelectorAll('#category-tree-container .tree-item').forEach((item) => {
+            item.classList.remove('active');
+          });
+          const desktopItem = document.querySelector(`#category-tree-container .tree-item[data-filter="${filter}"]`);
+          desktopItem?.classList.add('active');
+
           render();
           closeCategoriesPanel();
         });
@@ -942,6 +1013,27 @@ function slugify(str: string): string {
 
   :global(.tree-label.active) {
     color: var(--primary);
+    font-weight: 600;
+  }
+
+  /* Active tree item — prominent highlight */
+  :global(.tree-item.active > .tree-row) {
+    background-color: var(--primary-container);
+  }
+
+  :global(.tree-item.active > .tree-row::before) {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--primary);
+    border-radius: 0 2px 2px 0;
+  }
+
+  :global(.tree-item.active > .tree-row .tree-label) {
+    color: var(--on-primary-container);
     font-weight: 600;
   }
 
