@@ -2,9 +2,9 @@
 /**
  * PromotionWall — Dynamic promotion renderer (SSG)
  *
- * Renders promotions passed as props (fetched at build time by parent pages).
- * Uses escapeHtml to prevent XSS when interpolating dynamic content.
- * Carousel auto-play logic remains client-side.
+ * Renders promotions by importing promo/ components with props.
+ * Each display type maps to its dedicated component.
+ * Carousel auto-play logic is handled by CarouselPromo.
  *
  * Usage:
  *   <PromotionWall
@@ -14,7 +14,12 @@
  *   />
  */
 
-import { escapeHtml, sanitizeUrl } from "../lib/escape-html";
+import HeroPromo from './promo/HeroPromo.astro';
+import CarouselPromo from './promo/CarouselPromo.astro';
+import TilesPromo from './promo/TilesPromo.astro';
+import SplitPromo from './promo/SplitPromo.astro';
+import BannerPromo from './promo/BannerPromo.astro';
+import RibbonPromo from './promo/RibbonPromo.astro';
 
 interface Promotion {
   id: string;
@@ -49,245 +54,29 @@ const {
 
 const displayType = sectionInfo?.displayType || "tiles";
 const hasPromotions = promotions.length > 0;
-
-// Pre-render promotion HTML server-side with escaping
-function renderPromoHtml(promos: Promotion[], type: string, sectionSlug: string): string {
-  if (promos.length === 0) return "";
-
-  switch (type) {
-    case "hero": return renderHero(promos[0]);
-    case "carousel": return renderCarousel(promos, sectionSlug);
-    case "split": return renderSplit(promos);
-    case "banner": return renderBanner(promos);
-    case "ribbon": return renderRibbon(promos);
-    case "tiles":
-    default: return renderTiles(promos);
-  }
-}
-
-function renderHero(p: Promotion): string {
-  const title = p.title ? `<h2 class="hero-title">${escapeHtml(p.title)}</h2>` : "";
-  const desc = p.description ? `<p class="hero-desc">${escapeHtml(p.description)}</p>` : "";
-  const href = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
-  return `<div class="hero-promo">
-    <div class="hero-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
-    <div class="hero-overlay"></div>
-    <div class="hero-content">${title}${desc}
-      <a href="${href}" class="hero-btn">Ver más</a>
-    </div>
-  </div>`;
-}
-
-function renderCarousel(promos: Promotion[], id: string): string {
-  let html = `<div class="carousel-promo" data-carousel-id="${escapeHtml(id)}"><div class="carousel-track">`;
-  promos.forEach((p, i) => {
-    const title = p.title ? `<h3 class="slide-title">${escapeHtml(p.title)}</h3>` : "";
-    const desc = p.description ? `<p class="slide-desc">${escapeHtml(p.description)}</p>` : "";
-    const slideHref = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
-    html += `<div class="carousel-slide ${i === 0 ? "active" : ""}" data-index="${i}">
-      <div class="slide-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
-      <div class="slide-overlay"></div>
-      <div class="slide-content">${title}${desc}</div>
-      <a href="${slideHref}" class="slide-link"></a>
-    </div>`;
-  });
-  html += "</div>";
-  if (promos.length > 1) {
-    html += `<div class="carousel-dots">${promos.map((_, i) => `<button class="carousel-dot ${i === 0 ? "active" : ""}" data-slide="${i}"></button>`).join("")}</div>`;
-    html += `<button class="carousel-arrow carousel-arrow--left" aria-label="Anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>`;
-    html += `<button class="carousel-arrow carousel-arrow--right" aria-label="Siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`;
-  }
-  html += "</div>";
-  return html;
-}
-
-function renderTiles(promos: Promotion[]): string {
-  let html = '<div class="tiles-promo" style="grid-template-columns:repeat(4,1fr);grid-auto-rows:160px;">';
-  promos.forEach((p) => {
-    const col = (p.position % 4) + 1;
-    const row = Math.floor(p.position / 4) + 1;
-    const title = p.title ? `<h3 class="tile-title">${escapeHtml(p.title)}</h3>` : "";
-    const desc = p.description ? `<p class="tile-desc">${escapeHtml(p.description)}</p>` : "";
-    const tileHref = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
-    html += `<div class="tile" style="grid-column:${col}/span ${p.tileCols};grid-row:${row}/span ${p.tileRows};">
-      <div class="tile-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
-      <div class="tile-overlay"></div>
-      <div class="tile-content">${title}${desc}</div>
-      <a href="${tileHref}" class="tile-link"></a>
-    </div>`;
-  });
-  html += "</div>";
-  return html;
-}
-
-function renderSplit(promos: Promotion[]): string {
-  let html = '<div class="split-promo">';
-  promos.forEach((p, i) => {
-    const rev = i % 2 === 1 ? " split-item--reverse" : "";
-    const title = p.title ? `<h3 class="split-title">${escapeHtml(p.title)}</h3>` : "";
-    const desc = p.description ? `<p class="split-desc">${escapeHtml(p.description)}</p>` : "";
-    const splitHref = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
-    html += `<a href="${splitHref}" class="split-item${rev}">
-      <div class="split-img"><img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.title || "")}" /></div>
-      <div class="split-text">${title}${desc}<span class="split-link">Ver más →</span></div>
-    </a>`;
-  });
-  html += "</div>";
-  return html;
-}
-
-function renderBanner(promos: Promotion[]): string {
-  let html = '<div class="banner-promo">';
-  promos.forEach((p) => {
-    const title = p.title ? `<span class="banner-title">${escapeHtml(p.title)}</span>` : "";
-    const desc = p.description ? `<span class="banner-desc">${escapeHtml(p.description)}</span>` : "";
-    const bannerHref = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
-    html += `<a href="${bannerHref}" class="banner-item">${title}${desc}</a>`;
-  });
-  html += "</div>";
-  return html;
-}
-
-function renderRibbon(promos: Promotion[]): string {
-  let html = '<div class="ribbon-promo">';
-  promos.forEach((p) => {
-    const title = p.title ? `<span class="ribbon-title">${escapeHtml(p.title)}</span>` : "";
-    const desc = p.description ? `<span class="ribbon-desc">${escapeHtml(p.description)}</span>` : "";
-    const ribbonHref = sanitizeUrl(p.link) === "#" ? "/home" : sanitizeUrl(p.link);
-    html += `<a href="${ribbonHref}" class="ribbon-item">
-      <div class="ribbon-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div>
-      <div class="ribbon-overlay"></div>
-      <div class="ribbon-content">${title}${desc}</div>
-    </a>`;
-  });
-  html += "</div>";
-  return html;
-}
-
-const renderedHtml = hasPromotions
-  ? renderPromoHtml(promotions, displayType, section)
-  : "";
 ---
 
-<div class={`promotion-wall ${className}`} data-section={section}>
-  {hasPromotions && <Fragment set:html={renderedHtml} />}
+<div class:list={['promotion-wall', className]} data-section={section}>
+  {hasPromotions && displayType === 'hero' && (
+    <HeroPromo promotions={promotions} />
+  )}
+  {hasPromotions && displayType === 'carousel' && (
+    <CarouselPromo promotions={promotions} id={section} />
+  )}
+  {hasPromotions && displayType === 'tiles' && (
+    <TilesPromo promotions={promotions} />
+  )}
+  {hasPromotions && displayType === 'split' && (
+    <SplitPromo promotions={promotions} />
+  )}
+  {hasPromotions && displayType === 'banner' && (
+    <BannerPromo promotions={promotions} />
+  )}
+  {hasPromotions && displayType === 'ribbon' && (
+    <RibbonPromo promotions={promotions} />
+  )}
 </div>
 
-{displayType === "carousel" && hasPromotions && (
-  <script>
-    function initCarouselLogic(el: HTMLElement) {
-      const slides = el.querySelectorAll('.carousel-slide');
-      const dots = el.querySelectorAll('.carousel-dot');
-      let current = 0, timer: any;
-      function goTo(i: number) { slides[current]?.classList.remove('active'); dots[current]?.classList.remove('active'); current = i; slides[current]?.classList.add('active'); dots[current]?.classList.add('active'); }
-      function next() { goTo((current + 1) % slides.length); }
-      function prev() { goTo((current - 1 + slides.length) % slides.length); }
-      function start() { timer = setInterval(next, 5000); }
-      function stop() { clearInterval(timer); }
-      el.querySelector('.carousel-arrow--left')?.addEventListener('click', () => { stop(); prev(); start(); });
-      el.querySelector('.carousel-arrow--right')?.addEventListener('click', () => { stop(); next(); start(); });
-      dots.forEach(d => d.addEventListener('click', () => { stop(); goTo(Number((d as HTMLElement).dataset.slide)); start(); }));
-      el.addEventListener('mouseenter', stop);
-      el.addEventListener('mouseleave', start);
-      if (slides.length > 1) start();
-    }
-
-    document.querySelectorAll('.carousel-promo').forEach((el) => {
-      initCarouselLogic(el as HTMLElement);
-    });
-  </script>
-)}
-
 <style is:global>
-  /* Loading */
   .promotion-wall { width: 100%; }
-  .promo-loading { text-align: center; padding: var(--space-lg); }
-  .cmyk-bar { display: flex; width: 100%; height: 4px; }
-  .cmyk-bar span { flex: 1; animation: cmyk-pulse 1.5s ease-in-out infinite; }
-  .cmyk-bar span:nth-child(1) { background: var(--primary); }
-  .cmyk-bar span:nth-child(2) { background: var(--secondary); animation-delay: 0.3s; }
-  .cmyk-bar span:nth-child(3) { background: var(--tertiary); animation-delay: 0.6s; }
-  @keyframes cmyk-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-
-  /* Hero */
-  .hero-promo { position: relative; width: 100%; min-height: 300px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
-  .hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
-  .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 100%); }
-  .hero-content { position: relative; z-index: 2; text-align: center; padding: var(--space-3xl) var(--space-2xl); color: white; max-width: 800px; }
-  .hero-title { font-family: var(--font-display); font-size: clamp(32px, 6vw, 64px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-md); text-shadow: 0 4px 20px rgba(0,0,0,0.6); }
-  .hero-desc { font-size: clamp(16px, 2vw, 20px); opacity: 0.9; margin-bottom: var(--space-xl); text-shadow: 0 2px 8px rgba(0,0,0,0.4); }
-  .hero-btn { display: inline-block; padding: var(--space-md) var(--space-2xl); background: var(--primary); color: var(--on-primary); text-decoration: none; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; transition: all 0.2s ease; }
-  .hero-btn:hover { background: white; color: black; text-decoration: none; }
-  @media (max-width: 767px) { .hero-promo { min-height: 200px; } .hero-content { padding: var(--space-2xl) var(--space-lg); } }
-
-  /* Carousel */
-  .carousel-promo { position: relative; width: 100%; }
-  .carousel-track { position: relative; width: 100%; aspect-ratio: 3/1; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
-  .carousel-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
-  .carousel-slide.active { opacity: 1; pointer-events: auto; }
-  .slide-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
-  .slide-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 40%, transparent 100%); }
-  .slide-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-xl) var(--space-2xl); z-index: 2; color: white; }
-  .slide-title { font-family: var(--font-display); font-size: clamp(24px, 4vw, 48px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-sm); text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
-  .slide-desc { font-size: clamp(14px, 1.5vw, 18px); opacity: 0.9; text-shadow: 0 1px 6px rgba(0,0,0,0.4); }
-  .slide-link { position: absolute; inset: 0; z-index: 3; }
-  .carousel-dots { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); position: absolute; bottom: var(--space-md); right: var(--space-md); z-index: 10; }
-  .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); border: none; cursor: pointer; transition: all 0.2s ease; padding: 0; }
-  .carousel-dot:hover { background: rgba(255,255,255,0.7); }
-  .carousel-dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
-  .carousel-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 10; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; cursor: pointer; opacity: 0; transition: opacity 0.2s ease, background 0.2s ease; }
-  .carousel-promo:hover .carousel-arrow { opacity: 1; }
-  .carousel-arrow:hover { background: rgba(0,0,0,0.8); }
-  .carousel-arrow--left { left: var(--space-md); }
-  .carousel-arrow--right { right: var(--space-md); }
-  @media (max-width: 767px) { .carousel-track { aspect-ratio: 16/9; } .slide-content { padding: var(--space-lg); } .carousel-arrow { opacity: 1; width: 32px; height: 32px; } }
-
-  /* Tiles */
-  .tiles-promo { display: grid; gap: var(--space-md); grid-auto-flow: dense; }
-  .tile { position: relative; overflow: hidden; border: var(--border-width) solid var(--outline-variant); min-height: 120px; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
-  .tile:hover { border-color: var(--primary); box-shadow: 0 0 20px rgba(130,207,255,0.12); }
-  .tile:hover .tile-bg { transform: scale(1.06); }
-  .tile-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); transition: transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94); }
-  .tile-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 50%, transparent 100%); }
-  .tile-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-lg); z-index: 2; color: white; }
-  .tile-title { font-family: var(--font-display); font-size: clamp(16px, 2vw, 24px); text-transform: uppercase; line-height: 1.1; margin-bottom: var(--space-xs); text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
-  .tile-desc { font-size: clamp(12px, 1vw, 14px); opacity: 0.9; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
-  .tile-link { position: absolute; inset: 0; z-index: 3; }
-  @media (max-width: 767px) { .tiles-promo { grid-template-columns: repeat(2, 1fr) !important; grid-auto-rows: 120px !important; } .tile-content { padding: var(--space-md); } }
-
-  /* Split */
-  .split-promo { display: flex; flex-direction: column; }
-  .split-item { display: flex; flex-direction: row; text-decoration: none; color: inherit; border: var(--border-width) solid var(--outline-variant); border-bottom: none; transition: background 0.2s ease; }
-  .split-item:last-child { border-bottom: var(--border-width) solid var(--outline-variant); }
-  .split-item:hover { background: var(--surface-container-high); text-decoration: none; }
-  .split-item--reverse { flex-direction: row-reverse; }
-  .split-img { flex: 1; min-height: 200px; overflow: hidden; }
-  .split-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
-  .split-item:hover .split-img img { transform: scale(1.05); }
-  .split-text { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--space-xl) var(--space-2xl); gap: var(--space-md); }
-  .split-title { font-family: var(--font-display); font-size: clamp(20px, 3vw, 32px); text-transform: uppercase; line-height: 1.1; color: var(--on-surface); }
-  .split-desc { font-size: 15px; color: var(--on-surface-variant); line-height: 1.5; }
-  .split-link { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); }
-  @media (max-width: 767px) { .split-item, .split-item--reverse { flex-direction: column; } .split-text { padding: var(--space-lg); } }
-
-  /* Banner */
-  .banner-promo { display: flex; flex-direction: column; }
-  .banner-item { display: flex; align-items: center; justify-content: center; gap: var(--space-lg); padding: var(--space-lg) var(--space-xl); background: linear-gradient(135deg, var(--surface-container-high), var(--surface-container)); border: var(--border-width) solid var(--outline-variant); text-decoration: none; transition: all 0.2s ease; position: relative; overflow: hidden; }
-  .banner-item::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(to bottom, var(--primary), var(--secondary)); }
-  .banner-item:hover { background: linear-gradient(135deg, var(--surface-container-highest), var(--surface-container-high)); border-color: var(--primary); text-decoration: none; }
-  .banner-title { font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--on-surface); font-weight: 600; }
-  .banner-desc { font-size: 13px; color: var(--primary); }
-  @media (max-width: 767px) { .banner-item { flex-direction: column; gap: var(--space-sm); padding: var(--space-md); } .banner-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; } .banner-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; } }
-
-  /* Ribbon */
-  .ribbon-promo { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; border: var(--border-width) solid var(--outline-variant); }
-  .ribbon-promo::-webkit-scrollbar { display: none; }
-  .ribbon-item { flex: 1; min-width: 200px; position: relative; overflow: hidden; text-decoration: none; color: white; display: flex; align-items: center; justify-content: center; min-height: 80px; }
-  .ribbon-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
-  .ribbon-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); transition: background 0.2s ease; }
-  .ribbon-item:hover .ribbon-overlay { background: rgba(0,0,0,0.4); }
-  .ribbon-content { position: relative; z-index: 2; display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); }
-  .ribbon-title { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
-  .ribbon-desc { font-size: 12px; opacity: 0.8; white-space: nowrap; }
-  @media (max-width: 767px) { .ribbon-item { min-width: 160px; min-height: 60px; } .ribbon-content { padding: var(--space-sm) var(--space-md); } .ribbon-title, .ribbon-desc { font-size: 11px; } }
 </style>
