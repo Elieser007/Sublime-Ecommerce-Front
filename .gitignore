@@ -22,3 +22,7 @@ Thumbs.db
 
 # Pi runtime
 .atl/
+
+# Agent worktree scripts (local only)
+start.sh
+.agent-env
