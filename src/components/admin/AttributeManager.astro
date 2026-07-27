@@ -134,7 +134,7 @@ const { productId, productName } = Astro.props;
   }
 
   .attr-modal {
-    background-color: #131313;
+    background-color: var(--surface-dim);
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
     width: 100%;
@@ -157,7 +157,7 @@ const { productId, productName } = Astro.props;
   }
 
   .attr-modal-header h3 {
-    color: #e2e2e2;
+    color: var(--on-surface);
     margin: 0;
   }
 
@@ -192,7 +192,7 @@ const { productId, productName } = Astro.props;
 
   .attr-section-header h4 {
     margin: 0;
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
   }
 
   .attr-modules-list,
@@ -228,7 +228,7 @@ const { productId, productName } = Astro.props;
   }
 
   .attr-module-name {
-    color: #82cfff;
+    color: var(--primary);
     font-family: 'Space Mono', monospace;
     font-size: 13px;
     font-weight: 500;
@@ -280,7 +280,7 @@ const { productId, productName } = Astro.props;
   }
 
   .attr-value-label {
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-size: 13px;
     display: flex;
     align-items: center;
@@ -306,18 +306,18 @@ const { productId, productName } = Astro.props;
     background: rgba(31, 31, 31, 0.5);
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-size: 12px;
     font-family: 'Space Mono', monospace;
   }
 
   .attr-value-price input:focus {
     outline: none;
-    border-color: #82cfff;
+    border-color: var(--primary);
   }
 
   .attr-value-price .price-modifier {
-    color: #d5ca00;
+    color: var(--tertiary);
     font-family: 'Space Mono', monospace;
     font-size: 11px;
   }
@@ -335,13 +335,13 @@ const { productId, productName } = Astro.props;
     background: rgba(31, 31, 31, 0.5);
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-size: 12px;
   }
 
   .attr-add-value-form input:focus {
     outline: none;
-    border-color: #82cfff;
+    border-color: var(--primary);
   }
 
   .attr-dep-item {
@@ -356,12 +356,12 @@ const { productId, productName } = Astro.props;
   }
 
   .attr-dep-info {
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-size: 13px;
   }
 
   .attr-dep-info .dep-arrow {
-    color: #82cfff;
+    color: var(--primary);
     margin: 0 4px;
   }
 
@@ -372,7 +372,7 @@ const { productId, productName } = Astro.props;
   }
 
   .form-group label {
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
     font-family: 'Space Mono', monospace;
     font-size: 11px;
     text-transform: uppercase;
@@ -384,14 +384,14 @@ const { productId, productName } = Astro.props;
     background-color: rgba(31, 31, 31, 0.5);
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-family: 'Hanken Grotesk', sans-serif;
     font-size: 14px;
   }
 
   .form-select:focus {
     outline: none;
-    border-color: #82cfff;
+    border-color: var(--primary);
     box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.2);
   }
 
@@ -401,7 +401,7 @@ const { productId, productName } = Astro.props;
   }
 
   .form-error {
-    color: #ffb4ab;
+    color: var(--error);
     font-size: 13px;
     min-height: 20px;
   }
@@ -431,17 +431,17 @@ const { productId, productName } = Astro.props;
     align-items: center;
     gap: 8px;
     padding: 4px 0;
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-size: 13px;
     cursor: pointer;
   }
 
   .attr-checklist-item:hover {
-    color: #82cfff;
+    color: var(--primary);
   }
 
   .attr-checklist-item input[type="checkbox"] {
-    accent-color: #82cfff;
+    accent-color: var(--primary);
   }
 
   .attr-picker-list {
@@ -467,7 +467,7 @@ const { productId, productName } = Astro.props;
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-size: 13px;
   }
 
@@ -493,7 +493,7 @@ const { productId, productName } = Astro.props;
     cursor: pointer;
     transition: all 0.2s ease;
     background-color: rgba(130, 207, 255, 0.1);
-    color: #82cfff;
+    color: var(--primary);
     border: 1px solid rgba(130, 207, 255, 0.5);
   }
 
@@ -508,43 +508,9 @@ const { productId, productName } = Astro.props;
     cursor: not-allowed;
   }
 
-  :global(.btn) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 20px;
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    border-radius: 0px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  :global(.btn:hover) {
-    transform: scale(1.02);
-  }
-
-  :global(.btn:active) {
-    transform: scale(0.98);
-  }
-
-  :global(.btn--primary) {
-    background-color: rgba(130, 207, 255, 0.1);
-    color: #82cfff;
-    border: 1px solid rgba(130, 207, 255, 0.5);
-  }
-
-  :global(.btn--primary:hover) {
-    background-color: rgba(130, 207, 255, 0.2);
-  }
-
   :global(.btn--secondary) {
     background-color: transparent;
-    color: #e2e2e2;
+    color: var(--on-surface);
     border: 1px solid rgba(62, 72, 80, 0.5);
   }
 
@@ -557,30 +523,20 @@ const { productId, productName } = Astro.props;
     font-size: 10px;
   }
 
-  :global(.btn--danger) {
-    background-color: rgba(255, 180, 171, 0.08);
-    color: #ffb4ab;
-    border: 1px solid rgba(255, 180, 171, 0.3);
-  }
-
-  :global(.btn--danger:hover) {
-    background-color: rgba(255, 180, 171, 0.15);
-  }
-
   :global(.modal-close) {
     background: none;
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
     width: 32px;
     height: 32px;
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
     cursor: pointer;
     font-size: 16px;
   }
 
   :global(.modal-close:hover) {
-    border-color: #ffb4ab;
-    color: #ffb4ab;
+    border-color: var(--error);
+    color: var(--error);
   }
 </style>
 
@@ -614,7 +570,7 @@ const { productId, productName } = Astro.props;
       right: 24px;
       padding: 12px 20px;
       background: ${type === 'success' ? 'rgba(130, 207, 255, 0.9)' : 'rgba(255, 180, 171, 0.9)'};
-      color: ${type === 'success' ? '#131313' : '#131313'};
+      color: ${type === 'success' ? 'var(--surface-dim)' : 'var(--surface-dim)'};
       font-family: 'Space Mono', monospace;
       font-size: 12px;
       border-radius: 0px;

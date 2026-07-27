@@ -141,6 +141,17 @@ tr:hover .cell-actions {
   border-radius: 2px;
 }
 
+.slug-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background-color: rgba(53, 53, 53, 0.5);
+  border: 1px solid rgba(62, 72, 80, 0.3);
+  color: var(--on-surface-variant);
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  border-radius: 0px;
+}
+
 /* ─── Tags ───────────────────────────────────────────────────── */
 .tag {
   display: inline-block;

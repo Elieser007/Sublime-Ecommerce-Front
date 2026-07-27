@@ -40,10 +40,10 @@ const { columns, emptyMessage = 'No hay datos' } = Astro.props;
 
 <style>
   .dt-container {
-    background-color: rgba(31, 31, 31, 0.3);
+    background-color: var(--surface-container);
     backdrop-filter: blur(16px);
     border-radius: 0px;
-    border: 1px solid rgba(62, 72, 80, 0.2);
+    border: 1px solid var(--outline-variant);
     padding: 24px;
     overflow-x: auto;
   }
@@ -55,12 +55,12 @@ const { columns, emptyMessage = 'No hay datos' } = Astro.props;
   }
 
   :global(thead) {
-    border-bottom: 1px solid rgba(62, 72, 80, 0.3);
+    border-bottom: 1px solid var(--outline-variant);
   }
 
   :global(th) {
     padding: 0 16px 16px 0;
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
     font-family: 'Space Mono', monospace;
     font-size: 12px;
     font-weight: 500;
@@ -74,11 +74,11 @@ const { columns, emptyMessage = 'No hay datos' } = Astro.props;
     font-family: 'Hanken Grotesk', sans-serif;
     font-size: 16px;
     line-height: 24px;
-    color: #e2e2e2;
+    color: var(--on-surface);
   }
 
   :global(tr) {
-    border-bottom: 1px solid rgba(62, 72, 80, 0.1);
+    border-bottom: 1px solid var(--outline-variant);
     transition: background-color 0.15s ease;
   }
 

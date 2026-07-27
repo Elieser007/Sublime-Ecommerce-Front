@@ -85,7 +85,7 @@ const { productId } = Astro.props;
 
   .dep-form-header h4 {
     margin: 0;
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
   }
 
   .dep-form {
@@ -110,7 +110,7 @@ const { productId } = Astro.props;
   }
 
   .form-group label {
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
     font-family: 'Space Mono', monospace;
     font-size: 11px;
     text-transform: uppercase;
@@ -122,14 +122,14 @@ const { productId } = Astro.props;
     background-color: rgba(31, 31, 31, 0.5);
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-family: 'Hanken Grotesk', sans-serif;
     font-size: 14px;
   }
 
   .form-select:focus {
     outline: none;
-    border-color: #82cfff;
+    border-color: var(--primary);
     box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.2);
   }
 
@@ -139,7 +139,7 @@ const { productId } = Astro.props;
   }
 
   .form-error {
-    color: #ffb4ab;
+    color: var(--error);
     font-size: 13px;
     min-height: 20px;
   }
@@ -168,17 +168,17 @@ const { productId } = Astro.props;
     align-items: center;
     gap: 8px;
     padding: 4px 0;
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-size: 13px;
     cursor: pointer;
   }
 
   .dep-checklist-item:hover {
-    color: #82cfff;
+    color: var(--primary);
   }
 
   .dep-checklist-item input[type="checkbox"] {
-    accent-color: #82cfff;
+    accent-color: var(--primary);
   }
 
   .dep-empty {
@@ -197,7 +197,7 @@ const { productId } = Astro.props;
 
   .dep-list-section h4 {
     margin: 0;
-    color: #bdc8d1;
+    color: var(--on-surface-variant);
   }
 
   .dep-list {
@@ -218,54 +218,24 @@ const { productId } = Astro.props;
   }
 
   .dep-info {
-    color: #e2e2e2;
+    color: var(--on-surface);
     font-size: 13px;
     flex: 1;
   }
 
   .dep-info .dep-arrow {
-    color: #82cfff;
+    color: var(--primary);
     margin: 0 8px;
   }
 
   .dep-info strong {
-    color: #82cfff;
+    color: var(--primary);
     font-weight: 500;
-  }
-
-  :global(.btn) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 20px;
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    border-radius: 0px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  :global(.btn:hover) {
-    transform: scale(1.02);
-  }
-
-  :global(.btn--primary) {
-    background-color: rgba(130, 207, 255, 0.1);
-    color: #82cfff;
-    border: 1px solid rgba(130, 207, 255, 0.5);
-  }
-
-  :global(.btn--primary:hover) {
-    background-color: rgba(130, 207, 255, 0.2);
   }
 
   :global(.btn--danger) {
     background-color: rgba(255, 180, 171, 0.08);
-    color: #ffb4ab;
+    color: var(--error);
     border: 1px solid rgba(255, 180, 171, 0.3);
   }
 

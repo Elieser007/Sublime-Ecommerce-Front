@@ -9,7 +9,7 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
-import Badge from '../../components/admin/Badge.astro';
+
 
 const moduleColumns = [
   { key: 'name', label: 'Nombre' },
@@ -548,11 +548,6 @@ const COMPONENT_OPTIONS = [
   .search-box { flex: 1; max-width: 320px; }
   .center { text-align: center; }
 
-  .slug-badge {
-    display: inline-block; padding: 4px 10px;
-    background-color: rgba(53, 53, 53, 0.5); border: 1px solid rgba(62, 72, 80, 0.3);
-    color: var(--on-surface-variant); font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px;
-  }
   .component-badge {
     display: inline-block; padding: 4px 10px;
     background-color: rgba(130, 207, 255, 0.08); border: 1px solid rgba(130, 207, 255, 0.2);
