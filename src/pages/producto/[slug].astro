@@ -12,6 +12,7 @@ import { getProductImageUrl } from '../../lib/public-api';
 import { formatPrice } from '../../lib/public-api';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import VolumePriceSelector from '../../components/VolumePriceSelector.astro';
+import ProductGallery from '../../components/ProductGallery.astro';
 
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 
@@ -79,9 +80,13 @@ const basePriceFormatted = formatPrice(product.base_price);
   <!-- Product detail — pre-rendered with build-time data -->
   <div id="detail-content" class="detail-section">
     <div class="detail-layout">
-      <!-- Image -->
+      <!-- Image Gallery -->
       <div class="detail-image-container">
-        <img id="detail-image" class="detail-image" src={imageUrl} alt={product.name} width="600" height="600" />
+        {product.images && product.images.length > 0 ? (
+          <ProductGallery images={product.images} alt={product.name} />
+        ) : (
+          <img id="detail-image" class="detail-image" src={imageUrl} alt={product.name} width="600" height="600" />
+        )}
       </div>
 
       <!-- Info -->

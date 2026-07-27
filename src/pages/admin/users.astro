@@ -8,6 +8,7 @@ import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
 
 const columns = [
+  { key: 'avatar', label: '', width: '48px' },
   { key: 'name', label: 'Nombre' },
   { key: 'email', label: 'Email' },
   { key: 'role', label: 'Rol' },
@@ -47,7 +48,7 @@ const columns = [
       </div>
 
       <DataTable columns={columns}>
-        <tr><td colspan="6" class="empty-cell">Cargando...</td></tr>
+        <tr><td colspan="7" class="empty-cell">Cargando...</td></tr>
       </DataTable>
 
       <div class="pagination-bar">
@@ -69,6 +70,30 @@ const columns = [
       </div>
       <form class="modal-form" id="modal-form">
         <input type="hidden" id="modal-id" />
+        <input type="hidden" name="avatarUrl" id="avatar-url-input" />
+
+        <div class="form-group">
+          <label class="label-sm">Avatar</label>
+          <div class="avatar-upload-area" id="avatar-upload-area">
+            <div class="avatar-preview" id="avatar-preview">
+              <div class="avatar-empty" id="avatar-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <p class="body-md">Subir avatar</p>
+                <p class="label-sm">PNG, JPG o WebP (max 2MB)</p>
+              </div>
+              <img src="" alt="" class="avatar-image" id="avatar-image" style="display: none;" />
+            </div>
+            <button type="button" class="avatar-remove-btn" id="avatar-remove" style="display: none;" title="Eliminar avatar">✕</button>
+          </div>
+          <input type="file" name="avatar-file" id="avatar-input" accept="image/png,image/jpeg,image/webp" class="upload-input" />
+          <div class="upload-status" id="avatar-upload-status" style="display: none;">
+            <p class="label-sm">Procesando imagen...</p>
+          </div>
+        </div>
+
         <div class="form-group">
           <label class="label-sm">Nombre *</label>
           <input type="text" name="name" class="form-input body-md" required />
@@ -103,6 +128,17 @@ const columns = [
 </AdminLayout>
 
 <script>
+  import { uploadImage } from '../../lib/image-utils';
+  import {
+    createEmptyAvatarState,
+    hasAvatar,
+    setAvatarFromBlob,
+    setAvatarFromUrl,
+    clearAvatar,
+    getAvatarPreviewUrl,
+    type AvatarState,
+  } from '../../lib/user-avatar';
+
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   let items: any[] = [];
   let currentPage = 1;
@@ -113,6 +149,7 @@ const columns = [
   let currentRole = '';
   let branches: any[] = [];
   let currentUserId: string | null = null;
+  let avatarState: AvatarState = createEmptyAvatarState();
 
   const $ = (id: string) => document.getElementById(id);
 
@@ -127,7 +164,7 @@ const columns = [
 
   async function loadUsers() {
     const tbody = document.querySelector('tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Cargando...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">Cargando...</td></tr>';
     const params = new URLSearchParams();
     params.set('page', String(currentPage));
     params.set('limit', String(limit));
@@ -143,7 +180,7 @@ const columns = [
       totalPages = data.pages || 1;
       render();
     } catch (err) {
-      if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Error al cargar</td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">Error al cargar</td></tr>';
     }
   }
 
@@ -151,11 +188,15 @@ const columns = [
     const tbody = document.querySelector('tbody');
     if (!tbody) return;
     if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">No hay usuarios</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No hay usuarios</td></tr>';
     } else {
       tbody.innerHTML = items.map((u: any) => {
         const isSelf = u.id === currentUserId;
+        const avatarHtml = u.image
+          ? `<img src="${u.image}" alt="${u.name}" class="user-avatar" />`
+          : `<div class="user-avatar user-avatar--placeholder">${u.name?.charAt(0)?.toUpperCase() || '?'}</div>`;
         return `<tr>
+          <td>${avatarHtml}</td>
           <td><strong>${u.name}</strong></td>
           <td>${u.email}</td>
           <td><span class="badge ${u.role === 'admin' ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${u.role === 'admin' ? 'Admin' : 'Cliente'}</span></td>
@@ -180,6 +221,82 @@ const columns = [
     ($('next') as HTMLButtonElement).disabled = currentPage >= totalPages;
   }
 
+  // ─── AVATAR UPLOAD ──────────────────────────────────────
+  const avatarUploadArea = $('avatar-upload-area');
+  const avatarInput = $('avatar-input') as HTMLInputElement;
+  const avatarImageEl = $('avatar-image') as HTMLImageElement;
+  const avatarEmpty = $('avatar-empty');
+  const avatarRemove = $('avatar-remove');
+  const avatarUploadStatus = $('avatar-upload-status');
+  const avatarUrlInput = $('avatar-url-input') as HTMLInputElement;
+
+  function renderAvatar() {
+    const hasImg = hasAvatar(avatarState);
+    if (avatarEmpty) avatarEmpty.style.display = hasImg ? 'none' : 'flex';
+    if (avatarImageEl) {
+      if (hasImg) {
+        avatarImageEl.src = getAvatarPreviewUrl(avatarState) || '';
+        avatarImageEl.style.display = 'block';
+      } else {
+        avatarImageEl.style.display = 'none';
+      }
+    }
+    if (avatarRemove) avatarRemove.style.display = hasImg ? 'flex' : 'none';
+  }
+
+  async function handleAvatarFile(file: File) {
+    if (file.size > 2 * 1024 * 1024) {
+      $('form-error')!.textContent = 'Avatar muy grande (max 2MB)';
+      return;
+    }
+
+    try {
+      if (avatarUploadStatus) avatarUploadStatus.style.display = 'flex';
+      const { processImage } = await import('/src/lib/image.ts');
+      const processedBlob = await processImage(file);
+      avatarState = setAvatarFromBlob(avatarState, processedBlob);
+      renderAvatar();
+    } catch (err: any) {
+      $('form-error')!.textContent = err.message || 'Error al procesar imagen';
+    } finally {
+      if (avatarUploadStatus) avatarUploadStatus.style.display = 'none';
+      if (avatarInput) avatarInput.value = '';
+    }
+  }
+
+  avatarUploadArea?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('.avatar-remove-btn')) return;
+    avatarInput.click();
+  });
+
+  avatarInput?.addEventListener('change', () => {
+    const file = avatarInput.files?.[0];
+    if (file) handleAvatarFile(file);
+  });
+
+  avatarRemove?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    avatarState = clearAvatar(avatarState);
+    if (avatarUrlInput) avatarUrlInput.value = '';
+    renderAvatar();
+  });
+
+  // Drag & drop
+  avatarUploadArea?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    avatarUploadArea.classList.add('avatar-upload-area--dragover');
+  });
+  avatarUploadArea?.addEventListener('dragleave', () => {
+    avatarUploadArea.classList.remove('avatar-upload-area--dragover');
+  });
+  avatarUploadArea?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    avatarUploadArea.classList.remove('avatar-upload-area--dragover');
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) handleAvatarFile(file);
+  });
+
+  // ─── MODAL ──────────────────────────────────────────────
   function openModal(isEdit: boolean, user?: any) {
     const form = $('modal-form') as HTMLFormElement;
     form.reset();
@@ -187,10 +304,23 @@ const columns = [
     $('modal-title')!.textContent = isEdit ? 'Editar Usuario' : 'Nuevo Usuario';
     ($('modal-id') as HTMLInputElement).value = user?.id || '';
     ($('password-group') as HTMLElement).style.display = isEdit ? 'none' : 'block';
+
+    // Reset avatar state
+    avatarState = createEmptyAvatarState();
+    if (avatarUrlInput) avatarUrlInput.value = '';
+    renderAvatar();
+
     if (user) {
       form.name.value = user.name || '';
       form.email.value = user.email || '';
       form.role.value = user.role || 'client';
+
+      // Load existing avatar
+      if (user.image) {
+        avatarState = setAvatarFromUrl(avatarState, user.image);
+        avatarUrlInput.value = user.image;
+        renderAvatar();
+      }
     }
     $('modal-overlay')!.style.display = '';
   }
@@ -217,14 +347,59 @@ const columns = [
     const form = e.target as HTMLFormElement;
     const id = ($('modal-id') as HTMLInputElement).value;
     const isEdit = !!id;
-    const body: any = { name: form.name.value, email: form.email.value, role: form.role.value };
-    if (!isEdit) body.password = form.password.value;
-    body.branchIds = Array.from((form.branchIds as unknown as HTMLSelectElement).selectedOptions).map((o) => o.value);
-    const res = await fetch(isEdit ? `${API_URL}/api/users/${id}` : `${API_URL}/api/users`, {
-      method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
-    });
-    if (!res.ok) { const err = await res.json(); $('form-error')!.textContent = err.error || 'Error'; return; }
-    closeModal(); loadUsers();
+    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Guardando...';
+
+    try {
+      // Step 1: Upload avatar if new
+      let avatarUrl = avatarUrlInput.value;
+      if (avatarState.isNew && avatarState.blob) {
+        const file = new File([avatarState.blob], 'avatar.webp', { type: 'image/webp' });
+        const uploadResult = await uploadImage(file, API_URL);
+        if (!uploadResult.url) {
+          $('form-error')!.textContent = uploadResult.error || 'Error al subir avatar';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Guardar';
+          return;
+        }
+        avatarUrl = uploadResult.url;
+      }
+
+      // Step 2: Create or update user
+      const body: any = {
+        name: form.name.value,
+        email: form.email.value,
+        role: form.role.value,
+        avatarUrl: avatarUrl || null,
+      };
+      if (!isEdit) body.password = form.password.value;
+      body.branchIds = Array.from((form.branchIds as unknown as HTMLSelectElement).selectedOptions).map((o) => o.value);
+
+      const res = await fetch(isEdit ? `${API_URL}/api/users/${id}` : `${API_URL}/api/users`, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        $('form-error')!.textContent = err.error || 'Error';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Guardar';
+        return;
+      }
+
+      closeModal();
+      loadUsers();
+    } catch (err: any) {
+      $('form-error')!.textContent = err.message || 'Error al guardar';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Guardar';
+    }
   });
 
   (window as any).editUser = (id: string) => { const user = items.find((u: any) => u.id === id); if (user) openModal(true, user); };
@@ -288,4 +463,82 @@ const columns = [
   :global(.badge-dot) { width: 6px; height: 6px; border-radius: 0px; background-color: currentColor; }
   :global(.badge--active) { background-color: rgba(130, 207, 255, 0.1); color: #82cfff; border: 1px solid rgba(130, 207, 255, 0.3); }
   :global(.badge--inactive) { background-color: rgba(189, 200, 209, 0.1); color: #bdc8d1; border: 1px solid rgba(189, 200, 209, 0.3); }
+
+  /* User Avatar */
+  :global(.user-avatar) {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid rgba(62, 72, 80, 0.3);
+  }
+  :global(.user-avatar--placeholder) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(130, 207, 255, 0.1);
+    color: #82cfff;
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* Avatar Upload Area */
+  .avatar-upload-area {
+    border: 2px dashed rgba(62, 72, 80, 0.3);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .avatar-upload-area:hover { border-color: #82cfff; }
+  .avatar-upload-area--dragover { border-color: #82cfff; background: rgba(130, 207, 255, 0.05); }
+  .avatar-preview { width: 100%; text-align: center; }
+  .avatar-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #bdc8d1;
+    padding: 16px;
+  }
+  .avatar-empty svg { opacity: 0.5; }
+  .avatar-image {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    margin: 8px auto;
+    border: 2px solid rgba(62, 72, 80, 0.3);
+  }
+  .avatar-remove-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    background: rgba(0,0,0,0.7);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+  }
+  .avatar-remove-btn:hover { background: #ffb4ab; }
+  .upload-input { display: none; }
+  .upload-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    color: #82cfff;
+    font-size: 12px;
+  }
 </style>

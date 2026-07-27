@@ -116,18 +116,69 @@ const title = mode === 'create' ? 'Nuevo Producto' : 'Editar Producto';
 </style>
 
 <script>
-  // Form submission handler
+  // Form submission handler — uses product-form.ts for API calls
   const form = document.getElementById('product-form');
-  form?.addEventListener('submit', (e) => {
+  form?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const formData = new FormData(form as HTMLFormElement);
     const data = Object.fromEntries(formData.entries());
 
-    // TODO: Call backend API to create/update product
-    console.log('Product data:', data);
+    // Check for processed image from ImageUploader component
+    const processedImage = (window as any).__processedImage;
+    const processedImageName = (window as any).__processedImageName;
 
-    // For now, redirect to admin
-    window.location.href = '/admin';
+    try {
+      // Dynamically import product form logic (client-side only)
+      const { createProductWithImage, uploadImage, validateProductForm } = await import('/src/lib/product-form.ts');
+
+      // Build form data for validation
+      const productData = {
+        name: data.name as string,
+        price: data.price ? Number(data.price) : null,
+        category: data.category as string,
+        description: data.description as string,
+      };
+
+      // Validate
+      const validationError = validateProductForm(productData);
+      if (validationError) {
+        alert(validationError);
+        return;
+      }
+
+      // Step 1: Upload image if present
+      let imageUrl: string | undefined;
+      if (processedImage) {
+        const uploadResult = await uploadImage(
+          new File([processedImage], processedImageName || 'image.webp', { type: 'image/webp' })
+        );
+        if (!uploadResult.success) {
+          alert(`Error al subir imagen: ${uploadResult.error}`);
+          return;
+        }
+        imageUrl = uploadResult.url;
+      }
+
+      // Step 2: Create product with optional image
+      const result = await createProductWithImage({
+        ...productData,
+        imageUrl,
+      });
+
+      if (!result.success) {
+        alert(`Error: ${result.error}`);
+        return;
+      }
+
+      // Clean up
+      (window as any).__processedImage = null;
+      (window as any).__processedImageName = null;
+
+      // Redirect to admin
+      window.location.href = '/admin';
+    } catch (err: any) {
+      alert(err.message || 'Error al guardar el producto');
+    }
   });
 </script>

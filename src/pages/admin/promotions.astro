@@ -74,16 +74,49 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
         <h3 class="headline-lg-mobile" id="modal-title">Nuevo Anuncio</h3>
         <button class="modal-close" id="modal-close">✕</button>
       </div>
+
+      <!-- Image Delete Confirmation -->
+      <div class="modal-overlay" id="delete-overlay" style="display: none;">
+        <div class="modal modal--confirm">
+          <div class="modal-header">
+            <h3 class="headline-lg-mobile">⚠️ Eliminar imagen</h3>
+            <button class="modal-close" id="delete-cancel-x">✕</button>
+          </div>
+          <div class="modal-body">
+            <p class="body-md">Esta acción no se puede deshacer. La imagen se eliminará permanentemente.</p>
+            <div class="form-actions">
+              <button class="btn btn--secondary" id="delete-cancel">Cancelar</button>
+              <button class="btn btn--danger" id="delete-confirm">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <form class="modal-form" id="promo-form">
         <input type="hidden" id="promo-id" />
 
         <div class="form-row">
           <div class="form-group form-group--wide">
-            <label class="label-sm">URL de imagen *</label>
-            <input type="url" name="imageUrl" class="form-input body-md" required placeholder="https://..." id="input-image-url" />
-            <div class="image-preview" id="image-preview" style="display: none;">
-              <img id="preview-img" src="" alt="Preview" />
+            <label class="label-sm">Imagen del anuncio *</label>
+            <div class="promo-upload-area" id="promo-upload-area">
+              <div class="promo-upload-content" id="promo-upload-content">
+                <div class="promo-empty" id="promo-empty">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <p class="body-md">Arrastra una imagen o haz clic</p>
+                  <p class="label-sm">PNG, JPG o WebP (max 5MB)</p>
+                </div>
+                <img src="" alt="" class="promo-image" id="promo-image" style="display: none;" />
+              </div>
+              <button type="button" class="promo-remove-btn" id="promo-remove" style="display: none;" title="Eliminar imagen">✕</button>
             </div>
+            <input type="file" name="promo-image" id="promo-input" accept="image/png,image/jpeg,image/webp" class="upload-input" />
+            <div class="upload-status" id="promo-upload-status" style="display: none;">
+              <p class="label-sm">Procesando imagen...</p>
+            </div>
+            <input type="hidden" name="imageUrl" id="promo-image-url" />
           </div>
         </div>
 
@@ -141,6 +174,16 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 
 <script>
   import { escapeHtml } from '../../lib/escape-html';
+  import { uploadImage, associateImage, deleteImage, fetchEntityImages } from '../../lib/image-utils';
+  import {
+    createEmptyPromoImageState,
+    hasPromoImage,
+    setPromoImageFromBlob,
+    setPromoImageFromUrl,
+    clearPromoImage,
+    getPromoPreviewUrl,
+    type PromoImageState,
+  } from '../../lib/promo-upload';
 
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   const $ = (id: string) => document.getElementById(id);
@@ -149,6 +192,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
   let selectedSection: any = null;
   let promotions: any[] = [];
   let currentDisplayType = 'tiles';
+  let promoImageState: PromoImageState = createEmptyPromoImageState();
 
   // ─── LOAD SECTIONS ──────────────────────────────────────
   async function loadSections() {
@@ -170,7 +214,6 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       return;
     }
 
-    // Parse slug to explain what it means
     function explainSlug(slug: string): string {
       const parts = slug.split('-');
       const explains: Record<string, string> = {
@@ -197,7 +240,6 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       </div>
     `).join('');
 
-    // Click handlers
     $('sections-list')!.querySelectorAll('.section-card').forEach((card) => {
       card.addEventListener('click', () => {
         const id = (card as HTMLElement).dataset.id;
@@ -206,20 +248,14 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     });
   }
 
-      // Type descriptions
-      const typeInfo: Record<string, string> = {
-        tiles: "El tipo Tiles muestra tus anuncios en un grid de cuadros. Cada anuncio puede ocupar diferente cantidad de espacio (1x1, 2x2, etc). Es ideal cuando queres mostrar variedad de productos o categorias en una sola seccion.",
-        carousel: "El tipo Carousel muestra un anuncio a la vez como un slideshow que cambia automaticamente. El usuario puede navegar con flechas o puntos. Perfecto para ofertas principales.",
-        hero: "El tipo Hero es un banner grande que ocupa todo el ancho con imagen de fondo y texto centrado. Solo muestra el primer anuncio. Ideal para promociones estrella.",
-        split: "El tipo Split muestra imagen a un lado y texto al otro, alternando la direccion. Ideal para describir productos con detalle.",
-        banner: "El tipo Banner es una franja con texto centrado y borde decorativo. Sin imagenes. Para mensajes urgentes como Envio gratis.",
-        ribbon: "El tipo Ribbon es una cinta horizontal con varios anuncios lado a lado. Para mostrar varias ofertas cortas juntas.",
-      };
-      
-      function updateTypeInfo(type: string) {
-        const desc = $("type-info-desc");
-        if (desc) desc.textContent = typeInfo[type] || "";
-      }
+  const typeInfo: Record<string, string> = {
+    tiles: "El tipo Tiles muestra tus anuncios en un grid de cuadros. Cada anuncio puede ocupar diferente cantidad de espacio (1x1, 2x2, etc).",
+    carousel: "El tipo Carousel muestra un anuncio a la vez como un slideshow que cambia automaticamente.",
+    hero: "El tipo Hero es un banner grande que ocupa todo el ancho con imagen de fondo y texto centrado.",
+    split: "El tipo Split muestra imagen a un lado y texto al otro, alternando la direccion.",
+    banner: "El tipo Banner es una franja con texto centrado y borde decorativo. Sin imagenes.",
+    ribbon: "El tipo Ribbon es una cinta horizontal con varios anuncios lado a lado.",
+  };
 
   async function selectSection(sectionId: string) {
     selectedSection = sections.find((s: any) => s.id === sectionId);
@@ -227,15 +263,13 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 
     currentDisplayType = selectedSection.display_type;
 
-    // Update UI
     $('section-name')!.textContent = selectedSection.name;
     $('section-slug')!.textContent = selectedSection.slug;
     ($('display-type-select') as HTMLSelectElement).value = currentDisplayType;
     $('promo-manager')!.style.display = '';
     $('tile-options')!.style.display = currentDisplayType === 'tiles' ? '' : 'none';
 
-    updateTypeInfo(currentDisplayType);
-    renderSections(); // Update active state
+    renderSections();
     await loadPromotions();
   }
 
@@ -281,206 +315,188 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
   }
 
   // ─── LIVE PREVIEW ───────────────────────────────────────
-      // ─── CAROUSEL INIT (preview) ─────────────────────────────
-      function initPreviewCarousel(container) {
-        var slides = container.querySelectorAll('.carousel-slide');
-        var dots = container.querySelectorAll('.carousel-dot');
-        var prevBtn = container.querySelector('.carousel-arrow--left');
-        var nextBtn = container.querySelector('.carousel-arrow--right');
-        var current = 0;
-        var timer;
+  function initPreviewCarousel(container: Element) {
+    const slides = container.querySelectorAll('.carousel-slide');
+    const dots = container.querySelectorAll('.carousel-dot');
+    const prevBtn = container.querySelector('.carousel-arrow--left');
+    const nextBtn = container.querySelector('.carousel-arrow--right');
+    let current = 0;
+    let timer: ReturnType<typeof setInterval>;
 
-        function goTo(index) {
-          slides[current].classList.remove('active');
-          dots[current].classList.remove('active');
-          current = index;
-          slides[current].classList.add('active');
-          dots[current].classList.add('active');
-        }
-
-        function next() { goTo((current + 1) % slides.length); }
-        function prev() { goTo((current - 1 + slides.length) % slides.length); }
-        function startAuto() { timer = setInterval(next, 5000); }
-        function stopAuto() { clearInterval(timer); }
-
-        prevBtn.addEventListener('click', function() { stopAuto(); prev(); startAuto(); });
-        nextBtn.addEventListener('click', function() { stopAuto(); next(); startAuto(); });
-        dots.forEach(function(dot) {
-          dot.addEventListener('click', function() {
-            stopAuto();
-            goTo(parseInt(dot.dataset.slide));
-            startAuto();
-          });
-        });
-
-        container.addEventListener('mouseenter', stopAuto);
-        container.addEventListener('mouseleave', startAuto);
-
-        if (slides.length > 1) startAuto();
-      }
-
-      function renderPreview() {
-        const container = $('live-preview-container');
-        if (!container || !selectedSection) return;
-        if (promotions.length === 0) {
-          container.innerHTML = '<p class="body-sm">Sin anuncios</p>';
-          return;
-        }
-        container.innerHTML = '';
-        var html = '';
-        switch (currentDisplayType) {
-          case 'hero':
-            var p = promotions[0];
-            html = '<div class="hero-promo"><div class="hero-bg" style="background-image:url(\'' + escapeHtml(p.imageUrl) + '\')"></div><div class="hero-overlay"></div><div class="hero-content">' + (p.title ? '<h2 class="hero-title">' + escapeHtml(p.title) + '</h2>' : '') + (p.description ? '<p class="hero-desc">' + escapeHtml(p.description) + '</p>' : '') + '<a href="' + escapeHtml(p.link) + '" class="hero-btn">Ver más</a></div></div>';
-            break;
-          case 'carousel':
-            html = '<div class="carousel-promo" data-carousel-id="preview"><div class="carousel-track">';
-            promotions.forEach(function(pt, i) {
-              html += '<div class="carousel-slide ' + (i === 0 ? 'active' : '') + '" data-index="' + i + '"><div class="slide-bg" style="background-image:url(\'' + escapeHtml(pt.imageUrl) + '\')"></div><div class="slide-overlay"></div><div class="slide-content">' + (pt.title ? '<h3 class="slide-title">' + escapeHtml(pt.title) + '</h3>' : '') + (pt.description ? '<p class="slide-desc">' + escapeHtml(pt.description) + '</p>' : '') + '</div><a href="' + escapeHtml(pt.link) + '" class="slide-link" aria-label="' + escapeHtml(pt.title || 'Promocion') + '"></a></div>';
-            });
-            html += '</div>';
-            if (promotions.length > 1) {
-              html += '<div class="carousel-dots">';
-              promotions.forEach(function(_, i) {
-                html += '<button class="carousel-dot ' + (i === 0 ? 'active' : '') + '" data-slide="' + i + '" aria-label="Slide ' + (i + 1) + '"></button>';
-              });
-              html += '</div>';
-              html += '<button class="carousel-arrow carousel-arrow--left" aria-label="Anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>';
-              html += '<button class="carousel-arrow carousel-arrow--right" aria-label="Siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>';
-            }
-            html += '</div>';
-            break;
-          case 'tiles':
-            html = '<div class="tiles-promo" style="grid-template-columns:repeat(4,1fr);grid-auto-rows:160px;">';
-            promotions.forEach(function(pt) {
-              var col = (pt.position % 4) + 1;
-              var row = Math.floor(pt.position / 4) + 1;
-              html += '<div class="tile" style="grid-column:' + col + '/span ' + pt.tileCols + ';grid-row:' + row + '/span ' + pt.tileRows + ';"><div class="tile-bg" style="background-image:url(\'' + escapeHtml(pt.imageUrl) + '\')"></div><div class="tile-overlay"></div><div class="tile-content">' + (pt.title ? '<h3 class="tile-title">' + escapeHtml(pt.title) + '</h3>' : '') + (pt.description ? '<p class="tile-desc">' + escapeHtml(pt.description) + '</p>' : '') + '</div><a href="' + escapeHtml(pt.link) + '" class="tile-link" aria-label="' + escapeHtml(pt.title || 'Promocion') + '"></a></div>';
-            });
-            html += '</div>';
-            break;
-          case 'split':
-            html = '<div class="split-promo">';
-            promotions.forEach(function(pt, i) {
-              var rev = i % 2 === 1 ? ' split-item--reverse' : '';
-              html += '<a href="' + escapeHtml(pt.link) + '" class="split-item' + rev + '"><div class="split-img"><img src="' + escapeHtml(pt.imageUrl) + '" alt="' + escapeHtml(pt.title || '') + '" /></div><div class="split-text">' + (pt.title ? '<h3 class="split-title">' + escapeHtml(pt.title) + '</h3>' : '') + (pt.description ? '<p class="split-desc">' + escapeHtml(pt.description) + '</p>' : '') + '<span class="split-link">Ver más →</span></div></a>';
-            });
-            html += '</div>';
-            break;
-          case 'banner':
-            html = '<div class="banner-promo">';
-            promotions.forEach(function(pt) {
-              html += '<a href="' + escapeHtml(pt.link) + '" class="banner-item">' + (pt.title ? '<span class="banner-title">' + escapeHtml(pt.title) + '</span>' : '') + (pt.description ? '<span class="banner-desc">' + escapeHtml(pt.description) + '</span>' : '') + '</a>';
-            });
-            html += '</div>';
-            break;
-          case 'ribbon':
-            html = '<div class="ribbon-promo">';
-            promotions.forEach(function(pt) {
-              html += '<a href="' + escapeHtml(pt.link) + '" class="ribbon-item"><div class="ribbon-bg" style="background-image:url(\'' + escapeHtml(pt.imageUrl) + '\')"></div><div class="ribbon-overlay"></div><div class="ribbon-content">' + (pt.title ? '<span class="ribbon-title">' + escapeHtml(pt.title) + '</span>' : '') + (pt.description ? '<span class="ribbon-desc">' + escapeHtml(pt.description) + '</span>' : '') + '</div></a>';
-            });
-            html += '</div>';
-            break;
-        }
-        container.innerHTML = html;
-        // Initialize carousel if present
-        var carousel = container.querySelector(".carousel-promo");
-        if (carousel) initPreviewCarousel(carousel);
-
-      }
-
-  function openModal(isEdit: boolean, promo?: any) {
-    const form = $('promo-form') as HTMLFormElement;
-    form.reset();
-    $('form-error')!.textContent = '';
-    $('modal-title')!.textContent = isEdit ? 'Editar Anuncio' : 'Nuevo Anuncio';
-    ($('promo-id') as HTMLInputElement).value = promo?.id || '';
-    $('tile-options')!.style.display = currentDisplayType === 'tiles' ? '' : 'none';
-    $('image-preview')!.style.display = 'none';
-
-    if (promo) {
-      form.imageUrl.value = promo.imageUrl || '';
-      form.title.value = promo.title || '';
-      form.description.value = promo.description || '';
-      form.link.value = promo.link || '';
-      form.tileCols.value = promo.tileCols || 1;
-      form.tileRows.value = promo.tileRows || 1;
-      form.position.value = promo.position || 0;
-      if (promo.imageUrl) {
-        $('preview-img')!.src = promo.imageUrl;
-        $('image-preview')!.style.display = '';
-      }
+    function goTo(index: number) {
+      slides[current].classList.remove('active');
+      dots[current].classList.remove('active');
+      current = index;
+      slides[current].classList.add('active');
+      dots[current].classList.add('active');
     }
 
-    $('modal-overlay')!.style.display = '';
+    function next() { goTo((current + 1) % slides.length); }
+    function prev() { goTo((current - 1 + slides.length) % slides.length); }
+    function startAuto() { timer = setInterval(next, 5000); }
+    function stopAuto() { clearInterval(timer); }
+
+    prevBtn?.addEventListener('click', () => { stopAuto(); prev(); startAuto(); });
+    nextBtn?.addEventListener('click', () => { stopAuto(); next(); startAuto(); });
+    dots.forEach((dot) => {
+      dot.addEventListener('click', () => {
+        stopAuto();
+        goTo(parseInt((dot as HTMLElement).dataset.slide || '0'));
+        startAuto();
+      });
+    });
+
+    container.addEventListener('mouseenter', stopAuto);
+    container.addEventListener('mouseleave', startAuto);
+
+    if (slides.length > 1) startAuto();
   }
 
-  function closeModal() { $('modal-overlay')!.style.display = 'none'; }
+  function renderPreview() {
+    const container = $('live-preview-container');
+    if (!container || !selectedSection) return;
+    if (promotions.length === 0) {
+      container.innerHTML = '<p class="body-sm">Sin anuncios</p>';
+      return;
+    }
+    container.innerHTML = '';
+    let html = '';
+    switch (currentDisplayType) {
+      case 'hero': {
+        const p = promotions[0];
+        html = `<div class="hero-promo"><div class="hero-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div><div class="hero-overlay"></div><div class="hero-content">${p.title ? `<h2 class="hero-title">${escapeHtml(p.title)}</h2>` : ''}${p.description ? `<p class="hero-desc">${escapeHtml(p.description)}</p>` : ''}<a href="${escapeHtml(p.link)}" class="hero-btn">Ver más</a></div></div>`;
+        break;
+      }
+      case 'carousel':
+        html = '<div class="carousel-promo" data-carousel-id="preview"><div class="carousel-track">';
+        promotions.forEach((pt: any, i: number) => {
+          html += `<div class="carousel-slide ${i === 0 ? 'active' : ''}" data-index="${i}"><div class="slide-bg" style="background-image:url('${escapeHtml(pt.imageUrl)}')"></div><div class="slide-overlay"></div><div class="slide-content">${pt.title ? `<h3 class="slide-title">${escapeHtml(pt.title)}</h3>` : ''}${pt.description ? `<p class="slide-desc">${escapeHtml(pt.description)}</p>` : ''}</div><a href="${escapeHtml(pt.link)}" class="slide-link" aria-label="${escapeHtml(pt.title || 'Promocion')}"></a></div>`;
+        });
+        html += '</div>';
+        if (promotions.length > 1) {
+          html += '<div class="carousel-dots">';
+          promotions.forEach((_: any, i: number) => {
+            html += `<button class="carousel-dot ${i === 0 ? 'active' : ''}" data-slide="${i}" aria-label="Slide ${i + 1}"></button>`;
+          });
+          html += '</div>';
+          html += '<button class="carousel-arrow carousel-arrow--left" aria-label="Anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>';
+          html += '<button class="carousel-arrow carousel-arrow--right" aria-label="Siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>';
+        }
+        html += '</div>';
+        break;
+      case 'tiles':
+        html = '<div class="tiles-promo" style="grid-template-columns:repeat(4,1fr);grid-auto-rows:160px;">';
+        promotions.forEach((pt: any) => {
+          const col = (pt.position % 4) + 1;
+          const row = Math.floor(pt.position / 4) + 1;
+          html += `<div class="tile" style="grid-column:${col}/span ${pt.tileCols};grid-row:${row}/span ${pt.tileRows};"><div class="tile-bg" style="background-image:url('${escapeHtml(pt.imageUrl)}')"></div><div class="tile-overlay"></div><div class="tile-content">${pt.title ? `<h3 class="tile-title">${escapeHtml(pt.title)}</h3>` : ''}${pt.description ? `<p class="tile-desc">${escapeHtml(pt.description)}</p>` : ''}</div><a href="${escapeHtml(pt.link)}" class="tile-link" aria-label="${escapeHtml(pt.title || 'Promocion')}"></a></div>`;
+        });
+        html += '</div>';
+        break;
+      case 'split':
+        html = '<div class="split-promo">';
+        promotions.forEach((pt: any, i: number) => {
+          const rev = i % 2 === 1 ? ' split-item--reverse' : '';
+          html += `<a href="${escapeHtml(pt.link)}" class="split-item${rev}"><div class="split-img"><img src="${escapeHtml(pt.imageUrl)}" alt="${escapeHtml(pt.title || '')}" /></div><div class="split-text">${pt.title ? `<h3 class="split-title">${escapeHtml(pt.title)}</h3>` : ''}${pt.description ? `<p class="split-desc">${escapeHtml(pt.description)}</p>` : ''}<span class="split-link">Ver más →</span></div></a>`;
+        });
+        html += '</div>';
+        break;
+      case 'banner':
+        html = '<div class="banner-promo">';
+        promotions.forEach((pt: any) => {
+          html += `<a href="${escapeHtml(pt.link)}" class="banner-item">${pt.title ? `<span class="banner-title">${escapeHtml(pt.title)}</span>` : ''}${pt.description ? `<span class="banner-desc">${escapeHtml(pt.description)}</span>` : ''}</a>`;
+        });
+        html += '</div>';
+        break;
+      case 'ribbon':
+        html = '<div class="ribbon-promo">';
+        promotions.forEach((pt: any) => {
+          html += `<a href="${escapeHtml(pt.link)}" class="ribbon-item"><div class="ribbon-bg" style="background-image:url('${escapeHtml(pt.imageUrl)}')"></div><div class="ribbon-overlay"></div><div class="ribbon-content">${pt.title ? `<span class="ribbon-title">${escapeHtml(pt.title)}</span>` : ''}${pt.description ? `<span class="ribbon-desc">${escapeHtml(pt.description)}</span>` : ''}</div></a>`;
+        });
+        html += '</div>';
+        break;
+    }
+    container.innerHTML = html;
+    const carousel = container.querySelector(".carousel-promo");
+    if (carousel) initPreviewCarousel(carousel);
+  }
 
-  // File upload handling
-  let uploadedImageUrl = '';
-  
-  $('upload-area')?.addEventListener('click', () => {
-    $('image-file')?.click();
-  });
-  
-  $('image-file')?.addEventListener('change', async (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    
-    // Validate size
+  // ─── IMAGE UPLOAD HANDLERS ──────────────────────────────
+  const promoUploadArea = $('promo-upload-area');
+  const promoInput = $('promo-input') as HTMLInputElement;
+  const promoImageEl = $('promo-image') as HTMLImageElement;
+  const promoEmpty = $('promo-empty');
+  const promoRemove = $('promo-remove');
+  const promoUploadStatus = $('promo-upload-status');
+  const promoImageUrlInput = $('promo-image-url') as HTMLInputElement;
+
+  function renderPromoImage() {
+    const hasImage = hasPromoImage(promoImageState);
+    if (promoEmpty) promoEmpty.style.display = hasImage ? 'none' : 'flex';
+    if (promoImageEl) {
+      if (hasImage) {
+        promoImageEl.src = getPromoPreviewUrl(promoImageState) || '';
+        promoImageEl.style.display = 'block';
+      } else {
+        promoImageEl.style.display = 'none';
+      }
+    }
+    if (promoRemove) promoRemove.style.display = hasImage ? 'flex' : 'none';
+  }
+
+  async function handlePromoFile(file: File) {
     if (file.size > 5 * 1024 * 1024) {
       $('form-error')!.textContent = 'Imagen muy grande (max 5MB)';
       return;
     }
-    
-    // Show preview immediately
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      ($('preview-img') as HTMLImageElement).src = ev.target?.result as string;
-      $('image-preview')!.style.display = '';
-      $('upload-placeholder')!.style.display = 'none';
-    };
-    reader.readAsDataURL(file);
-    
-    // Upload to server
-    $('form-error')!.textContent = 'Subiendo imagen...';
-    const formData = new FormData();
-    formData.append('image', file);
-    
+
     try {
-      const res = await fetch(`${API_URL}/api/upload`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
-      
-      if (!res.ok) {
-        const err = await res.json();
-        $('form-error')!.textContent = err.error || 'Error al subir';
-        return;
-      }
-      
-      const data = await res.json();
-      uploadedImageUrl = data.url;
-      ($('hidden-image-url') as HTMLInputElement).value = data.url;
-      $('form-error')!.textContent = '';
-    } catch (err) {
-      $('form-error')!.textContent = 'Error de conexión al subir';
+      if (promoUploadStatus) promoUploadStatus.style.display = 'flex';
+      const { processImage } = await import('/src/lib/image.ts');
+      const processedBlob = await processImage(file);
+      promoImageState = setPromoImageFromBlob(promoImageState, processedBlob);
+      renderPromoImage();
+    } catch (err: any) {
+      $('form-error')!.textContent = err.message || 'Error al procesar imagen';
+    } finally {
+      if (promoUploadStatus) promoUploadStatus.style.display = 'none';
+      if (promoInput) promoInput.value = '';
     }
-  });
-  
-  $('upload-remove')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    uploadedImageUrl = '';
-    ($('hidden-image-url') as HTMLInputElement).value = '';
-    ($('preview-img') as HTMLImageElement).src = '';
-    $('image-preview')!.style.display = 'none';
-    $('upload-placeholder')!.style.display = '';
-    ($('image-file') as HTMLInputElement).value = '';
+  }
+
+  promoUploadArea?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('.promo-remove-btn')) return;
+    promoInput.click();
   });
 
-  // Display type change
+  promoInput?.addEventListener('change', () => {
+    const file = promoInput.files?.[0];
+    if (file) handlePromoFile(file);
+  });
+
+  promoRemove?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    promoImageState = clearPromoImage(promoImageState);
+    if (promoImageUrlInput) promoImageUrlInput.value = '';
+    renderPromoImage();
+  });
+
+  // Drag & drop
+  promoUploadArea?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    promoUploadArea.classList.add('promo-upload-area--dragover');
+  });
+  promoUploadArea?.addEventListener('dragleave', () => {
+    promoUploadArea.classList.remove('promo-upload-area--dragover');
+  });
+  promoUploadArea?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    promoUploadArea.classList.remove('promo-upload-area--dragover');
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) handlePromoFile(file);
+  });
+
+  // ─── DISPLAY TYPE CHANGE ────────────────────────────────
   $('display-type-select')?.addEventListener('change', async (e) => {
     const newType = (e.target as HTMLSelectElement).value;
     if (!selectedSection) return;
@@ -501,39 +517,118 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     }
   });
 
+  // ─── MODAL ──────────────────────────────────────────────
+  function openModal(isEdit: boolean, promo?: any) {
+    const form = $('promo-form') as HTMLFormElement;
+    form.reset();
+    $('form-error')!.textContent = '';
+    $('modal-title')!.textContent = isEdit ? 'Editar Anuncio' : 'Nuevo Anuncio';
+    ($('promo-id') as HTMLInputElement).value = promo?.id || '';
+    $('tile-options')!.style.display = currentDisplayType === 'tiles' ? '' : 'none';
+
+    // Reset image state
+    promoImageState = createEmptyPromoImageState();
+    if (promoImageUrlInput) promoImageUrlInput.value = '';
+    renderPromoImage();
+
+    if (promo) {
+      form.title.value = promo.title || '';
+      form.description.value = promo.description || '';
+      form.link.value = promo.link || '';
+      form.tileCols.value = promo.tileCols || 1;
+      form.tileRows.value = promo.tileRows || 1;
+      form.position.value = promo.position || 0;
+
+      // Load existing image
+      if (promo.imageUrl) {
+        promoImageState = setPromoImageFromUrl(promoImageState, promo.imageUrl, promo.imageId || '');
+        promoImageUrlInput.value = promo.imageUrl;
+        renderPromoImage();
+      }
+    }
+
+    $('modal-overlay')!.style.display = '';
+  }
+
+  function closeModal() { $('modal-overlay')!.style.display = 'none'; }
+
   // ─── FORM SUBMIT ────────────────────────────────────────
   $('promo-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const id = ($('promo-id') as HTMLInputElement).value;
     const isEdit = !!id;
+    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
 
-    const body: any = {
-      sectionId: selectedSection.id,
-      imageUrl: form.imageUrl.value,
-      title: form.title.value || null,
-      description: form.description.value || null,
-      link: form.link.value,
-      tileCols: parseInt(form.tileCols.value) || 1,
-      tileRows: parseInt(form.tileRows.value) || 1,
-      position: parseInt(form.position.value) || 0,
-    };
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Guardando...';
 
-    const res = await fetch(isEdit ? `${API_URL}/api/promotions/${id}` : `${API_URL}/api/promotions`, {
-      method: isEdit ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(body),
-    });
+    try {
+      // Step 1: Upload image if new
+      let imageUrl = promoImageUrlInput.value;
+      if (promoImageState.isNew && promoImageState.blob) {
+        const fileName = 'promo.webp';
+        const file = new File([promoImageState.blob], fileName, { type: 'image/webp' });
+        const uploadResult = await uploadImage(file, API_URL);
+        if (!uploadResult.url) {
+          $('form-error')!.textContent = uploadResult.error || 'Error al subir imagen';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Guardar';
+          return;
+        }
+        imageUrl = uploadResult.url;
+      }
 
-    if (!res.ok) {
-      const err = await res.json();
-      $('form-error')!.textContent = err.error || 'Error al guardar';
-      return;
+      if (!imageUrl) {
+        $('form-error')!.textContent = 'La imagen es requerida';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Guardar';
+        return;
+      }
+
+      // Step 2: Create or update promotion
+      const body: any = {
+        sectionId: selectedSection.id,
+        imageUrl,
+        title: form.title.value || null,
+        description: form.description.value || null,
+        link: form.link.value,
+        tileCols: parseInt(form.tileCols.value) || 1,
+        tileRows: parseInt(form.tileRows.value) || 1,
+        position: parseInt(form.position.value) || 0,
+      };
+
+      const res = await fetch(isEdit ? `${API_URL}/api/promotions/${id}` : `${API_URL}/api/promotions`, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        $('form-error')!.textContent = err.error || 'Error al guardar';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Guardar';
+        return;
+      }
+
+      const result = await res.json();
+      const promoId = result.promotion?.id || id;
+
+      // Step 3: Associate image with promotion if new
+      if (promoImageState.isNew && promoId) {
+        await associateImage('promotions', promoId, imageUrl, API_URL, form.title.value || undefined, { is_primary: 1, sort_order: 0 });
+      }
+
+      closeModal();
+      await loadPromotions();
+    } catch (err: any) {
+      $('form-error')!.textContent = err.message || 'Error al guardar';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Guardar';
     }
-
-    closeModal();
-    await loadPromotions();
   });
 
   // ─── EVENT LISTENERS ────────────────────────────────────
@@ -876,4 +971,72 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     justify-content: center;
   }
   .upload-remove:hover { background: var(--error); }
+
+  /* Promo Upload Area */
+  .promo-upload-area {
+    border: 2px dashed var(--outline-variant);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .promo-upload-area:hover { border-color: var(--primary); }
+  .promo-upload-area--dragover { border-color: var(--primary); background: rgba(130, 207, 255, 0.05); }
+  .promo-upload-content { width: 100%; }
+  .promo-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+    color: var(--on-surface-variant);
+    padding: var(--space-lg);
+    text-align: center;
+  }
+  .promo-empty svg { opacity: 0.5; }
+  .promo-image {
+    width: 100%;
+    max-height: 200px;
+    object-fit: cover;
+    display: block;
+  }
+  .promo-remove-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background: rgba(0,0,0,0.7);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+  }
+  .promo-remove-btn:hover { background: var(--error); }
+  .upload-input { display: none; }
+  .upload-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    color: var(--primary);
+    font-size: 12px;
+  }
+
+  /* Modal confirm */
+  .modal--confirm { max-width: 400px; }
+  .modal-body { padding: var(--space-lg); }
+  .modal-body p { color: var(--on-surface-variant); margin-bottom: var(--space-md); }
+  .btn--danger {
+    background: rgba(255, 180, 171, 0.15);
+    color: var(--error);
+    border: 1px solid rgba(255, 180, 171, 0.5);
+  }
+  .btn--danger:hover { background: rgba(255, 180, 171, 0.25); }
 </style>

@@ -1,0 +1,187 @@
+---
+/**
+ * ProductGallery — Multi-image gallery for product detail pages
+ *
+ * Props:
+ *   images: GalleryImage[] — array of images (sorted by backend)
+ *   alt: string — fallback alt text
+ *
+ * Renders: main image viewer + thumbnail strip with arrow navigation.
+ * Minimal client-side JS for thumbnail clicks and arrow navigation.
+ */
+
+import { getProductImageUrl } from '../lib/public-api';
+import type { GalleryImage } from '../lib/image-types';
+
+interface Props {
+  images: GalleryImage[];
+  alt: string;
+}
+
+const { images, alt } = Astro.props;
+
+// Compute primary image (or first)
+const primary = images.find((img) => img.is_primary) || images[0];
+const mainImageUrl = getProductImageUrl(primary?.url);
+const mainImageAlt = primary?.alt || alt;
+---
+
+<div class="product-gallery" data-gallery role="group" aria-label="Galería de imágenes">
+  <!-- Main image viewer -->
+  <div class="gallery-main">
+    <img
+      class="gallery-main__img"
+      src={mainImageUrl}
+      alt={mainImageAlt}
+      width="600"
+      height="600"
+      data-main-image
+    />
+    {images.length > 1 && (
+      <>
+        <button class="gallery-nav gallery-nav--prev" data-action="prev" aria-label="Imagen anterior">‹</button>
+        <button class="gallery-nav gallery-nav--next" data-action="next" aria-label="Imagen siguiente">›</button>
+      </>
+    )}
+  </div>
+
+  <!-- Thumbnail strip -->
+  {images.length > 1 && (
+    <div class="gallery-thumbs" role="tablist" aria-label="Vistas previas">
+      {images.map((img, idx) => (
+        <button
+          class={`gallery-thumb ${img.id === primary?.id ? 'gallery-thumb--active' : ''}`}
+          data-thumb-id={img.id}
+          role="tab"
+          aria-selected={img.id === primary?.id ? 'true' : 'false'}
+          aria-label={img.alt || `Imagen ${idx + 1}`}
+        >
+          <img src={getProductImageUrl(img.url)} alt={img.alt || ''} width="80" height="80" loading="lazy" />
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+
+<script>
+  // Client-side gallery navigation
+  const gallery = document.querySelector('[data-gallery]') as HTMLElement;
+  if (gallery) {
+    const mainImg = gallery.querySelector('[data-main-image]') as HTMLImageElement;
+    const thumbs = Array.from(gallery.querySelectorAll('[data-thumb-id]')) as HTMLButtonElement[];
+    let currentIndex = 0;
+
+    function updateMain(index: number) {
+      const thumb = thumbs[index];
+      if (!thumb) return;
+      const imgSrc = thumb.querySelector('img')?.src;
+      const imgAlt = thumb.querySelector('img')?.alt;
+      if (imgSrc && mainImg) {
+        mainImg.src = imgSrc;
+        mainImg.alt = imgAlt || '';
+      }
+      // Update active state
+      thumbs.forEach((t, i) => {
+        t.classList.toggle('gallery-thumb--active', i === index);
+        t.setAttribute('aria-selected', i === index ? 'true' : 'false');
+      });
+      currentIndex = index;
+    }
+
+    // Thumbnail clicks
+    thumbs.forEach((thumb, idx) => {
+      thumb.addEventListener('click', () => updateMain(idx));
+    });
+
+    // Arrow navigation
+    gallery.querySelector('[data-action="prev"]')?.addEventListener('click', () => {
+      updateMain((currentIndex - 1 + thumbs.length) % thumbs.length);
+    });
+    gallery.querySelector('[data-action="next"]')?.addEventListener('click', () => {
+      updateMain((currentIndex + 1) % thumbs.length);
+    });
+  }
+</script>
+
+<style>
+  .product-gallery {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .gallery-main {
+    position: relative;
+    border: var(--border-width) solid var(--outline-variant);
+    background-color: var(--surface-container);
+    aspect-ratio: 1;
+    overflow: hidden;
+  }
+
+  .gallery-main__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .gallery-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+  }
+
+  .gallery-nav:hover {
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  .gallery-nav--prev {
+    left: 8px;
+  }
+
+  .gallery-nav--next {
+    right: 8px;
+  }
+
+  .gallery-thumbs {
+    display: flex;
+    gap: var(--space-sm);
+    overflow-x: auto;
+    padding: var(--space-sm) 0;
+  }
+
+  .gallery-thumb {
+    flex: 0 0 64px;
+    height: 64px;
+    border: 2px solid transparent;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .gallery-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .gallery-thumb:hover {
+    border-color: var(--outline);
+  }
+
+  .gallery-thumb--active {
+    border-color: var(--primary);
+  }
+</style>

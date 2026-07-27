@@ -5,6 +5,8 @@
  * All functions use the PUBLIC_API_URL environment variable.
  */
 
+import type { GalleryImage } from "./image-types";
+
 const API_URL = (typeof import.meta !== "undefined" && import.meta.env?.PUBLIC_API_URL) || "http://localhost:8787";
 
 // ─── TYPES ────────────────────────────────────────────────
@@ -23,13 +25,11 @@ export interface PublicProduct {
   price_tiers?: PriceTier[];
 }
 
-export interface ProductImage {
-  id: string;
-  url: string;
-  alt: string | null;
-  sort_order: number;
-  is_primary: boolean;
-}
+/**
+ * @deprecated Use GalleryImage from './image-types' instead.
+ * Kept as alias for backward compatibility.
+ */
+export type ProductImage = GalleryImage;
 
 export interface ProductVariant {
   id: string;
@@ -40,7 +40,7 @@ export interface ProductVariant {
 }
 
 export interface ProductDetail extends PublicProduct {
-  images: ProductImage[];
+  images: GalleryImage[];
   variants: ProductVariant[];
   price_tiers?: PriceTier[];
 }
@@ -76,7 +76,6 @@ export interface Section {
   name: string;
   slug: string;
   description: string | null;
-  image_url: string | null;
   sort_order: number;
 }
 

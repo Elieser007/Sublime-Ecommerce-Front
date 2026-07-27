@@ -68,6 +68,59 @@ const columns = [
       </div>
       <form class="modal-form" id="modal-form">
         <input type="hidden" id="modal-id" />
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- SECTION 1: IMAGEN PRINCIPAL                            -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="form-group" id="primary-section">
+          <label class="label-sm">Imagen principal del producto</label>
+          <div class="primary-upload-area" id="primary-upload-area">
+            <div class="primary-preview" id="primary-preview">
+              <div class="primary-empty" id="primary-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <p class="body-md">Arrastra una imagen o haz clic</p>
+                <p class="label-sm">Imagen para el catálogo y búsqueda</p>
+              </div>
+              <img src="" alt="" class="primary-image" id="primary-image" style="display: none;" />
+            </div>
+            <button type="button" class="primary-remove-btn" id="primary-remove" style="display: none;" title="Eliminar imagen principal">✕</button>
+          </div>
+          <input type="file" name="primary-image" id="primary-input" accept="image/png,image/jpeg,image/webp" class="upload-input" />
+          <div class="upload-status" id="primary-upload-status" style="display: none;">
+            <div class="cmyk-bar"><span></span><span></span><span></span></div>
+            <p class="label-sm">Procesando imagen...</p>
+          </div>
+          <div class="upload-info" id="primary-upload-info" style="display: none;">
+            <p class="label-sm" id="primary-upload-info-text"></p>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- SECTION 2: GALERÍA DE IMÁGENES                         -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="form-group" id="gallery-section">
+          <label class="label-sm">Galería de imágenes</label>
+          <div class="gallery-strip-container" id="gallery-strip-container">
+            <div class="gallery-strip" id="gallery-strip"></div>
+            <button type="button" class="gallery-add-btn" id="gallery-add-btn" title="Agregar imagen a galería">
+              <span class="btn-icon">+</span>
+            </button>
+          </div>
+          <input type="file" name="gallery-image" id="gallery-input" accept="image/png,image/jpeg,image/webp" class="upload-input" multiple />
+          <div class="upload-status" id="gallery-upload-status" style="display: none;">
+            <div class="cmyk-bar"><span></span><span></span><span></span></div>
+            <p class="label-sm">Procesando imagen...</p>
+          </div>
+          <div class="upload-info" id="gallery-upload-info" style="display: none;">
+            <p class="label-sm" id="gallery-upload-info-text"></p>
+          </div>
+          <p class="label-sm gallery-count" id="gallery-count"></p>
+        </div>
+
         <div class="form-row">
           <div class="form-group"><label class="label-sm">Nombre *</label><input type="text" name="name" id="modal-name" class="form-input body-md" required /></div>
           <div class="form-group"><label class="label-sm">Slug (URL)</label><input type="text" name="slug" id="modal-slug" class="form-input body-md" placeholder="auto-generado" /></div>
@@ -84,7 +137,7 @@ const columns = [
         <div class="form-error" id="form-error"></div>
         <div class="form-actions">
           <button type="button" class="btn btn--secondary" id="modal-cancel">Cancelar</button>
-          <button type="submit" class="btn btn--primary">Guardar</button>
+          <button type="submit" class="btn btn--primary" id="modal-submit">Guardar</button>
         </div>
       </form>
     </div>
@@ -92,6 +145,25 @@ const columns = [
 
   <!-- Attribute Manager Modal -->
   <AttributeManager productId="" productName="" />
+
+  <!-- Image Delete Confirmation Modal -->
+  <div class="modal-overlay" id="delete-overlay" style="display: none;">
+    <div class="modal modal--confirm">
+      <div class="modal-header">
+        <h3 class="headline-lg-mobile">⚠️ Eliminar imagen</h3>
+        <button class="modal-close" id="delete-cancel-x">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="body-md delete-message">
+          Esta acción no se puede deshacer. La imagen se eliminará permanentemente del almacenamiento.
+        </p>
+        <div class="form-actions">
+          <button class="btn btn--secondary" id="delete-cancel">Cancelar</button>
+          <button class="btn btn--danger" id="delete-confirm">Eliminar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Pricing Modal -->
   <div class="modal-overlay" id="price-overlay" style="display: none;">
@@ -118,6 +190,10 @@ const columns = [
 </AdminLayout>
 
 <script>
+  import { addImage, removeImage } from '../../lib/admin-gallery';
+  import { getImageById, getImageCount } from '../../lib/gallery-utils';
+  import { deleteImage, associateImage } from '../../lib/image-utils';
+
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   const fmt = (c: number) => `₲ ${(c || 0).toLocaleString('es-PY')}`;
 
@@ -130,7 +206,107 @@ const columns = [
 
   const $ = (id: string) => document.getElementById(id);
 
-  // ─── SLUG GENERATION ──────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+  // IMAGE STATE — Two separate sections
+  // ═══════════════════════════════════════════════════════════
+  let primaryImage = {
+    blob: null as Blob | null,
+    url: null as string | null,
+    imageId: null as string | null,
+    isNew: false,
+  };
+
+  let gallery = {
+    images: [] as any[],        // {id, url, alt, is_primary, sort_order}
+    newImages: [] as any[],     // {blob, previewUrl, tempId}
+    deletedIds: [] as string[], // IDs to delete on save
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // DELETE CONFIRMATION — pending delete state
+  // ═══════════════════════════════════════════════════════════
+  type PendingDelete =
+    | { type: 'primary'; imageId: string; imageUrl: string }
+    | { type: 'gallery'; index: number; imageId?: string; imageUrl?: string };
+
+  let pendingDelete: PendingDelete | null = null;
+
+  function extractFilename(url: string): string | null {
+    try {
+      const parts = url.split('/');
+      return parts[parts.length - 1] || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function openDeleteModal(deleteInfo: PendingDelete) {
+    pendingDelete = deleteInfo;
+    $('delete-overlay')!.style.display = '';
+  }
+
+  function closeDeleteModal() {
+    pendingDelete = null;
+    $('delete-overlay')!.style.display = 'none';
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const info = pendingDelete;
+    closeDeleteModal();
+
+    if (info.type === 'primary') {
+      // Delete from DB if exists
+      if (info.imageId && editingProductId) {
+        await deleteImage('products', editingProductId, info.imageId, API_URL);
+      }
+      // Delete from R2 if URL exists
+      const filename = info.imageUrl ? extractFilename(info.imageUrl) : null;
+      if (filename) {
+        await fetch(`${API_URL}/api/upload/${filename}`, {
+          method: 'DELETE', credentials: 'include',
+        });
+      }
+      // Clear UI state
+      primaryImage = { blob: null, url: null, imageId: null, isNew: false };
+      if (primaryUploadInfo) primaryUploadInfo.style.display = 'none';
+      renderPrimary();
+    } else {
+      // Gallery delete — use module for existing images, manual for new
+      const existingCount = gallery.images.length;
+      if (info.index < existingCount) {
+        // Existing image — delete from DB + R2
+        const img = getImageById(gallery.images, gallery.images[info.index].id);
+        if (img?.id && editingProductId) {
+          await deleteImage('products', editingProductId, img.id, API_URL);
+        }
+        const filename = img?.url ? extractFilename(img.url) : null;
+        if (filename) {
+          await fetch(`${API_URL}/api/upload/${filename}`, {
+            method: 'DELETE', credentials: 'include',
+          });
+        }
+        // Use admin-gallery module to remove and reindex
+        gallery.images = removeImage(gallery.images, img!.id);
+      } else {
+        // New image — just remove from state
+        const newIndex = info.index - existingCount;
+        gallery.newImages.splice(newIndex, 1);
+      }
+      gallerySelectedIndex = null;
+      renderGallery();
+    }
+  }
+
+  // Delete modal event listeners
+  $('delete-cancel')?.addEventListener('click', closeDeleteModal);
+  $('delete-cancel-x')?.addEventListener('click', closeDeleteModal);
+  $('delete-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeDeleteModal(); });
+  $('delete-confirm')?.addEventListener('click', confirmDelete);
+
+  // ═══════════════════════════════════════════════════════════
+  // SLUG GENERATION
+  // ═══════════════════════════════════════════════════════════
   function generateSlug(name: string): string {
     return name.toLowerCase()
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -138,11 +314,9 @@ const columns = [
       .replace(/(^-|-$)/g, "");
   }
 
-  // Auto-generate slug from name
   $('modal-name')?.addEventListener('input', (e) => {
     const name = (e.target as HTMLInputElement).value;
     const slugInput = $('modal-slug') as HTMLInputElement;
-    // Only auto-generate if slug is empty or was auto-generated
     if (!slugInput.dataset.manual || slugInput.dataset.manual !== 'true') {
       slugInput.value = generateSlug(name);
     }
@@ -152,7 +326,230 @@ const columns = [
     (e.target as HTMLInputElement).dataset.manual = 'true';
   });
 
-  // ─── LOAD DEPENDENCIES ────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+  // PRIMARY IMAGE — Upload Area
+  // ═══════════════════════════════════════════════════════════
+  const primaryUploadArea = $('primary-upload-area');
+  const primaryInput = $('primary-input') as HTMLInputElement;
+  const primaryImageEl = $('primary-image') as HTMLImageElement;
+  const primaryEmpty = $('primary-empty');
+  const primaryRemove = $('primary-remove');
+  const primaryUploadStatus = $('primary-upload-status');
+  const primaryUploadInfo = $('primary-upload-info');
+  const primaryUploadInfoText = $('primary-upload-info-text');
+
+  function renderPrimary() {
+    const hasImage = primaryImage.blob || primaryImage.url;
+    if (primaryEmpty) primaryEmpty.style.display = hasImage ? 'none' : 'flex';
+    if (primaryImageEl) {
+      if (hasImage) {
+        primaryImageEl.src = primaryImage.blob ? URL.createObjectURL(primaryImage.blob) : (primaryImage.url || '');
+        primaryImageEl.style.display = 'block';
+      } else {
+        primaryImageEl.style.display = 'none';
+      }
+    }
+    if (primaryRemove) primaryRemove.style.display = hasImage ? 'flex' : 'none';
+  }
+
+  async function handlePrimaryFile(file: File) {
+    try {
+      if (primaryUploadStatus) primaryUploadStatus.style.display = 'flex';
+      if (primaryUploadInfo) primaryUploadInfo.style.display = 'none';
+
+      const { processImage, formatFileSize } = await import('/src/lib/image.ts');
+      const processedBlob = await processImage(file);
+
+      primaryImage.blob = processedBlob;
+      primaryImage.isNew = true;
+      primaryImage.url = null;
+
+      if (primaryUploadInfo && primaryUploadInfoText) {
+        const savings = ((1 - processedBlob.size / file.size) * 100).toFixed(0);
+        primaryUploadInfoText.textContent = `WebP procesado: ${formatFileSize(processedBlob.size)} (${savings}% menor que original)`;
+        primaryUploadInfo.style.display = 'block';
+      }
+
+      renderPrimary();
+    } catch (err: any) {
+      alert(err.message || 'Error al procesar la imagen');
+    } finally {
+      if (primaryUploadStatus) primaryUploadStatus.style.display = 'none';
+      if (primaryInput) primaryInput.value = '';
+    }
+  }
+
+  primaryUploadArea?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('.primary-remove-btn')) return;
+    primaryInput.click();
+  });
+
+  primaryInput?.addEventListener('change', () => {
+    const file = primaryInput.files?.[0];
+    if (file) handlePrimaryFile(file);
+  });
+
+  primaryRemove?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (primaryImage.imageId && primaryImage.url) {
+      // Existing image — confirm delete from DB + R2
+      openDeleteModal({ type: 'primary', imageId: primaryImage.imageId, imageUrl: primaryImage.url });
+    } else if (primaryImage.blob) {
+      // New unsaved image — just clear state
+      primaryImage = { blob: null, url: null, imageId: null, isNew: false };
+      if (primaryUploadInfo) primaryUploadInfo.style.display = 'none';
+      renderPrimary();
+    }
+  });
+
+  // Drag & drop for primary
+  primaryUploadArea?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    primaryUploadArea.classList.add('primary-upload-area--dragover');
+  });
+  primaryUploadArea?.addEventListener('dragleave', () => {
+    primaryUploadArea.classList.remove('primary-upload-area--dragover');
+  });
+  primaryUploadArea?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    primaryUploadArea.classList.remove('primary-upload-area--dragover');
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) handlePrimaryFile(file);
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // GALLERY — Horizontal Scrollable Strip
+  // ═══════════════════════════════════════════════════════════
+  const galleryStrip = $('gallery-strip');
+  const galleryInput = $('gallery-input') as HTMLInputElement;
+  const galleryAddBtn = $('gallery-add-btn');
+  const galleryUploadStatus = $('gallery-upload-status');
+  const galleryUploadInfo = $('gallery-upload-info');
+  const galleryUploadInfoText = $('gallery-upload-info-text');
+  const galleryCount = $('gallery-count');
+  const galleryStripContainer = $('gallery-strip-container');
+
+  let gallerySelectedIndex: number | null = null;
+
+  function renderGallery() {
+    const allImages = [...gallery.images, ...gallery.newImages.map((n: any, i: number) => ({
+      id: n.tempId,
+      url: n.previewUrl,
+      isNew: true,
+      tempIndex: i,
+    }))];
+
+    const hasImages = allImages.length > 0;
+
+    // Show/hide strip container
+    if (galleryStripContainer) {
+      galleryStripContainer.style.display = hasImages ? 'flex' : 'flex';
+    }
+
+    // Render thumbnails
+    if (galleryStrip) {
+      galleryStrip.innerHTML = allImages.map((img: any, i: number) => {
+        const isSelected = i === gallerySelectedIndex;
+        return `<div class="gallery-thumb ${isSelected ? 'gallery-thumb--selected' : ''}" data-index="${i}">
+          <img src="${img.url}" alt="" />
+          <div class="gallery-thumb-actions">
+            <button type="button" class="ta-btn ta-btn--delete gallery-remove-btn" data-index="${i}" title="Eliminar">✕</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      // Add click handlers
+      galleryStrip.querySelectorAll('.gallery-thumb').forEach(thumb => {
+        thumb.addEventListener('click', (e) => {
+          if ((e.target as HTMLElement).closest('.gallery-remove-btn')) return;
+          const index = parseInt(thumb.getAttribute('data-index') || '0');
+          gallerySelectedIndex = gallerySelectedIndex === index ? null : index;
+          renderGallery();
+        });
+      });
+
+      // Remove button handlers
+      galleryStrip.querySelectorAll('.gallery-remove-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const index = parseInt(btn.getAttribute('data-index') || '0');
+          removeGalleryImage(index);
+        });
+      });
+    }
+
+    // Update count using gallery-utils
+    if (galleryCount) {
+      const count = getImageCount([...gallery.images, ...gallery.newImages.map((n: any) => ({ id: n.tempId }))]);
+      galleryCount.textContent = `${count} imagen${count !== 1 ? 'es' : ''}`;
+    }
+  }
+
+  function removeGalleryImage(index: number) {
+    const existingCount = gallery.images.length;
+    if (index < existingCount) {
+      // Existing image — confirm delete from DB + R2
+      const img = getImageById(gallery.images, gallery.images[index].id);
+      openDeleteModal({ type: 'gallery', index, imageId: img?.id, imageUrl: img?.url });
+    } else {
+      // New image — just remove from state (never uploaded)
+      const newIndex = index - existingCount;
+      gallery.newImages.splice(newIndex, 1);
+      gallerySelectedIndex = null;
+      renderGallery();
+    }
+  }
+
+  async function handleGalleryFiles(files: FileList) {
+    try {
+      if (galleryUploadStatus) galleryUploadStatus.style.display = 'flex';
+      if (galleryUploadInfo) galleryUploadInfo.style.display = 'none';
+
+      const { processImage, formatFileSize } = await import('/src/lib/image.ts');
+      let totalSaved = 0;
+      let totalOriginal = 0;
+
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue;
+        const processedBlob = await processImage(file);
+        const previewUrl = URL.createObjectURL(processedBlob);
+        const tempId = `new-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+        gallery.newImages.push({
+          blob: processedBlob,
+          previewUrl,
+          tempId,
+          originalName: file.name,
+        });
+
+        totalOriginal += file.size;
+        totalSaved += processedBlob.size;
+      }
+
+      if (galleryUploadInfo && galleryUploadInfoText && totalOriginal > 0) {
+        const savings = ((1 - totalSaved / totalOriginal) * 100).toFixed(0);
+        galleryUploadInfoText.textContent = `${files.length} imagen${files.length !== 1 ? 'es' : ''} procesada${files.length !== 1 ? 's' : ''} a WebP (${savings}% menor)`;
+        galleryUploadInfo.style.display = 'block';
+      }
+
+      renderGallery();
+    } catch (err: any) {
+      alert(err.message || 'Error al procesar imágenes');
+    } finally {
+      if (galleryUploadStatus) galleryUploadStatus.style.display = 'none';
+      if (galleryInput) galleryInput.value = '';
+    }
+  }
+
+  galleryAddBtn?.addEventListener('click', () => galleryInput.click());
+
+  galleryInput?.addEventListener('change', () => {
+    if (galleryInput.files?.length) handleGalleryFiles(galleryInput.files);
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // LOAD DEPENDENCIES
+  // ═══════════════════════════════════════════════════════════
   async function loadDependencies() {
     const [sec, cats, subs] = await Promise.all([
       fetch(`${API_URL}/api/sections`, { credentials: 'include' }).then(r => r.ok ? r.json() : { sections: [] }),
@@ -163,10 +560,7 @@ const columns = [
     categories = cats.categories || [];
     subcategories = subs.subcategories || [];
 
-    // Populate filter selects
     populateSelect('section-filter', sections, 'Todas las secciones');
-
-    // Populate modal section select
     populateSelect('section-select', sections, 'Seleccionar...');
   }
 
@@ -176,7 +570,9 @@ const columns = [
     el.innerHTML = `<option value="">${placeholder}</option>` + data.map((d: any) => `<option value="${d[valueKey]}">${d[labelKey]}</option>`).join('');
   }
 
-  // ─── CASCADE: Section → Category → Subcategory ────────
+  // ═══════════════════════════════════════════════════════════
+  // CASCADE: Section → Category → Subcategory
+  // ═══════════════════════════════════════════════════════════
   function onSectionFilterChange() {
     currentSection = ($('section-filter') as HTMLSelectElement).value;
     currentCategory = '';
@@ -213,7 +609,9 @@ const columns = [
     subSelect.innerHTML = '<option value="">Seleccionar...</option>' + filtered.map((s: any) => `<option value="${s.id}">${s.name}</option>`).join('');
   }
 
-  // ─── LOAD PRODUCTS ────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+  // LOAD PRODUCTS
+  // ═══════════════════════════════════════════════════════════
   async function loadProducts() {
     const tbody = document.querySelector('tbody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Cargando...</td></tr>';
@@ -231,7 +629,6 @@ const columns = [
       items = data.data || [];
       totalItems = data.total || 0;
       totalPages = data.pages || 1;
-      // Load attribute counts for each product
       await loadAttributeCounts();
       render();
     } catch { if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Error</td></tr>'; }
@@ -287,7 +684,9 @@ const columns = [
     ($('next') as HTMLButtonElement).disabled = currentPage >= totalPages;
   }
 
-  // ─── PRODUCT MODAL ────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+  // PRODUCT MODAL
+  // ═══════════════════════════════════════════════════════════
   function openModal(isEdit: boolean, product?: any) {
     const form = $('modal-form') as HTMLFormElement;
     form.reset();
@@ -295,6 +694,17 @@ const columns = [
     $('modal-title')!.textContent = isEdit ? 'Editar Producto' : 'Nuevo Producto';
     ($('modal-id') as HTMLInputElement).value = product?.id || '';
     editingProductId = product?.id || null;
+
+    // Reset primary image state
+    primaryImage = { blob: null, url: null, imageId: null, isNew: false };
+    renderPrimary();
+    if (primaryUploadInfo) primaryUploadInfo.style.display = 'none';
+
+    // Reset gallery state
+    gallery = { images: [], newImages: [], deletedIds: [] };
+    gallerySelectedIndex = null;
+    renderGallery();
+    if (galleryUploadInfo) galleryUploadInfo.style.display = 'none';
 
     // Reset slug manual flag
     const slugInput = $('modal-slug') as HTMLInputElement;
@@ -310,19 +720,59 @@ const columns = [
       slugInput.dataset.manual = 'true';
       form.description.value = product.description || '';
       form.basePrice.value = product.base_price || '';
-      // Set section and cascade
       ($('section-select') as HTMLSelectElement).value = product.section_id || '';
       onSectionSelectChange();
       ($('category-select') as HTMLSelectElement).value = product.category_id || '';
       onCategorySelectChange();
       ($('subcategory-select') as HTMLSelectElement).value = product.subcategory_id || '';
+
+      loadProductImages(product.id);
     }
     $('modal-overlay')!.style.display = '';
   }
 
-  function closeModal() { $('modal-overlay')!.style.display = 'none'; }
+  async function loadProductImages(productId: string) {
+    try {
+      const res = await fetch(`${API_URL}/api/products/${productId}`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const images = data.product?.images || [];
 
-  // ─── PRICING MODAL ────────────────────────────────────
+      // Separate primary from gallery using gallery-utils
+      const primaryImg = images.find((img: any) => img.is_primary === 1 || img.is_primary === true);
+      const galleryImgs = images.filter((img: any) => img.is_primary !== 1 && img.is_primary !== true)
+        .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+
+      // Set primary image
+      if (primaryImg) {
+        primaryImage.url = primaryImg.url;
+        primaryImage.imageId = primaryImg.id;
+        primaryImage.isNew = false;
+      }
+
+      // Set gallery images — use admin-gallery to ensure correct sort_order
+      gallery.images = galleryImgs.map((img: any, i: number) => ({
+        id: img.id,
+        url: img.url,
+        alt: img.alt || '',
+        is_primary: img.is_primary,
+        sort_order: img.sort_order ?? i,
+      }));
+
+      renderPrimary();
+      renderGallery();
+    } catch {
+      // Silently fail — image preview is non-critical
+    }
+  }
+
+  function closeModal() {
+    $('modal-overlay')!.style.display = 'none';
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // PRICING MODAL
+  // ═══════════════════════════════════════════════════════════
   async function openPricing(productId: string) {
     pricingProductId = productId;
     const product = items.find((p: any) => p.id === productId);
@@ -352,8 +802,9 @@ const columns = [
 
   function closePricingModal() { $('price-overlay')!.style.display = 'none'; pricingProductId = null; }
 
-  // ─── EVENT LISTENERS ──────────────────────────────────
-  // Filters
+  // ═══════════════════════════════════════════════════════════
+  // EVENT LISTENERS
+  // ═══════════════════════════════════════════════════════════
   let searchTimeout: any;
   $('search')?.addEventListener('input', (e) => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadProducts(); }, 300); });
   $('section-filter')?.addEventListener('change', onSectionFilterChange);
@@ -363,37 +814,127 @@ const columns = [
   $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadProducts(); } });
   $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadProducts(); } });
 
-  // Modal cascade
   $('section-select')?.addEventListener('change', onSectionSelectChange);
   $('category-select')?.addEventListener('change', onCategorySelectChange);
 
-  // Modal open/close
   $('add-product')?.addEventListener('click', () => openModal(false));
   $('modal-close')?.addEventListener('click', closeModal);
   $('modal-cancel')?.addEventListener('click', closeModal);
   $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
 
-  // Product save
+  // ═══════════════════════════════════════════════════════════
+  // FORM SUBMIT — Upload primary + gallery + create/update product
+  // ═══════════════════════════════════════════════════════════
   $('modal-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const id = ($('modal-id') as HTMLInputElement).value;
     const isEdit = !!id;
     const slug = ($('modal-slug') as HTMLInputElement).value.trim();
-    const body: any = {
-      name: form.name.value,
-      description: form.description.value || null,
-      sectionId: form.sectionId.value,
-      categoryId: form.categoryId.value,
-      subcategoryId: form.subcategoryId.value || null,
-      basePrice: parseInt(form.basePrice.value) || 0,
-    };
-    if (slug) body.slug = slug;
-    const res = await fetch(isEdit ? `${API_URL}/api/products/${id}` : `${API_URL}/api/products`, {
-      method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
-    });
-    if (!res.ok) { const err = await res.json(); $('form-error')!.textContent = err.error || 'Error'; return; }
-    closeModal(); loadProducts();
+    const submitBtn = $('modal-submit') as HTMLButtonElement;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Guardando...';
+
+    try {
+      // Step 1: Upload primary image if new
+      let primaryUrl: string | null = primaryImage.url;
+      if (primaryImage.isNew && primaryImage.blob) {
+        const formData = new FormData();
+        const fileName = 'primary.webp';
+        formData.append('image', new File([primaryImage.blob], fileName, { type: 'image/webp' }));
+
+        const uploadRes = await fetch(`${API_URL}/api/upload`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({}));
+          $('form-error')!.textContent = err.error || 'Error al subir la imagen principal';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Guardar';
+          return;
+        }
+
+        const uploadData = await uploadRes.json();
+        primaryUrl = uploadData.url;
+      }
+
+      // Step 2: Create or update product
+      const body: any = {
+        name: form.name.value,
+        description: form.description.value || null,
+        sectionId: form.sectionId.value,
+        categoryId: form.categoryId.value,
+        subcategoryId: form.subcategoryId.value || null,
+        basePrice: parseInt(form.basePrice.value) || 0,
+      };
+      if (slug) body.slug = slug;
+
+      const res = await fetch(isEdit ? `${API_URL}/api/products/${id}` : `${API_URL}/api/products`, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        $('form-error')!.textContent = err.error || 'Error';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Guardar';
+        return;
+      }
+
+      const productResult = await res.json();
+      const productId = productResult.product?.id || id;
+
+      // Step 3: Associate primary image
+      if (primaryUrl && productId) {
+        if (primaryImage.isNew) {
+          // New primary image — associate it
+          await associateImage('products', productId, primaryUrl, API_URL, undefined, { is_primary: 1, sort_order: 0 });
+        }
+        // If not new, primary image is already associated — nothing to do
+      }
+
+      // Step 4: Upload and associate new gallery images — use admin-gallery for sort_order
+      let currentImages = [...gallery.images];
+      for (const newImg of gallery.newImages) {
+        const formData = new FormData();
+        const fileName = newImg.originalName?.replace(/\.[^.]+$/, '.webp') || 'gallery.webp';
+        formData.append('image', new File([newImg.blob], fileName, { type: 'image/webp' }));
+
+        const uploadRes = await fetch(`${API_URL}/api/upload`, {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          // Use admin-gallery module to add with correct sort_order
+          const tempImage = { id: `temp-${Date.now()}`, url: uploadData.url, alt: '', is_primary: false, sort_order: 0 };
+          currentImages = addImage(currentImages, tempImage);
+          const sortOrder = currentImages[currentImages.length - 1].sort_order;
+
+          await associateImage('products', productId, uploadData.url, API_URL, '', { is_primary: 0, sort_order: sortOrder });
+        }
+      }
+
+      // Step 5: Delete removed gallery images
+      // (Handled immediately on X click via delete modal — no batch delete on save)
+
+      closeModal();
+      loadProducts();
+    } catch (err: any) {
+      $('form-error')!.textContent = err.message || 'Error al guardar';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Guardar';
+    }
   });
 
   // Pricing modal
@@ -430,7 +971,9 @@ const columns = [
 
   (window as any).openPricing = openPricing;
 
-  // ─── ATTRIBUTE MANAGER ──────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+  // ATTRIBUTE MANAGER
+  // ═══════════════════════════════════════════════════════════
   let attributeManagerProductId: string | null = null;
 
   (window as any).openAttributeManager = (id: string, name: string) => {
@@ -438,11 +981,9 @@ const columns = [
     const overlay = document.getElementById('attr-overlay');
     if (overlay) {
       overlay.dataset.productId = id;
-      // Update product name in modal
       const title = overlay.querySelector('h3');
       if (title) title.textContent = `Atributos — ${name}`;
       overlay.style.display = '';
-      // Trigger load via custom event
       window.dispatchEvent(new CustomEvent('open-attributes', { detail: { productId: id } }));
     }
   };
@@ -517,4 +1058,194 @@ const columns = [
   .attr-badge { display: inline-flex; align-items: center; padding: 4px 10px; font-family: 'Space Mono', monospace; font-size: 11px; color: #d5ca00; background: rgba(213, 202, 0, 0.1); border: 1px solid rgba(213, 202, 0, 0.3); border-radius: 0px; }
   :global(.ta-btn--attr) { background: rgba(213, 202, 0, 0.08); border-color: rgba(213, 202, 0, 0.2); color: #d5ca00; }
   :global(.ta-btn--attr:hover) { background: rgba(213, 202, 0, 0.15); border-color: rgba(213, 202, 0, 0.5); }
+
+  /* Hidden Upload Input */
+  .upload-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+  /* Upload Status */
+  .upload-status { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
+  .upload-status p { color: #bdc8d1; }
+  .upload-info { padding: 8px 12px; background: rgba(130, 207, 255, 0.1); border: 1px solid rgba(130, 207, 255, 0.3); }
+  .upload-info p { color: #82cfff; }
+  .cmyk-bar { display: flex; gap: 4px; }
+  .cmyk-bar span { flex: 1; height: 3px; background: #82cfff; animation: cmyk-pulse 1.2s ease-in-out infinite; }
+  .cmyk-bar span:nth-child(2) { background: #ffb4ab; animation-delay: 0.2s; }
+  .cmyk-bar span:nth-child(3) { background: #d5ca00; animation-delay: 0.4s; }
+  @keyframes cmyk-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+  /* ═══════════════════════════════════════════════════════════ */
+  /* PRIMARY IMAGE — Upload Area                                */
+  /* ═══════════════════════════════════════════════════════════ */
+  .primary-upload-area {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 1;
+    max-height: 320px;
+    background: rgba(31, 31, 31, 0.5);
+    border: 2px dashed rgba(62, 72, 80, 0.5);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    overflow: hidden;
+  }
+  .primary-upload-area:hover {
+    border-color: #82cfff;
+    background: rgba(130, 207, 255, 0.03);
+  }
+  .primary-upload-area--dragover {
+    border-color: #82cfff;
+    background: rgba(130, 207, 255, 0.08);
+  }
+  .primary-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+  .primary-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: #bdc8d1;
+  }
+  .primary-empty svg { opacity: 0.4; }
+  .primary-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .primary-remove-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 180, 171, 0.15);
+    border: 1px solid rgba(255, 180, 171, 0.4);
+    color: #ffb4ab;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s ease;
+    z-index: 2;
+  }
+  .primary-remove-btn:hover {
+    background: rgba(255, 180, 171, 0.3);
+    border-color: #ffb4ab;
+  }
+
+  /* ═══════════════════════════════════════════════════════════ */
+  /* GALLERY — Horizontal Scrollable Strip                      */
+  /* ═══════════════════════════════════════════════════════════ */
+  .gallery-strip-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0;
+    scroll-behavior: smooth;
+  }
+  .gallery-strip-container::-webkit-scrollbar { height: 4px; }
+  .gallery-strip-container::-webkit-scrollbar-track { background: rgba(31, 31, 31, 0.5); }
+  .gallery-strip-container::-webkit-scrollbar-thumb { background: rgba(130, 207, 255, 0.3); }
+
+  .gallery-strip {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .gallery-thumb {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+    background: rgba(31, 31, 31, 0.5);
+    border: 2px solid rgba(62, 72, 80, 0.3);
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+  .gallery-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .gallery-thumb:hover {
+    border-color: rgba(130, 207, 255, 0.5);
+  }
+  .gallery-thumb--selected {
+    border-color: #82cfff;
+    box-shadow: 0 0 0 2px rgba(130, 207, 255, 0.3);
+  }
+
+  .gallery-thumb-actions {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .gallery-thumb:hover .gallery-thumb-actions {
+    opacity: 1;
+  }
+  .gallery-thumb-actions .ta-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+
+  .gallery-add-btn {
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+    background: transparent;
+    border: 2px dashed rgba(62, 72, 80, 0.5);
+    color: #bdc8d1;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .gallery-add-btn:hover {
+    border-color: #82cfff;
+    color: #82cfff;
+    background: rgba(130, 207, 255, 0.05);
+  }
+
+  .gallery-count {
+    color: #bdc8d1;
+    margin-top: 4px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════ */
+  /* DELETE CONFIRMATION MODAL                                   */
+  /* ═══════════════════════════════════════════════════════════ */
+  .modal--confirm {
+    max-width: 420px;
+  }
+  .delete-message {
+    color: #bdc8d1;
+    line-height: 1.6;
+    padding: 8px 0;
+  }
+  :global(.btn--danger) {
+    background-color: rgba(255, 180, 171, 0.15);
+    color: #ffb4ab;
+    border: 1px solid rgba(255, 180, 171, 0.5);
+  }
+  :global(.btn--danger:hover) {
+    background-color: rgba(255, 180, 171, 0.25);
+  }
 </style>
