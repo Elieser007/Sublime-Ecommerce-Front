@@ -731,13 +731,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       .ribbon-title { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
       .ribbon-desc { font-size: 12px; opacity: 0.8; white-space: nowrap; }
 
-  .admin-layout { display: grid; grid-template-columns: 1fr; min-height: calc(100vh - 72px); }
-  @media (min-width: 768px) { .admin-layout { grid-template-columns: 260px 1fr; } }
-  .admin-main { padding: var(--space-2xl); overflow-y: auto; }
-  .admin-header { margin-bottom: var(--space-2xl); }
-  .admin-header h1 { color: var(--on-surface); margin-bottom: var(--space-sm); }
-  .admin-subtitle { color: var(--on-surface-variant); }
-
+  /* ─── Promo Layout ──────────────────────────────────────── */
   .promo-layout { display: grid; grid-template-columns: 1fr; gap: var(--space-2xl); }
   @media (min-width: 1024px) { .promo-layout { grid-template-columns: 300px 1fr; } }
 
@@ -754,7 +748,6 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
   }
   .section-card:hover { border-color: var(--primary); }
   .section-card.active { border-color: var(--primary); background: var(--surface-container-high); }
-
 
   .section-card-slug {
     color: var(--primary);
@@ -775,13 +768,6 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
   .type-info-desc {
     color: var(--on-surface-variant);
     line-height: 1.5;
-  }
-
-    color: var(--on-surface-variant);
-    font-size: 11px;
-    margin-top: var(--space-sm);
-    line-height: 1.4;
-    opacity: 0.8;
   }
 
   .section-card-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
@@ -864,54 +850,10 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
   .promo-card-actions { display: flex; gap: 6px; opacity: 0.6; transition: opacity 0.2s; }
   .promo-card:hover .promo-card-actions { opacity: 1; }
 
-  /* Modal */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
-    z-index: 300; display: flex; align-items: center; justify-content: center; padding: 24px;
-  }
-  .modal {
-    background: var(--surface-dim); border: var(--border-width) solid var(--outline-variant);
-    width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
-  }
-  .modal--wide { max-width: 600px; }
-  .modal-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: var(--space-lg); border-bottom: var(--border-width) solid var(--outline-variant);
-  }
-  .modal-header h3 { color: var(--on-surface); }
-  .modal-close {
-    background: none; border: 1px solid var(--outline-variant); width: 36px; height: 36px;
-    color: var(--on-surface-variant); cursor: pointer; font-size: 18px;
-  }
-  .modal-form { padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md); }
-  .form-row { display: flex; gap: var(--space-md); }
-  .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  /* Promo-specific form overrides */
   .form-group--wide { flex: 2; }
-  .form-group label { color: var(--on-surface-variant); font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .form-input, .form-select {
-    padding: 10px 12px; background: var(--surface-container-high); border: var(--border-width) solid var(--outline-variant);
-    color: var(--on-surface); font-family: var(--font-body); font-size: 14px; border-radius: 0;
-  }
-  .form-input:focus, .form-select:focus { outline: none; border-color: var(--primary); }
   .image-preview { margin-top: var(--space-sm); border: 1px solid var(--outline-variant); overflow: hidden; max-height: 160px; }
   .image-preview img { width: 100%; height: auto; max-height: 160px; object-fit: cover; }
-  .form-error { color: var(--error); font-size: 14px; min-height: 20px; }
-  .form-actions { display: flex; gap: 12px; justify-content: flex-end; padding-top: var(--space-md); border-top: var(--border-width) solid var(--outline-variant); }
-
-  /* Reuse global styles */
-  :global(.btn) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 0; cursor: pointer; transition: all 0.2s; }
-  :global(.btn--primary) { background: rgba(130,207,255,0.1); color: var(--primary); border: 1px solid rgba(130,207,255,0.5); }
-  :global(.btn--primary:hover) { background: rgba(130,207,255,0.2); }
-  :global(.btn--secondary) { background: transparent; color: var(--on-surface); border: 1px solid var(--outline-variant); }
-  :global(.btn--secondary:hover) { background: rgba(255,255,255,0.05); }
-  :global(.slug-badge) { display: inline-block; padding: 2px 8px; background: var(--surface-container-high); border: 1px solid var(--outline-variant); color: var(--on-surface-variant); font-family: var(--font-mono); font-size: 10px; }
-  :global(.badge) { display: inline-flex; align-items: center; padding: 3px 10px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
-  :global(.badge--active) { background: rgba(130,207,255,0.1); color: var(--primary); border: 1px solid rgba(130,207,255,0.3); }
-  :global(.ta-btn) { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; background: rgba(130,207,255,0.08); border: 1px solid rgba(130,207,255,0.2); color: var(--primary); cursor: pointer; font-size: 14px; }
-  :global(.ta-btn:hover) { background: rgba(130,207,255,0.15); transform: scale(1.1); }
-  :global(.ta-btn--delete) { background: rgba(255,180,171,0.08); border-color: rgba(255,180,171,0.2); color: var(--error); }
-  :global(.ta-btn--delete:hover) { background: rgba(255,180,171,0.15); }
-
 
   .type-hint {
     color: var(--on-surface-variant);
@@ -1019,24 +961,4 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     z-index: 5;
   }
   .promo-remove-btn:hover { background: var(--error); }
-  .upload-input { display: none; }
-  .upload-status {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-sm);
-    color: var(--primary);
-    font-size: 12px;
-  }
-
-  /* Modal confirm */
-  .modal--confirm { max-width: 400px; }
-  .modal-body { padding: var(--space-lg); }
-  .modal-body p { color: var(--on-surface-variant); margin-bottom: var(--space-md); }
-  .btn--danger {
-    background: rgba(255, 180, 171, 0.15);
-    color: var(--error);
-    border: 1px solid rgba(255, 180, 171, 0.5);
-  }
-  .btn--danger:hover { background: rgba(255, 180, 171, 0.25); }
 </style>
