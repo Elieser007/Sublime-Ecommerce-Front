@@ -8,6 +8,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
 import AttributeManager from '../../components/admin/AttributeManager.astro';
+import Button from '../../components/Button.astro';
 
 const columns = [
   { key: 'name', label: 'Nombre' },
@@ -44,7 +45,7 @@ const columns = [
             <option value="">Todos</option><option value="1">Activos</option><option value="0">Inactivos</option>
           </select>
         </div>
-        <button class="btn btn--primary" id="add-product"><span class="btn-icon">+</span> Nuevo</button>
+        <Button variant="primary" id="add-product">+ Nuevo</Button>
       </div>
 
       <DataTable columns={columns}>
@@ -54,9 +55,9 @@ const columns = [
       <div class="pagination-bar">
         <span class="body-md" id="showing">Mostrando 0 de 0</span>
         <div class="page-nav">
-          <button class="btn btn--secondary" id="prev" disabled>Anterior</button>
+          <Button variant="secondary" id="prev" disabled>Anterior</Button>
           <span class="body-md" id="page-info">Página 1 de 1</span>
-          <button class="btn btn--secondary" id="next" disabled>Siguiente</button>
+          <Button variant="secondary" id="next" disabled>Siguiente</Button>
         </div>
       </div>
     </main>
@@ -139,8 +140,8 @@ const columns = [
         </div>
         <div class="form-error" id="form-error"></div>
         <div class="form-actions">
-          <button type="button" class="btn btn--secondary" id="modal-cancel">Cancelar</button>
-          <button type="submit" class="btn btn--primary" id="modal-submit">Guardar</button>
+          <Button variant="secondary" id="modal-cancel">Cancelar</Button>
+          <Button variant="primary" id="modal-submit" type="submit">Guardar</Button>
         </div>
       </form>
     </div>
@@ -161,8 +162,8 @@ const columns = [
           Esta acción no se puede deshacer. La imagen se eliminará permanentemente del almacenamiento.
         </p>
         <div class="form-actions">
-          <button class="btn btn--secondary" id="delete-cancel">Cancelar</button>
-          <button class="btn btn--danger" id="delete-confirm">Eliminar</button>
+          <Button variant="secondary" id="delete-cancel">Cancelar</Button>
+          <Button variant="danger" id="delete-confirm">Eliminar</Button>
         </div>
       </div>
     </div>
@@ -180,13 +181,13 @@ const columns = [
         <div class="price-form-row">
           <input type="number" id="price-min-qty" class="form-input body-md" placeholder="Cant. mín." min="1" value="1" />
           <input type="number" id="price-value" class="form-input body-md" placeholder="Precio (Gs.)" min="0" />
-          <button class="btn btn--primary" id="add-price-btn"><span class="btn-icon">+</span> Agregar</button>
+          <Button variant="primary" id="add-price-btn">+ Agregar</Button>
         </div>
         <table class="prices-table">
           <thead><tr><th class="label-sm">Desde Cant.</th><th class="label-sm">Precio</th><th class="label-sm">Acciones</th></tr></thead>
           <tbody id="prices-tbody"></tbody>
         </table>
-        <div class="form-actions"><button type="button" class="btn btn--secondary" id="price-modal-cancel">Cerrar</button></div>
+        <div class="form-actions"><Button variant="secondary" id="price-modal-cancel">Cerrar</Button></div>
       </div>
     </div>
   </div>
@@ -201,8 +202,9 @@ const columns = [
       <div class="modal-body">
         <p class="body-md" id="status-modal-message"></p>
         <div class="form-actions">
-          <button class="btn btn--secondary" id="status-cancel">Cancelar</button>
-          <button class="btn btn--primary" id="status-confirm">Confirmar</button>
+          <Button variant="secondary" id="status-cancel">Cancelar</Button>
+          <Button variant="primary" id="status-confirm-activate" style="display: none;">Reactivar</Button>
+          <Button variant="danger" id="status-confirm-deactivate">Desactivar</Button>
         </div>
       </div>
     </div>
@@ -663,7 +665,7 @@ const columns = [
         const rowClass = isActive ? '' : 'row--inactive';
         const statusAction = isActive
           ? `<button class="ta-btn ta-btn--delete" onclick="confirmToggleStatus('${p.id}', '${p.name.replace(/'/g, "\\'")}', false)" title="Desactivar">🗑️</button>`
-          : `<button class="ta-btn ta-btn--reactivate" onclick="confirmToggleStatus('${p.id}', '${p.name.replace(/'/g, "\\'")}', true)" title="Reactivar">🔄</button>`;
+          : `<button class="ta-btn ta-btn--warning" onclick="confirmToggleStatus('${p.id}', '${p.name.replace(/'/g, "\\'")}', true)" title="Reactivar">🔄</button>`;
         return `<tr class="${rowClass}">
           <td data-label="Nombre"><strong>${p.name}</strong></td>
           <td data-label="Slug"><code class="slug-display">${p.slug || '—'}</code></td>
@@ -969,14 +971,14 @@ const columns = [
 
   (window as any).confirmToggleStatus = (id: string, name: string, activate: boolean) => {
     pendingStatusToggle = { id, name, activate };
-    const action = activate ? 'reactivar' : 'desactivar';
     $('status-modal-title')!.textContent = activate ? '🔄 Reactivar producto' : '⚠️ Desactivar producto';
     $('status-modal-message')!.textContent = activate
       ? `¿Reactivar "${name}"? El producto volverá a estar visible en la tienda.`
       : `¿Desactivar "${name}"? El producto dejará de aparecer en la tienda.`;
-    const confirmBtn = $('status-confirm') as HTMLButtonElement;
-    confirmBtn.className = activate ? 'btn btn--primary' : 'btn btn--danger';
-    confirmBtn.textContent = activate ? 'Reactivar' : 'Desactivar';
+    const activateBtn = $('status-confirm-activate') as HTMLElement;
+    const deactivateBtn = $('status-confirm-deactivate') as HTMLElement;
+    if (activateBtn) activateBtn.style.display = activate ? '' : 'none';
+    if (deactivateBtn) deactivateBtn.style.display = activate ? 'none' : '';
     $('status-overlay')!.style.display = '';
   };
 
@@ -995,7 +997,8 @@ const columns = [
     if (res.ok) loadProducts();
   }
 
-  $('status-confirm')?.addEventListener('click', executeStatusToggle);
+  $('status-confirm-activate')?.addEventListener('click', executeStatusToggle);
+  $('status-confirm-deactivate')?.addEventListener('click', executeStatusToggle);
   $('status-cancel')?.addEventListener('click', () => { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; });
   $('status-cancel-x')?.addEventListener('click', () => { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; });
   $('status-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; } });
@@ -1201,15 +1204,4 @@ const columns = [
   /* ═══════════════════════════════════════════════════════════ */
   tr.row--inactive { opacity: 0.55; }
   tr.row--inactive:hover { opacity: 0.85; }
-  .ta-btn--reactivate {
-    background: rgba(76, 175, 80, 0.12);
-    border: 1px solid rgba(76, 175, 80, 0.4);
-    color: #4caf50;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  .ta-btn--reactivate:hover {
-    background: rgba(76, 175, 80, 0.25);
-    border-color: #4caf50;
-  }
 </style>

@@ -5,6 +5,7 @@
  * Can be used as a tab or separate section in admin.
  * Manages hierarchical attribute dependencies.
  */
+import Button from '../Button.astro';
 
 interface Props {
   productId?: string;
@@ -54,7 +55,7 @@ const { productId } = Astro.props;
     <div class="form-error" id="standalone-dep-error"></div>
     
     <div class="form-actions">
-      <button type="submit" class="btn btn--primary">Guardar Dependencia</button>
+      <Button variant="primary" type="submit">Guardar Dependencia</Button>
     </div>
   </form>
 
@@ -231,16 +232,6 @@ const { productId } = Astro.props;
   .dep-info strong {
     color: var(--primary);
     font-weight: 500;
-  }
-
-  :global(.btn--danger) {
-    background-color: rgba(255, 180, 171, 0.08);
-    color: var(--error);
-    border: 1px solid rgba(255, 180, 171, 0.3);
-  }
-
-  :global(.btn--danger:hover) {
-    background-color: rgba(255, 180, 171, 0.15);
   }
 </style>
 

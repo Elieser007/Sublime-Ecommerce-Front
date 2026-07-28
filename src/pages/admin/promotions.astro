@@ -7,6 +7,7 @@
  */
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
+import Button from '../../components/Button.astro';
 import PromotionWall from '../../components/PromotionWall.astro';
 import HeroPromo from '../../components/promo/HeroPromo.astro';
 import CarouselPromo from '../../components/promo/CarouselPromo.astro';
@@ -50,7 +51,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
                 <option value="banner">Banner — Franja de texto</option>
                 <option value="ribbon">Ribbon — Cinta horizontal</option>
               </select>
-              <button class="btn btn--primary" id="add-promo-btn">+ Nuevo Anuncio</button>
+              <Button variant="primary" id="add-promo-btn">+ Nuevo Anuncio</Button>
             </div>
           </div>
 
@@ -85,8 +86,8 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
           <div class="modal-body">
             <p class="body-md">Esta acción no se puede deshacer. La imagen se eliminará permanentemente.</p>
             <div class="form-actions">
-              <button class="btn btn--secondary" id="delete-cancel">Cancelar</button>
-              <button class="btn btn--danger" id="delete-confirm">Eliminar</button>
+              <Button variant="secondary" id="delete-cancel">Cancelar</Button>
+              <Button variant="danger" id="delete-confirm">Eliminar</Button>
             </div>
           </div>
         </div>
@@ -164,8 +165,8 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 
         <div class="form-error" id="form-error"></div>
         <div class="form-actions">
-          <button type="button" class="btn btn--secondary" id="modal-cancel">Cancelar</button>
-          <button type="submit" class="btn btn--primary">Guardar</button>
+          <Button variant="secondary" type="button" id="modal-cancel">Cancelar</Button>
+          <Button variant="primary" type="submit">Guardar</Button>
         </div>
       </form>
     </div>

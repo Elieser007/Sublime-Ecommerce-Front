@@ -6,6 +6,7 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
+import Button from '../../components/Button.astro';
 
 const columns = [
   { key: 'id', label: 'ID', width: '80px' },
@@ -57,9 +58,9 @@ const columns = [
       <div class="pagination-bar">
         <span class="body-md" id="showing">Mostrando 0 de 0</span>
         <div class="page-nav">
-          <button class="btn btn--secondary" id="prev" disabled>Anterior</button>
+          <Button variant="secondary" id="prev" disabled>Anterior</Button>
           <span class="body-md" id="page-info">Página 1 de 1</span>
-          <button class="btn btn--secondary" id="next" disabled>Siguiente</button>
+          <Button variant="secondary" id="next" disabled>Siguiente</Button>
         </div>
       </div>
     </main>
@@ -93,8 +94,8 @@ const columns = [
           <div class="form-group"><label class="label-sm">Agregar Nota</label><input type="text" id="notes-input" class="form-input body-md" placeholder="Nota adicional..." /></div>
           <div class="form-error" id="form-error"></div>
           <div class="form-actions">
-            <button type="button" class="btn btn--secondary" id="modal-cancel">Cerrar</button>
-            <button type="submit" class="btn btn--primary">Guardar Estado</button>
+            <Button variant="secondary" type="button" id="modal-cancel">Cerrar</Button>
+            <Button variant="primary" type="submit">Guardar Estado</Button>
           </div>
         </form>
       </div>

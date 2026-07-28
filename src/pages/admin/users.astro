@@ -6,6 +6,7 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
+import Button from '../../components/Button.astro';
 
 const columns = [
   { key: 'avatar', label: '', width: '48px' },
@@ -42,9 +43,7 @@ const columns = [
             <option value="100">100</option>
           </select>
         </div>
-        <button class="btn btn--primary" id="add-user">
-          <span class="btn-icon">+</span> Nuevo
-        </button>
+        <Button variant="primary" id="add-user">+ Nuevo</Button>
       </div>
 
       <DataTable columns={columns}>
@@ -54,9 +53,9 @@ const columns = [
       <div class="pagination-bar">
         <span class="body-md" id="showing">Mostrando 0 de 0</span>
         <div class="page-nav">
-          <button class="btn btn--secondary" id="prev" disabled>Anterior</button>
+          <Button variant="secondary" id="prev" disabled>Anterior</Button>
           <span class="body-md" id="page-info">Página 1 de 1</span>
-          <button class="btn btn--secondary" id="next" disabled>Siguiente</button>
+          <Button variant="secondary" id="next" disabled>Siguiente</Button>
         </div>
       </div>
     </main>
@@ -119,8 +118,8 @@ const columns = [
         </div>
         <div class="form-error" id="form-error"></div>
         <div class="form-actions">
-          <button type="button" class="btn btn--secondary" id="modal-cancel">Cancelar</button>
-          <button type="submit" class="btn btn--primary">Guardar</button>
+          <Button variant="secondary" id="modal-cancel">Cancelar</Button>
+          <Button variant="primary" type="submit">Guardar</Button>
         </div>
       </form>
     </div>

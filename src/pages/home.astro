@@ -9,6 +9,7 @@
 import { formatPrice, getProductImageUrl } from '../lib/public-api';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Chip from '../components/Chip.astro';
+import Button from '../components/Button.astro';
 
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 
@@ -38,10 +39,10 @@ try {
           Productos únicos para mentes creativas. Calidad que se nota, estilo que se siente.
         </p>
         <div class="hero-actions">
-          <a href="/" class="btn btn--primary">Ver Catálogo</a>
-          <a href="https://wa.me/595991969608" class="btn btn--secondary" target="_blank" rel="noopener">
+          <Button href="/" variant="primary">Ver Catálogo</Button>
+          <Button href="https://wa.me/595991969608" variant="secondary" target="_blank" rel="noopener">
             Contactar por WhatsApp
-          </a>
+          </Button>
         </div>
       </div>
 
