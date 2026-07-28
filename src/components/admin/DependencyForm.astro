@@ -386,7 +386,7 @@ const { productId } = Astro.props;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ parentModuleId, parentValueId, childModuleId, childValueId }),
+        body: JSON.stringify({ parent_module_id: parentModuleId, parent_value_id: parentValueId, child_module_id: childModuleId, child_value_id: childValueId }),
       });
     }
 

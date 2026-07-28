@@ -241,7 +241,23 @@ tr:hover .cell-actions {
 /* All button styles are now scoped in Button.astro */
 /* .btn, .btn--primary, .btn--secondary, .btn--danger defined there */
 
-/* ─── Table Action Buttons ───────────────────────────────────── */
+/* ─── Table Action Buttons ─────────────────────────────────────
+   DUPLICATE STYLE SYSTEM — by design, not a bug.
+   
+   These global styles serve JS template literals in admin pages that
+   cannot use Astro components (products.astro, users.astro, etc.).
+   
+   TableAction.astro defines its own scoped styles (.ta-btn--danger,
+   .ta-btn--warning) for Astro-rendered buttons. Scoped styles NEVER
+   apply to JS-rendered elements — that's CSS scoping 101.
+   
+   NAMING CONVENTION:
+   - Semantic names (delete/price/attr): used in JS template literals
+   - Generic names (danger/warning): used in Astro components
+   - Both map to the same visual: delete=danger, price=warning, attr=warning
+   
+   Keep both systems in sync when changing colors or variants.
+   ═══════════════════════════════════════════════════════════════ */
 .ta-btn {
   display: inline-flex;
   align-items: center;
@@ -262,6 +278,17 @@ tr:hover .cell-actions {
   border-color: rgba(130, 207, 255, 0.5);
   transform: scale(1.1);
 }
+/* Warning variant — used in JS template literals (products.astro) */
+.ta-btn--warning {
+  background: rgba(213, 202, 0, 0.08);
+  border-color: rgba(213, 202, 0, 0.2);
+  color: #d5ca00;
+}
+.ta-btn--warning:hover {
+  background: rgba(213, 202, 0, 0.15);
+  border-color: rgba(213, 202, 0, 0.5);
+}
+/* Semantic aliases — backward compatible with existing JS templates */
 .ta-btn--price {
   background: rgba(213, 202, 0, 0.08);
   border-color: rgba(213, 202, 0, 0.2);

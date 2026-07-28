@@ -35,13 +35,13 @@ const variantClass = `ta-btn--${variant}`;
 ---
 
 <button
+  {...rest}
   class:list={['ta-btn', variantClass, className]}
   title={title}
   type="button"
   aria-label={title || undefined}
   disabled={disabled}
   onclick={onClick}
-  {...rest}
 >
   {icon ? (
     <span class="material-symbols-outlined ta-icon">{icon}</span>
