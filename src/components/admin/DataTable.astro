@@ -61,7 +61,7 @@ const { columns, emptyMessage = 'No hay datos' } = Astro.props;
   :global(th) {
     padding: 0 16px 16px 0;
     color: var(--on-surface-variant);
-    font-family: 'Space Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     font-weight: 500;
     letter-spacing: 0.05em;
@@ -71,7 +71,7 @@ const { columns, emptyMessage = 'No hay datos' } = Astro.props;
   :global(td) {
     padding: 16px 16px 16px 0;
     vertical-align: middle;
-    font-family: 'Hanken Grotesk', sans-serif;
+    font-family: var(--font-body);
     font-size: 16px;
     line-height: 24px;
     color: var(--on-surface);
