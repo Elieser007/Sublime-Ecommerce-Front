@@ -1,0 +1,311 @@
+---
+/**
+ * NumberInput component — Chromatic High-Contrast design system
+ *
+ * Reusable quantity stepper with ± buttons and numeric input.
+ * Works in any context: cart, product detail, admin forms, bulk operations.
+ *
+ * Web Component: <number-input>
+ *
+ * Attributes:
+ *   value    — current value (default: 1)
+ *   min      — minimum allowed value (default: 1)
+ *   max      — maximum allowed value (default: 999)
+ *   step     — increment/decrement step (default: 1)
+ *   name     — form field name (for form submission)
+ *   disabled — disable all controls
+ *   label    — accessible label text
+ *
+ * Events:
+ *   number-input:change — fires on value change, detail: { value: number }
+ *
+ * Properties:
+ *   .value   — get/set current value programmatically
+ *
+ * Usage:
+ *   <number-input value="2" min="1" max="10" label="Cantidad"></number-input>
+ *   <number-input value="1" min="1" max="99" name="quantity"></number-input>
+ */
+
+interface Props {
+  value?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  name?: string;
+  disabled?: boolean;
+  label?: string;
+  class?: string;
+}
+
+const {
+  value = 1,
+  min = 1,
+  max = 999,
+  step = 1,
+  name,
+  disabled = false,
+  label = 'Cantidad',
+  class: className = '',
+} = Astro.props;
+---
+
+<number-input
+  class:list={['number-input-host', className]}
+  data-value={value}
+  data-min={min}
+  data-max={max}
+  data-step={step}
+  data-name={name}
+  data-disabled={disabled}
+  data-label={label}
+>
+</number-input>
+
+<script>
+  class NumberInput extends HTMLElement {
+    private _value: number = 1;
+    private _min: number = 1;
+    private _max: number = 999;
+    private _step: number = 1;
+    private _disabled: boolean = false;
+    private _name: string = '';
+    private _label: string = 'Cantidad';
+    private _shadow: ShadowRoot;
+
+    static get observedAttributes() {
+      return ['data-value', 'data-min', 'data-max', 'data-step', 'data-disabled'];
+    }
+
+    constructor() {
+      super();
+      this._shadow = this.attachShadow({ mode: 'open' });
+    }
+
+    connectedCallback() {
+      this._min = parseInt(this.dataset.min || '1', 10);
+      this._max = parseInt(this.dataset.max || '999', 10);
+      this._step = parseInt(this.dataset.step || '1', 10);
+      this._value = parseInt(this.dataset.value || '1', 10);
+      this._disabled = this.dataset.disabled === 'true';
+      this._name = this.dataset.name || '';
+      this._label = this.dataset.label || 'Cantidad';
+
+      this._value = Math.max(this._min, Math.min(this._max, this._value));
+      this._render();
+      this._attachEvents();
+    }
+
+    attributeChangedCallback(name: string, _old: string | null, newVal: string | null) {
+      if (name === 'data-value' && newVal !== null) {
+        this.value = parseInt(newVal, 10);
+      } else if (name === 'data-min' && newVal !== null) {
+        this._min = parseInt(newVal, 10);
+        this._render();
+      } else if (name === 'data-max' && newVal !== null) {
+        this._max = parseInt(newVal, 10);
+        this._render();
+      } else if (name === 'data-disabled' && newVal !== null) {
+        this._disabled = newVal === 'true';
+        this._render();
+      }
+    }
+
+    get value(): number {
+      return this._value;
+    }
+
+    set value(v: number) {
+      const clamped = Math.max(this._min, Math.min(this._max, v));
+      if (clamped === this._value) return;
+      this._value = clamped;
+      this._updateDisplay();
+      this._updateButtons();
+      this._emitChange();
+    }
+
+    private _updateDisplay() {
+      const input = this._shadow.querySelector('.qty-display');
+      if (input) (input as HTMLInputElement).value = String(this._value);
+    }
+
+    private _updateButtons() {
+      const decBtn = this._shadow.querySelector('.qty-btn--dec') as HTMLButtonElement;
+      const incBtn = this._shadow.querySelector('.qty-btn--inc') as HTMLButtonElement;
+      if (decBtn) decBtn.disabled = this._disabled || this._value <= this._min;
+      if (incBtn) incBtn.disabled = this._disabled || this._value >= this._max;
+    }
+
+    private _emitChange() {
+      this.dispatchEvent(new CustomEvent('number-input:change', {
+        bubbles: true,
+        composed: true,
+        detail: { value: this._value },
+      }));
+    }
+
+    private _attachEvents() {
+      const decBtn = this._shadow.querySelector('.qty-btn--dec');
+      const incBtn = this._shadow.querySelector('.qty-btn--inc');
+
+      decBtn?.addEventListener('click', () => {
+        if (!this._disabled) this.value = this._value - this._step;
+      });
+
+      incBtn?.addEventListener('click', () => {
+        if (!this._disabled) this.value = this._value + this._step;
+      });
+
+      // Keyboard: allow direct input when focused
+      const display = this._shadow.querySelector('.qty-display') as HTMLInputElement;
+      display?.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (this._disabled) return;
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.value = this._value + this._step;
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.value = this._value - this._step;
+        }
+      });
+    }
+
+    private _render() {
+      const decDisabled = this._disabled || this._value <= this._min;
+      const incDisabled = this._disabled || this._value >= this._max;
+
+      this._shadow.innerHTML = `
+        <style>
+          :host {
+            display: inline-block;
+            --_surface-container-high: var(--surface-container-high, #2a2a2a);
+            --_outline-variant: var(--outline-variant, #3e4850);
+            --_on-surface: var(--on-surface, #e2e2e2);
+            --_primary: var(--primary, #82cfff);
+            --_on-primary: var(--on-primary, #00344b);
+            --_border-width: var(--border-width, 1px);
+            --_border-radius: var(--border-radius, 0px);
+            --_font-mono: var(--font-mono, 'Space Mono', monospace);
+          }
+
+          .quantity-control {
+            display: inline-flex;
+            align-items: center;
+          }
+
+          .qty-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background-color: var(--_surface-container-high);
+            border: var(--_border-width) solid var(--_outline-variant);
+            border-radius: var(--_border-radius);
+            color: var(--_on-surface);
+            cursor: pointer;
+            font-size: 20px;
+            font-family: var(--_font-mono);
+            transition: all 0.15s ease;
+            -webkit-user-select: none;
+            user-select: none;
+          }
+
+          .qty-btn:hover:not(:disabled) {
+            background-color: var(--_primary);
+            border-color: var(--_primary);
+            color: var(--_on-primary);
+          }
+
+          .qty-btn:active:not(:disabled) {
+            transform: scale(0.95);
+          }
+
+          .qty-btn:focus-visible {
+            outline: 2px solid var(--_primary);
+            outline-offset: 2px;
+          }
+
+          .qty-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+          }
+
+          .qty-display {
+            width: 52px;
+            height: 40px;
+            text-align: center;
+            background-color: var(--_surface-container-high);
+            border-top: var(--_border-width) solid var(--_outline-variant);
+            border-bottom: var(--_border-width) solid var(--_outline-variant);
+            border-left: none;
+            border-right: none;
+            border-radius: 0;
+            color: var(--_on-surface);
+            font-family: var(--_font-mono);
+            font-size: 15px;
+            font-weight: 600;
+            -moz-appearance: textfield;
+            appearance: textfield;
+          }
+
+          .qty-display::-webkit-outer-spin-button,
+          .qty-display::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+          }
+
+          .qty-display:focus {
+            outline: none;
+            background-color: rgba(130, 207, 255, 0.08);
+          }
+
+          /* Touch targets: 44px minimum on mobile */
+          @media (max-width: 639px) {
+            .qty-btn {
+              width: 44px;
+              height: 44px;
+              font-size: 22px;
+            }
+            .qty-display {
+              width: 48px;
+              height: 44px;
+              font-size: 16px;
+            }
+          }
+        </style>
+
+        <div class="quantity-control" part="control">
+          <button
+            class="qty-btn qty-btn--dec"
+            type="button"
+            aria-label="Disminuir"
+            ${decDisabled ? 'disabled' : ''}
+          >−</button>
+          <input
+            class="qty-display"
+            type="number"
+            value="${this._value}"
+            min="${this._min}"
+            max="${this._max}"
+            step="${this._step}"
+            ${this._name ? `name="${this._name}"` : ''}
+            ${this._disabled ? 'disabled' : ''}
+            aria-label="${this._label}"
+            readonly
+          />
+          <button
+            class="qty-btn qty-btn--inc"
+            type="button"
+            aria-label="Aumentar"
+            ${incDisabled ? 'disabled' : ''}
+          >+</button>
+        </div>
+      `;
+    }
+  }
+
+  if (!customElements.get('number-input')) {
+    customElements.define('number-input', NumberInput);
+  }
+</script>

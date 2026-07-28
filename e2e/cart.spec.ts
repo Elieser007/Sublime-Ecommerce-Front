@@ -1,45 +1,84 @@
 import { test, expect } from "@playwright/test";
 
 const CART_ITEMS = [
-  { id: "1", name: "Camiseta Sublime", price: 120000, image: "/placeholder-product.svg", quantity: 2 },
-  { id: "2", name: "Tote Bag", price: 85000, image: "/placeholder-product.svg", quantity: 1 },
+  {
+    id: "test-1",
+    composite_key: "test-1",
+    name: "Camiseta Sublime",
+    price: 120000,
+    image: "/placeholder-product.svg",
+    quantity: 2,
+    selected_attributes: {
+      "mod-1": { value_id: "v1", label: "Rojo", raw_value: "Rojo" },
+      "mod-2": { value_id: "v2", label: "XL", raw_value: "XL" },
+    },
+    price_tiers: [
+      { min_quantity: 1, price: 120000 },
+      { min_quantity: 15, price: 100000 },
+    ],
+  },
+  {
+    id: "test-2",
+    composite_key: "test-2",
+    name: "Tote Bag",
+    price: 85000,
+    image: "/placeholder-product.svg",
+    quantity: 1,
+  },
 ];
+
+async function setCart(page: import("@playwright/test").Page, items: typeof CART_ITEMS) {
+  await page.addInitScript((cartItems) => {
+    localStorage.setItem("cart", JSON.stringify(cartItems));
+  }, items);
+}
+
+async function getCartItem(page: import("@playwright/test").Page, index: number) {
+  return page.locator(".cart-item").nth(index);
+}
+
+async function clickInc(page: import("@playwright/test").Page, itemIndex: number) {
+  const item = await getCartItem(page, itemIndex);
+  await item.getByRole("button", { name: "Aumentar" }).click();
+}
+
+async function clickDec(page: import("@playwright/test").Page, itemIndex: number) {
+  const item = await getCartItem(page, itemIndex);
+  await item.getByRole("button", { name: "Disminuir" }).click();
+}
+
+async function getQtyValue(page: import("@playwright/test").Page, itemIndex: number) {
+  const item = await getCartItem(page, itemIndex);
+  return item.getByRole("spinbutton", { name: "Cantidad" });
+}
 
 test.describe("Cart Page", () => {
   test.beforeEach(async ({ page }) => {
-    // Set cart in localStorage before navigating
-    await page.addInitScript((items) => {
-      localStorage.setItem("cart", JSON.stringify(items));
-    }, CART_ITEMS);
+    await setCart(page, CART_ITEMS);
   });
 
   test("shows cart items with correct layout", async ({ page }) => {
     await page.goto("/cart");
 
-    // Wait for cart items to render
     const cartItems = page.locator(".cart-item");
     await expect(cartItems).toHaveCount(2);
 
-    // First item
     const firstItem = cartItems.nth(0);
     await expect(firstItem.locator(".cart-item-name")).toContainText("Camiseta Sublime");
-    await expect(firstItem.locator(".qty-input")).toHaveValue("2");
+    await expect(await getQtyValue(page, 0)).toHaveValue("2");
 
-    // Second item
     const secondItem = cartItems.nth(1);
     await expect(secondItem.locator(".cart-item-name")).toContainText("Tote Bag");
-    await expect(secondItem.locator(".qty-input")).toHaveValue("1");
+    await expect(await getQtyValue(page, 1)).toHaveValue("1");
   });
 
   test("shows empty cart state with illustration", async ({ page }) => {
-    // Clear cart
     await page.addInitScript(() => {
       localStorage.setItem("cart", "[]");
     });
 
     await page.goto("/cart");
 
-    // Wait for empty state
     await expect(page.locator(".empty-state")).toBeVisible();
     await expect(page.locator(".empty-state h2")).toContainText("vacío");
     await expect(page.locator(".empty-state-icon")).toBeVisible();
@@ -49,36 +88,29 @@ test.describe("Cart Page", () => {
   test("quantity increase works", async ({ page }) => {
     await page.goto("/cart");
 
-    const firstItem = page.locator(".cart-item").nth(0);
-    const qtyInput = firstItem.locator(".qty-input");
+    await expect(await getQtyValue(page, 0)).toHaveValue("2");
 
-    // Initial quantity is 2
-    await expect(qtyInput).toHaveValue("2");
-
-    // Click increase
-    await firstItem.locator('[data-action="increase"]').click();
-    await expect(qtyInput).toHaveValue("3");
+    await clickInc(page, 0);
+    await expect(await getQtyValue(page, 0)).toHaveValue("3");
   });
 
   test("quantity decrease works and disables at 1", async ({ page }) => {
     await page.goto("/cart");
 
-    const secondItem = page.locator(".cart-item").nth(1);
-    const qtyInput = secondItem.locator(".qty-input");
-    const decreaseBtn = secondItem.locator('[data-action="decrease"]');
+    const qty = await getQtyValue(page, 1);
+    const item = await getCartItem(page, 1);
+    const decBtn = item.getByRole("button", { name: "Disminuir" });
 
-    // Initial quantity is 1 — decrease should be disabled
-    await expect(qtyInput).toHaveValue("1");
-    await expect(decreaseBtn).toBeDisabled();
+    await expect(qty).toHaveValue("1");
+    await expect(decBtn).toBeDisabled();
 
-    // Increase first, then decrease
-    await secondItem.locator('[data-action="increase"]').click();
-    await expect(qtyInput).toHaveValue("2");
-    await expect(decreaseBtn).not.toBeDisabled();
+    await clickInc(page, 1);
+    await expect(qty).toHaveValue("2");
+    await expect(decBtn).not.toBeDisabled();
 
-    await decreaseBtn.click();
-    await expect(qtyInput).toHaveValue("1");
-    await expect(decreaseBtn).toBeDisabled();
+    await clickDec(page, 1);
+    await expect(qty).toHaveValue("1");
+    await expect(decBtn).toBeDisabled();
   });
 
   test("remove item works with animation", async ({ page }) => {
@@ -87,13 +119,9 @@ test.describe("Cart Page", () => {
     const cartItems = page.locator(".cart-item");
     await expect(cartItems).toHaveCount(2);
 
-    // Remove first item
     await cartItems.nth(0).locator(".cart-item-remove").click();
-
-    // Wait for animation to complete
     await page.waitForTimeout(400);
 
-    // Should have 1 item remaining
     await expect(page.locator(".cart-item")).toHaveCount(1);
     await expect(page.locator(".cart-item-name")).toContainText("Tote Bag");
   });
@@ -107,11 +135,9 @@ test.describe("Cart Page", () => {
   test("summary updates when qty changes", async ({ page }) => {
     await page.goto("/cart");
 
-    // Initial: 2 + 1 = 3 products
     await expect(page.locator("#summary-count")).toContainText("3 productos");
 
-    // Increase first item quantity: 3 + 1 = 4
-    await page.locator(".cart-item").nth(0).locator('[data-action="increase"]').click();
+    await clickInc(page, 0);
     await expect(page.locator("#summary-count")).toContainText("4 productos");
   });
 
@@ -125,7 +151,6 @@ test.describe("Cart Page", () => {
     expect(href).toContain("wa.me/595991969608");
     expect(href).toContain("text=");
 
-    // Decode and verify content
     const text = decodeURIComponent(href!.split("text=")[1]);
     expect(text).toContain("Camiseta Sublime");
     expect(text).toContain("Tote Bag");
@@ -134,18 +159,13 @@ test.describe("Cart Page", () => {
   test("header badge updates on cart page", async ({ page }) => {
     await page.goto("/cart");
 
-    // Wait for cart items to render
     await expect(page.locator(".cart-item")).toHaveCount(2);
 
-    // Header badge should show total items
     const badge = page.locator("#cart-count");
     await expect(badge).toBeVisible();
     await expect(badge).toContainText("3");
 
-    // Increase first item
-    await page.locator(".cart-item").nth(0).locator('[data-action="increase"]').click();
-
-    // Badge should update to 4
+    await clickInc(page, 0);
     await expect(badge).toContainText("4");
   });
 
@@ -160,17 +180,9 @@ test.describe("Cart Page", () => {
   });
 
   test("does not show placeholder products on load", async ({ page }) => {
-    // Set cart data via init script
-    await page.addInitScript((items) => {
-      localStorage.setItem("cart", JSON.stringify(items));
-    }, CART_ITEMS);
-
     await page.goto("/cart");
 
-    // Wait for real cart items to render
     await expect(page.locator(".cart-item")).toHaveCount(2);
-
-    // Verify no hardcoded placeholder text appears
     await expect(page.locator("text=Camiseta Básica")).not.toBeVisible();
   });
 
@@ -182,17 +194,96 @@ test.describe("Cart Page", () => {
   test("remove last item shows empty state", async ({ page }) => {
     await page.goto("/cart");
 
-    // Remove first item
     await page.locator(".cart-item").nth(0).locator(".cart-item-remove").click();
     await page.waitForTimeout(400);
 
-    // Remove second item
     await page.locator(".cart-item").nth(0).locator(".cart-item-remove").click();
     await page.waitForTimeout(400);
 
-    // Should show empty state
     await expect(page.locator(".empty-state")).toBeVisible();
     await expect(page.locator(".empty-state h2")).toContainText("vacío");
+  });
+
+  test("shows attribute labels for cart item with selected_attributes", async ({ page }) => {
+    await page.goto("/cart");
+
+    const firstItem = page.locator(".cart-item").nth(0);
+    await expect(firstItem.locator(".cart-item-attrs")).toBeVisible();
+    await expect(firstItem.locator(".cart-item-attrs")).toContainText("Rojo | XL");
+
+    const secondItem = page.locator(".cart-item").nth(1);
+    await expect(secondItem.locator(".cart-item-attrs")).not.toBeVisible();
+  });
+
+  test("shows tier badge for cart item with price_tiers", async ({ page }) => {
+    await page.goto("/cart");
+
+    const firstItem = page.locator(".cart-item").nth(0);
+    await expect(firstItem.locator(".cart-item-tier-badge")).toBeVisible();
+    await expect(firstItem.locator(".cart-item-tier-badge")).toContainText("Desde 15 unds");
+    await expect(firstItem.locator(".cart-item-tier-badge")).toContainText("100.000");
+
+    const secondItem = page.locator(".cart-item").nth(1);
+    await expect(secondItem.locator(".cart-item-tier-badge")).not.toBeVisible();
+  });
+
+  test("composite key identity: same product ID with different attributes are separate items", async ({ page }) => {
+    const items = [
+      {
+        id: "shared-1",
+        composite_key: "shared-1-aaa",
+        name: "Camiseta Roja",
+        price: 100000,
+        image: "/placeholder-product.svg",
+        quantity: 1,
+        selected_attributes: {
+          "mod-1": { value_id: "v1", label: "Rojo", raw_value: "Rojo" },
+        },
+      },
+      {
+        id: "shared-1",
+        composite_key: "shared-1-bbb",
+        name: "Camiseta Azul",
+        price: 100000,
+        image: "/placeholder-product.svg",
+        quantity: 2,
+        selected_attributes: {
+          "mod-1": { value_id: "v2", label: "Azul", raw_value: "Azul" },
+        },
+      },
+    ];
+    await setCart(page, items);
+
+    await page.goto("/cart");
+
+    const cartItems = page.locator(".cart-item");
+    await expect(cartItems).toHaveCount(2);
+    await expect(cartItems.nth(0).locator(".cart-item-name")).toContainText("Camiseta Roja");
+    await expect(cartItems.nth(1).locator(".cart-item-name")).toContainText("Camiseta Azul");
+
+    await cartItems.nth(0).locator(".cart-item-remove").click();
+    await page.waitForTimeout(400);
+
+    await expect(page.locator(".cart-item")).toHaveCount(1);
+    await expect(page.locator(".cart-item-name")).toContainText("Camiseta Azul");
+  });
+
+  test("quantity persists after page reload", async ({ page }) => {
+    await page.goto("/cart");
+
+    await expect(await getQtyValue(page, 0)).toHaveValue("2");
+
+    await clickInc(page, 0);
+    await expect(await getQtyValue(page, 0)).toHaveValue("3");
+
+    const updatedCart = await page.evaluate(() => localStorage.getItem("cart"));
+    await page.addInitScript((cart) => {
+      localStorage.setItem("cart", cart);
+    }, updatedCart);
+
+    await page.reload();
+
+    await expect(await getQtyValue(page, 0)).toHaveValue("3");
   });
 });
 
@@ -200,9 +291,7 @@ test.describe("Cart Page — Mobile", () => {
   test.use({ viewport: { width: 375, height: 812 } });
 
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript((items) => {
-      localStorage.setItem("cart", JSON.stringify(items));
-    }, CART_ITEMS);
+    await setCart(page, CART_ITEMS);
   });
 
   test("cart items stack vertically on mobile", async ({ page }) => {
@@ -211,11 +300,9 @@ test.describe("Cart Page — Mobile", () => {
     const cartItems = page.locator(".cart-item");
     await expect(cartItems).toHaveCount(2);
 
-    // Cart items should be visible and stacked
     const firstItem = cartItems.nth(0);
     await expect(firstItem).toBeVisible();
 
-    // Summary should be below cart items
     const summary = page.locator(".cart-summary");
     await expect(summary).toBeVisible();
   });
@@ -223,11 +310,8 @@ test.describe("Cart Page — Mobile", () => {
   test("quantity controls are touch-friendly on mobile", async ({ page }) => {
     await page.goto("/cart");
 
-    const firstItem = page.locator(".cart-item").nth(0);
-    const btn = firstItem.locator('[data-action="increase"]');
-
-    // Button should be large enough for touch (min 40px)
-    const box = await btn.boundingBox();
+    const incBtn = (await getCartItem(page, 0)).getByRole("button", { name: "Aumentar" });
+    const box = await incBtn.boundingBox();
     expect(box!.width).toBeGreaterThanOrEqual(40);
     expect(box!.height).toBeGreaterThanOrEqual(40);
   });
@@ -239,7 +323,6 @@ test.describe("Cart Page — Mobile", () => {
     const box = await btn.boundingBox();
     const viewport = page.viewportSize()!;
 
-    // Button should be wide enough (accounting for page padding)
     expect(box!.width).toBeGreaterThan(viewport.width * 0.6);
   });
 
@@ -263,11 +346,10 @@ test.describe("Cart Page — Mobile", () => {
 
   test("quantity increase works on mobile", async ({ page }) => {
     await page.goto("/cart");
-    const firstItem = page.locator(".cart-item").nth(0);
-    const qtyInput = firstItem.locator(".qty-input");
 
-    await expect(qtyInput).toHaveValue("2");
-    await firstItem.locator('[data-action="increase"]').click();
-    await expect(qtyInput).toHaveValue("3");
+    await expect(await getQtyValue(page, 0)).toHaveValue("2");
+
+    await clickInc(page, 0);
+    await expect(await getQtyValue(page, 0)).toHaveValue("3");
   });
 });

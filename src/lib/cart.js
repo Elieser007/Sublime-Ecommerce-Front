@@ -6,18 +6,21 @@
  */
 
 import { formatPrice } from './format.ts';
+import { getCartKey, reevalTier, migrateCart } from './cart-utils';
 
 export { formatPrice };
 
 const CART_KEY = 'cart';
 
 /**
- * Get the full cart array from LocalStorage
+ * Get the full cart array from LocalStorage.
+ * Auto-migrates old items (adds composite_key and price_tiers).
  * @returns {Array} cart items
  */
 export function getCart() {
   try {
-    return JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+    const raw = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+    return migrateCart(raw);
   } catch {
     return [];
   }
@@ -60,46 +63,43 @@ export function addToCart(product) {
 
 /**
  * Add a product with options (variant attributes, tier pricing).
- * Matches duplicates by id + selected_attributes.
+ * Matches duplicates by composite_key (id + hash of attributes).
  * Used by the product detail page where variants and tier pricing matter.
  *
- * @param {Object} product - { id, name, price, image, quantity?, selected_tier_id?, selected_tier_price?, selected_tier_min_qty?, selected_attributes? }
+ * @param {Object} product - { id, name, price, image, quantity?, price_tiers?, selected_tier_id?, selected_tier_price?, selected_tier_min_qty?, selected_attributes? }
  * @returns {Array} updated cart
  */
 export function addToCartWithOptions(product) {
   const cart = getCart();
-  const hasAttributes = product.selected_attributes && Object.keys(product.selected_attributes).length > 0;
+  const compositeKey = getCartKey(product.id, product.selected_attributes);
 
-  const existing = cart.find((item) => {
-    if (item.id !== product.id) return false;
-    if (!hasAttributes && !item.selected_attributes) return true;
-    if (hasAttributes && item.selected_attributes) {
-      return JSON.stringify(item.selected_attributes) === JSON.stringify(product.selected_attributes);
-    }
-    return false;
-  });
+  const existing = cart.find((item) => item.composite_key === compositeKey);
 
   if (existing) {
     existing.quantity += product.quantity || 1;
-    // Update tier info if provided
     if (product.selected_tier_id) {
       existing.selected_tier_id = product.selected_tier_id;
       existing.selected_tier_price = product.selected_tier_price;
       existing.selected_tier_min_qty = product.selected_tier_min_qty;
     }
+    if (product.price_tiers) {
+      existing.price_tiers = product.price_tiers;
+    }
   } else {
     cart.push({
       id: product.id,
+      composite_key: compositeKey,
       name: product.name,
       price: product.price,
       image: product.image,
       quantity: product.quantity || 1,
+      ...(product.price_tiers ? { price_tiers: product.price_tiers } : {}),
       ...(product.selected_tier_id ? {
         selected_tier_id: product.selected_tier_id,
         selected_tier_price: product.selected_tier_price,
         selected_tier_min_qty: product.selected_tier_min_qty,
       } : {}),
-      ...(hasAttributes ? { selected_attributes: product.selected_attributes } : {}),
+      ...(product.selected_attributes ? { selected_attributes: product.selected_attributes } : {}),
     });
   }
 
@@ -116,28 +116,31 @@ export function getCartCount() {
 }
 
 /**
- * Update quantity for a cart item by product id.
- * @param {string} productId
+ * Update quantity for a cart item by composite_key.
+ * Re-evaluates tier pricing after quantity change.
+ * @param {string} compositeKey
  * @param {number} quantity - new quantity (minimum 1)
  * @returns {Array} updated cart
  */
-export function updateCartQuantity(productId, quantity) {
+export function updateCartQuantity(compositeKey, quantity) {
   const cart = getCart();
-  const item = cart.find((i) => i.id === productId);
+  const item = cart.find((i) => i.composite_key === compositeKey);
   if (item) {
     item.quantity = Math.max(1, quantity);
+    const reevaluated = reevalTier(item);
+    Object.assign(item, reevaluated);
     saveCart(cart);
   }
   return cart;
 }
 
 /**
- * Remove a product from the cart by id.
- * @param {string} productId
+ * Remove a product from the cart by composite_key.
+ * @param {string} compositeKey
  * @returns {Array} updated cart
  */
-export function removeFromCart(productId) {
-  const cart = getCart().filter((item) => item.id !== productId);
+export function removeFromCart(compositeKey) {
+  const cart = getCart().filter((item) => item.composite_key !== compositeKey);
   saveCart(cart);
   return cart;
 }

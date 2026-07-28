@@ -158,18 +158,20 @@ import CartSummary from '../components/CartSummary.astro';
 
   @media (max-width: 639px) {
     .skeleton-item {
-      grid-template-columns: 60px 1fr;
+      grid-template-columns: 60px 1fr 40px;
       grid-template-rows: auto auto;
     }
-    .skeleton-qty { grid-column: 1 / -1; width: 100%; }
-    .skeleton-text:last-child { grid-column: 1 / -1; align-items: flex-end; }
+    .skeleton-img { grid-row: 1 / 3; }
+    .skeleton-item > .skeleton-text:first-of-type { grid-column: 2 / 4; }
+    .skeleton-qty { grid-column: 1 / 2; }
+    .skeleton-text:last-child { grid-column: 2 / 3; align-items: flex-end; }
   }
 
   /* ===== CART ITEMS (rendered by JS) ===== */
   :global(.cart-item) {
     display: grid;
-    grid-template-columns: 80px 1fr auto auto auto;
-    gap: var(--space-md);
+    grid-template-columns: 80px 1fr 140px 110px 40px;
+    gap: var(--space-md) var(--space-xl);
     align-items: center;
     padding: var(--space-lg) 0;
     border-bottom: var(--border-width) solid var(--outline-variant);
@@ -256,6 +258,26 @@ import CartSummary from '../components/CartSummary.astro';
     font-size: 12px;
     color: var(--on-surface-variant);
     letter-spacing: 0.05em;
+  }
+
+  :global(.cart-item-attrs) {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--primary);
+    letter-spacing: 0.04em;
+    margin: 2px 0;
+  }
+
+  :global(.cart-item-tier-badge) {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--tertiary);
+    background-color: rgba(213, 202, 0, 0.1);
+    border: 1px solid rgba(213, 202, 0, 0.3);
+    padding: 2px 6px;
+    margin-top: 4px;
+    letter-spacing: 0.03em;
   }
 
   /* Quantity Control — rendered by client-side JS */
@@ -386,7 +408,7 @@ import CartSummary from '../components/CartSummary.astro';
   /* ===== MOBILE RESPONSIVE (< 640px) ===== */
   @media (max-width: 639px) {
     :global(.cart-item) {
-      grid-template-columns: 60px 1fr;
+      grid-template-columns: 60px 1fr 36px;
       grid-template-rows: auto auto auto;
       gap: var(--space-sm);
       padding: var(--space-md) 0;
@@ -396,59 +418,62 @@ import CartSummary from '../components/CartSummary.astro';
       width: 60px;
       height: 60px;
       grid-row: 1 / 3;
+      grid-column: 1;
     }
 
     :global(.cart-item-info) {
-      grid-column: 2;
+      grid-column: 2 / 4;
+      grid-row: 1;
     }
 
     :global(.cart-item-name) {
-      font-size: 16px;
+      font-size: 15px;
     }
 
     :global(.cart-item-qty) {
       grid-column: 2;
+      grid-row: 2;
+      margin-top: var(--space-xs);
     }
 
     :global(.cart-item-subtotal) {
       grid-column: 2;
+      grid-row: 3;
+      display: flex;
       flex-direction: row;
       justify-content: space-between;
       align-items: center;
       min-width: unset;
       text-align: left;
+      margin-top: var(--space-xs);
     }
 
     :global(.cart-item-remove) {
-      position: absolute;
-      top: var(--space-md);
-      right: 0;
-    }
-
-    :global(.cart-item) {
-      position: relative;
-    }
-
-    :global(.qty-btn) {
-      width: 40px;
-      height: 40px;
-    }
-
-    :global(.qty-input) {
-      width: 40px;
-      height: 40px;
+      grid-column: 3;
+      grid-row: 1;
+      align-self: start;
     }
   }
 
   /* ===== TABLET (640-767px) ===== */
   @media (min-width: 640px) and (max-width: 767px) {
     :global(.cart-item) {
-      grid-template-columns: 70px 1fr auto auto auto;
+      grid-template-columns: 70px 1fr 130px 110px 36px;
+      gap: var(--space-sm) var(--space-xl);
     }
 
     :global(.cart-item-image) {
       width: 70px;
       height: 70px;
+    }
+
+    :global(.cart-item-name) {
+      font-size: 15px;
+      white-space: nowrap;
+    }
+
+    :global(.cart-item-subtotal) {
+      min-width: 100px;
     }
   }
 
@@ -575,6 +600,103 @@ import CartSummary from '../components/CartSummary.astro';
 <script>
   import { getCart, updateCartQuantity, removeFromCart, formatPrice } from '../lib/cart.js';
 
+  // ─── <number-input> Web Component ───────────────────────────────
+  // Shared component also used in producto/[slug].astro.
+  // Defined here because Astro doesn't auto-bundle imported component scripts.
+  if (!customElements.get('number-input')) {
+    class NumberInput extends HTMLElement {
+      private _value = 1;
+      private _min = 1;
+      private _max = 999;
+      private _step = 1;
+      private _disabled = false;
+      private _shadow: ShadowRoot;
+
+      static get observedAttributes() {
+        return ['data-value', 'data-min', 'data-max', 'data-step', 'data-disabled'];
+      }
+
+      constructor() {
+        super();
+        this._shadow = this.attachShadow({ mode: 'open' });
+      }
+
+      connectedCallback() {
+        this._min = parseInt(this.dataset.min || '1', 10);
+        this._max = parseInt(this.dataset.max || '999', 10);
+        this._step = parseInt(this.dataset.step || '1', 10);
+        this._value = parseInt(this.dataset.value || '1', 10);
+        this._disabled = this.dataset.disabled === 'true';
+        this._value = Math.max(this._min, Math.min(this._max, this._value));
+        this._render();
+        this._attachEvents();
+      }
+
+      get value() { return this._value; }
+      set value(v: number) {
+        const clamped = Math.max(this._min, Math.min(this._max, v));
+        if (clamped === this._value) return;
+        this._value = clamped;
+        this._updateDisplay();
+        this._updateButtons();
+        this.dispatchEvent(new CustomEvent('number-input:change', {
+          bubbles: true, composed: true, detail: { value: this._value },
+        }));
+      }
+
+      private _updateDisplay() {
+        const input = this._shadow.querySelector('.qty-display') as HTMLInputElement;
+        if (input) input.value = String(this._value);
+      }
+
+      private _updateButtons() {
+        const dec = this._shadow.querySelector('.qty-btn--dec') as HTMLButtonElement;
+        const inc = this._shadow.querySelector('.qty-btn--inc') as HTMLButtonElement;
+        if (dec) dec.disabled = this._disabled || this._value <= this._min;
+        if (inc) inc.disabled = this._disabled || this._value >= this._max;
+      }
+
+      private _attachEvents() {
+        this._shadow.querySelector('.qty-btn--dec')?.addEventListener('click', () => {
+          if (!this._disabled) this.value = this._value - this._step;
+        });
+        this._shadow.querySelector('.qty-btn--inc')?.addEventListener('click', () => {
+          if (!this._disabled) this.value = this._value + this._step;
+        });
+        (this._shadow.querySelector('.qty-display') as HTMLInputElement)?.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (this._disabled) return;
+          if (e.key === 'ArrowUp') { e.preventDefault(); this.value = this._value + this._step; }
+          if (e.key === 'ArrowDown') { e.preventDefault(); this.value = this._value - this._step; }
+        });
+      }
+
+      private _render() {
+        const d = this._disabled || this._value <= this._min;
+        const i = this._disabled || this._value >= this._max;
+        this._shadow.innerHTML = `
+          <style>
+            :host { display: inline-block; --_sch: var(--surface-container-high, #2a2a2a); --_ov: var(--outline-variant, #3e4850); --_os: var(--on-surface, #e2e2e2); --_p: var(--primary, #82cfff); --_op: var(--on-primary, #00344b); --_bw: var(--border-width, 1px); --_br: var(--border-radius, 0px); --_fm: var(--font-mono, 'Space Mono', monospace); }
+            .quantity-control { display: inline-flex; align-items: center; }
+            .qty-btn { display:flex;align-items:center;justify-content:center;width:40px;height:40px;background:var(--_sch);border:var(--_bw) solid var(--_ov);border-radius:var(--_br);color:var(--_os);cursor:pointer;font-size:20px;font-family:var(--_fm);transition:all .15s ease;user-select:none;flex-shrink:0; }
+            .qty-btn:hover:not(:disabled) { background:var(--_p);border-color:var(--_p);color:var(--_op); }
+            .qty-btn:active:not(:disabled) { transform:scale(.95); }
+            .qty-btn:focus-visible { outline:2px solid var(--_p);outline-offset:2px; }
+            .qty-btn:disabled { opacity:.3;cursor:not-allowed; }
+            .qty-display { width:52px;height:40px;text-align:center;background:var(--_sch);border-top:var(--_bw) solid var(--_ov);border-bottom:var(--_bw) solid var(--_ov);border-left:none;border-right:none;border-radius:0;color:var(--_os);font-family:var(--_fm);font-size:15px;font-weight:600;-moz-appearance:textfield;appearance:textfield; }
+            .qty-display::-webkit-outer-spin-button,.qty-display::-webkit-inner-spin-button { -webkit-appearance:none;margin:0; }
+            .qty-display:focus { outline:none;background:rgba(130,207,255,.08); }
+            @media(max-width:639px){.qty-btn{width:44px;height:44px;font-size:22px}.qty-display{width:48px;height:44px;font-size:16px}}
+          </style>
+          <div class="quantity-control" part="control">
+            <button class="qty-btn qty-btn--dec" type="button" aria-label="Disminuir" ${d ? 'disabled' : ''}>−</button>
+            <input class="qty-display" type="number" value="${this._value}" min="${this._min}" max="${this._max}" step="${this._step}" ${this._disabled ? 'disabled' : ''} aria-label="Cantidad" readonly />
+            <button class="qty-btn qty-btn--inc" type="button" aria-label="Aumentar" ${i ? 'disabled' : ''}>+</button>
+          </div>`;
+      }
+    }
+    customElements.define('number-input', NumberInput);
+  }
+
   function renderEmptyState(container: HTMLElement) {
     container.innerHTML = `
       <div class="empty-state">
@@ -593,42 +715,58 @@ import CartSummary from '../components/CartSummary.astro';
 
   function renderItem(item: any): string {
     const subtotal = formatPrice(item.price * item.quantity);
-    const isMinQty = item.quantity <= 1;
+    const key = item.composite_key || item.id;
+
+    let attributeHtml = '';
+    if (item.selected_attributes && Object.keys(item.selected_attributes).length > 0) {
+      const labels = Object.values(item.selected_attributes)
+        .map((a: any) => a.label)
+        .filter(Boolean);
+      if (labels.length > 0) {
+        attributeHtml = `<p class="cart-item-attrs">${labels.join(' | ')}</p>`;
+      }
+    }
+
+    let tierBadgeHtml = '';
+    if (item.price_tiers && item.price_tiers.length > 1) {
+      const volumeTiers = item.price_tiers.filter((t: any) => t.min_quantity > 1);
+      if (volumeTiers.length > 0) {
+        const best = volumeTiers.reduce((a: any, b: any) => a.price < b.price ? a : b);
+        tierBadgeHtml = `<span class="cart-item-tier-badge">Desde ${best.min_quantity} unds: Gs. ${formatPrice(best.price)}</span>`;
+      }
+    }
 
     return `
-      <div class="cart-item" data-product-id="${item.id}">
+      <div class="cart-item" data-product-id="${key}">
         <div class="cart-item-image">
           <img src="${item.image}" alt="${item.name}" width="80" height="80" loading="lazy" />
         </div>
         <div class="cart-item-info">
           <h3 class="cart-item-name">${item.name}</h3>
+          ${attributeHtml}
           <p class="cart-item-price">Gs. ${formatPrice(item.price)} c/u</p>
+          ${tierBadgeHtml}
         </div>
         <div class="cart-item-qty">
-          <div class="quantity-control">
-            <button class="qty-btn" data-action="decrease" data-product-id="${item.id}" ${isMinQty ? 'disabled' : ''} aria-label="Disminuir cantidad">−</button>
-            <input type="number" class="qty-input" value="${item.quantity}" min="1" max="99" data-product-id="${item.id}" readonly aria-label="Cantidad" />
-            <button class="qty-btn" data-action="increase" data-product-id="${item.id}" aria-label="Aumentar cantidad">+</button>
-          </div>
+          <number-input
+            data-value="${item.quantity}"
+            data-min="1"
+            data-max="99"
+            data-product-id="${key}"
+            data-label="Cantidad de ${item.name}"
+          ></number-input>
         </div>
         <div class="cart-item-subtotal">
           <span class="label-sm">Subtotal</span>
-          <p class="cart-item-total" data-subtotal-for="${item.id}">Gs. ${subtotal}</p>
+          <p class="cart-item-total" data-subtotal-for="${key}">Gs. ${subtotal}</p>
         </div>
-        <button class="cart-item-remove" data-remove-id="${item.id}" aria-label="Eliminar ${item.name}">
+        <button class="cart-item-remove" data-remove-id="${key}" aria-label="Eliminar ${item.name}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
       </div>
     `;
-  }
-
-  function updateDisabledState(productId: string, quantity: number) {
-    const btn = document.querySelector(`.qty-btn[data-action="decrease"][data-product-id="${productId}"]`) as HTMLButtonElement;
-    if (btn) {
-      btn.disabled = quantity <= 1;
-    }
   }
 
   function pulseSubtotal(productId: string) {
@@ -641,23 +779,15 @@ import CartSummary from '../components/CartSummary.astro';
   }
 
   function attachCartListeners() {
-    // Quantity controls
-    document.querySelectorAll('[data-action]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const el = btn as HTMLElement;
-        const action = el.dataset.action;
-        const productId = el.dataset.productId;
-        const input = document.querySelector(`.qty-input[data-product-id="${productId}"]`) as HTMLInputElement;
-        if (!input) return;
+    // Quantity changes via <number-input> web component
+    document.querySelectorAll('.cart-item-qty').forEach((qtyEl) => {
+      qtyEl.addEventListener('number-input:change', ((e: CustomEvent) => {
+        const numInput = qtyEl.querySelector('number-input') as any;
+        const productId = numInput?.dataset.productId;
+        const value = e.detail.value;
 
-        let value = parseInt(input.value) || 1;
-        if (action === 'increase') value = Math.min(value + 1, 99);
-        if (action === 'decrease') value = Math.max(value - 1, 1);
-        input.value = value.toString();
-
-        updateCartQuantity(productId!, value);
-        updateDisabledState(productId!, value);
-        pulseSubtotal(productId!);
+        updateCartQuantity(productId, value);
+        pulseSubtotal(productId);
 
         // Update subtotal display
         const cart = getCart();
@@ -668,7 +798,7 @@ import CartSummary from '../components/CartSummary.astro';
         }
 
         window.dispatchEvent(new CustomEvent('cart-updated'));
-      });
+      }) as EventListener);
     });
 
     // Remove buttons
