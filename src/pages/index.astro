@@ -60,6 +60,17 @@ try {
   <!-- Thin banner at top (SSG — fetched at build time) -->
   <PromotionWall section="always-catalog-top" promotions={topPromotions} sectionInfo={topSectionInfo} />
 
+  <!-- Mobile: Search Bar -->
+  <div class="mobile-search-bar" id="mobile-search-bar">
+    <input
+      type="search"
+      class="mobile-search-input"
+      placeholder="Buscar productos..."
+      id="mobile-search-bar-input"
+      autocomplete="off"
+    />
+  </div>
+
   <!-- Mobile: Action Buttons -->
   <div class="mobile-actions">
     <button class="mobile-action-btn" id="open-categories">
@@ -192,9 +203,14 @@ try {
       <main class="shop-main">
         {products.length > 0 ? (
           <div id="products-container">
-            <!-- Product count -->
+            <!-- Product count + Per-page selector -->
             <div class="product-count" id="product-count">
               <span id="product-count-text">{products.length} productos encontrados</span>
+              <div class="per-page-selector">
+                <button class="per-page-option" data-per-page="12">12</button>
+                <button class="per-page-option active" data-per-page="24">24</button>
+                <button class="per-page-option" data-per-page="48">48</button>
+              </div>
             </div>
 
             <!-- Clear filters (hidden by default) -->
@@ -365,9 +381,6 @@ try {
 
 <script is:inline>
   function initCatalog() {
-    // ===== CONFIGURATION =====
-    const PRODUCTS_PER_PAGE = 24;
-
     // ===== IMPORTS (inline implementations) =====
     function sortProducts(products, mode) {
       const copy = [...products];
@@ -375,7 +388,7 @@ try {
         case 'price-asc': return copy.sort((a, b) => a.price - b.price);
         case 'price-desc': return copy.sort((a, b) => b.price - a.price);
         case 'name': return copy.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
-        case 'default': default: return copy;
+        default: return copy;
       }
     }
 
@@ -394,10 +407,10 @@ try {
     }
 
     function paginateProducts(products, page) {
-      const totalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE);
-      const start = (page - 1) * PRODUCTS_PER_PAGE;
+      const totalPages = Math.ceil(products.length / itemsPerPage);
+      const start = (page - 1) * itemsPerPage;
       return {
-        items: products.slice(start, start + PRODUCTS_PER_PAGE),
+        items: products.slice(start, start + itemsPerPage),
         totalPages,
         hasNextPage: page < totalPages,
       };
@@ -413,6 +426,7 @@ try {
     let currentSearch = '';
     let currentMinPrice = undefined;
     let currentMaxPrice = undefined;
+    let itemsPerPage = 24;
 
     // ===== DOM REFS =====
     const productsGrid = document.getElementById('products-grid');
@@ -620,6 +634,9 @@ try {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
           currentSearch = mobileSearchInput.value;
+          // Sync mobile search bar input
+          const mobileBarInput = document.getElementById('mobile-search-bar-input');
+          if (mobileBarInput) mobileBarInput.value = mobileSearchInput.value;
           render();
         }, 300);
       });
@@ -630,9 +647,39 @@ try {
           e.preventDefault();
           currentSearch = mobileSearchInput.value;
           render();
+          closeMobileSearchOverlay();
         });
       }
     }
+
+    function closeMobileSearchOverlay() {
+      window.dispatchEvent(new CustomEvent('search-overlay-close'));
+    }
+
+    // ===== MOBILE SEARCH BAR (inline, above category/filter buttons) =====
+    const mobileSearchBar = document.getElementById('mobile-search-bar-input');
+    if (mobileSearchBar) {
+      mobileSearchBar.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          currentSearch = mobileSearchBar.value;
+          // Sync Header search overlay input
+          const overlayInput = document.getElementById('search-overlay-input');
+          if (overlayInput) overlayInput.value = mobileSearchBar.value;
+          render();
+        }, 300);
+      });
+    }
+
+    // ===== PER-PAGE SELECTOR =====
+    document.querySelectorAll('.per-page-option').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.per-page-option').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        itemsPerPage = Number(btn.dataset.perPage);
+        render();
+      });
+    });
 
     // ===== CLEAR FILTERS =====
     function clearAllFilters() {
@@ -642,6 +689,7 @@ try {
       currentSearch = '';
       currentMinPrice = undefined;
       currentMaxPrice = undefined;
+      itemsPerPage = 24;
 
       // Reset UI
       document.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
@@ -654,10 +702,20 @@ try {
       const maxInput = document.getElementById('price-max-desktop');
       if (minInput) minInput.value = '';
       if (maxInput) maxInput.value = '';
+      const mobileMinInput = document.getElementById('price-min-mobile');
+      const mobileMaxInput = document.getElementById('price-max-mobile');
+      if (mobileMinInput) mobileMinInput.value = '';
+      if (mobileMaxInput) mobileMaxInput.value = '';
       const headerSearchInput = document.getElementById('search-input');
       if (headerSearchInput) headerSearchInput.value = '';
       const mobileSearchOverlay = document.getElementById('search-overlay-input');
       if (mobileSearchOverlay) mobileSearchOverlay.value = '';
+      // Reset per-page selector UI
+      document.querySelectorAll('.per-page-option').forEach((b) => b.classList.remove('active'));
+      document.querySelector('.per-page-option[data-per-page="24"]')?.classList.add('active');
+      // Clear mobile search bar input
+      const mobileBarInput = document.getElementById('mobile-search-bar-input');
+      if (mobileBarInput) mobileBarInput.value = '';
 
       render();
     }
@@ -735,6 +793,19 @@ try {
       });
     }
 
+    // Escape key: close mobile panels
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const catPanel = document.getElementById('mobile-category-panel');
+        const filterPanel = document.getElementById('mobile-filters-panel');
+        if (catPanel && !catPanel.classList.contains('hidden') && catPanel.classList.contains('open')) {
+          closeCategoriesPanel();
+        } else if (filterPanel && !filterPanel.classList.contains('hidden') && filterPanel.classList.contains('open')) {
+          closeFiltersPanel();
+        }
+      }
+    });
+
     // ===== MOBILE CATEGORY PANEL: TREE + FILTER INTERACTIONS =====
     if (catPanel) {
       // Tree toggle (expand/collapse subcategories)
@@ -797,6 +868,10 @@ try {
           filterPanel.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
           btn.classList.add('active');
           currentSort = btn.dataset.sort;
+          // Sync desktop sidebar sort buttons
+          document.querySelectorAll('[data-sort]').forEach((b) => b.classList.remove('active'));
+          document.querySelector(`[data-sort="${currentSort}"]`)?.classList.add('active');
+          render();
         });
       });
 
@@ -829,9 +904,44 @@ try {
 </script>
 
 <style>
+  /* Mobile search bar — visible only on mobile, above action buttons */
+  .mobile-search-bar {
+    display: none;
+    padding: var(--space-md) var(--margin-mobile);
+    background-color: var(--surface-container);
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+
+  @media (max-width: 767px) {
+    .mobile-search-bar { display: block; }
+  }
+
+  .mobile-search-input {
+    width: 100%;
+    padding: var(--space-md);
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--on-surface);
+    background-color: var(--surface);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .mobile-search-input:focus {
+    border-color: var(--primary);
+  }
+
+  .mobile-search-input::placeholder {
+    color: var(--outline);
+  }
+
   /* Mobile Action Buttons */
   .mobile-actions {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: var(--space-md);
     padding: var(--space-md) var(--margin-mobile);
     background-color: var(--surface-container);
@@ -860,6 +970,44 @@ try {
   .mobile-action-btn:hover {
     border-color: var(--primary);
     color: var(--primary);
+  }
+
+  /* Per-page selector — visible on both mobile and desktop */
+  .per-page-selector {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+  }
+
+  .per-page-option {
+    padding: var(--space-sm) var(--space-md);
+    background: none;
+    border: none;
+    border-right: var(--border-width) solid var(--outline-variant);
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    transition: all 0.15s ease;
+  }
+
+  .per-page-option:last-child {
+    border-right: none;
+  }
+
+  .per-page-option:hover {
+    background-color: var(--surface-container);
+    color: var(--on-surface);
+  }
+
+  .per-page-option.active {
+    background-color: var(--primary);
+    color: var(--on-primary);
+    font-weight: 600;
   }
 
   /* Shop Layout */
@@ -1242,6 +1390,9 @@ try {
 
   /* Product count */
   .product-count {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
     margin-bottom: var(--space-md);
     color: var(--on-surface-variant);
     font-family: var(--font-mono);

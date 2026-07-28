@@ -15,14 +15,16 @@ export interface PaginatedResult<T> {
 /**
  * Slice products into a page. Page 1 = first chunk.
  * Returns empty items for out-of-range pages.
+ * @param perPage — items per page (defaults to PRODUCTS_PER_PAGE)
  */
 export function paginateProducts<T>(
   products: T[],
-  page: number
+  page: number,
+  perPage: number = PRODUCTS_PER_PAGE
 ): PaginatedResult<T> {
-  const totalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE);
-  const start = (page - 1) * PRODUCTS_PER_PAGE;
-  const items = products.slice(start, start + PRODUCTS_PER_PAGE);
+  const totalPages = Math.ceil(products.length / perPage);
+  const start = (page - 1) * perPage;
+  const items = products.slice(start, start + perPage);
 
   return {
     items,
