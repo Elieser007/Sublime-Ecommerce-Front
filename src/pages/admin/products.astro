@@ -985,8 +985,15 @@ const columns = [
   async function executeStatusToggle() {
     if (!pendingStatusToggle) return;
     const { id, activate } = pendingStatusToggle;
-    $('status-overlay')!.style.display = 'none';
-    pendingStatusToggle = null;
+
+    // Show loading state — keep modal open, disable buttons
+    const confirmActivate = $('status-confirm-activate') as HTMLButtonElement;
+    const confirmDeactivate = $('status-confirm-deactivate') as HTMLButtonElement;
+    const cancelBtn = $('status-cancel') as HTMLButtonElement;
+    const activeBtn = activate ? confirmActivate : confirmDeactivate;
+    const origText = activeBtn?.textContent || '';
+    if (activeBtn) { activeBtn.disabled = true; activeBtn.textContent = 'Procesando...'; }
+    if (cancelBtn) cancelBtn.disabled = true;
 
     try {
       const res = await fetch(`${API_URL}/api/products/${id}/status`, {
@@ -995,6 +1002,8 @@ const columns = [
         credentials: 'include',
         body: JSON.stringify({ isActive: activate }),
       });
+      $('status-overlay')!.style.display = 'none';
+      pendingStatusToggle = null;
       if (res.ok) {
         loadProducts();
       } else {
@@ -1002,7 +1011,12 @@ const columns = [
         alert(err.error || `Error al ${activate ? 'reactivar' : 'desactivar'} el producto`);
       }
     } catch {
+      $('status-overlay')!.style.display = 'none';
+      pendingStatusToggle = null;
       alert(`Error de conexión al ${activate ? 'reactivar' : 'desactivar'} el producto`);
+    } finally {
+      if (activeBtn) { activeBtn.disabled = false; activeBtn.textContent = origText; }
+      if (cancelBtn) cancelBtn.disabled = false;
     }
   }
 
