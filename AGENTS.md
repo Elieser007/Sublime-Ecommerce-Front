@@ -1,3 +1,18 @@
+## Agent Workflow
+
+You are working in a feature branch (`agent/N/dev`). Your workflow:
+
+1. Make your code changes on your branch
+2. Run tests: `npm test` (both repos)
+3. When ready, merge to dev: `git checkout dev && git merge agent/N/dev && git checkout agent/N/dev`
+4. The maintainer will test on the dev server
+
+Do NOT start dev servers. The maintainer runs the dev server to verify all changes.
+
+### Testing
+- Run `npm test` in both repos before merging
+- If tests fail, fix on your branch, then merge again
+
 # AGENTS.md — Sublime E-commerce Frontend
 
 ## Stack

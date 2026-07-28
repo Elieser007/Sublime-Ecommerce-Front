@@ -9,6 +9,7 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import AdminTable from '../../components/AdminTable.astro';
+import Button from '../../components/Button.astro';
 
 // Placeholder products
 const products = [
@@ -27,9 +28,7 @@ const products = [
       <div class="admin-header">
         <h1 class="headline-lg-mobile">Productos</h1>
         <div class="admin-header-actions">
-          <a href="/admin/nuevo" class="btn btn--primary">
-            + Nuevo Producto
-          </a>
+          <Button href="/admin/nuevo" variant="primary">+ Nuevo Producto</Button>
         </div>
       </div>
 

@@ -149,21 +149,34 @@ class ProductCard extends HTMLElement {
           width: 100%;
           border-radius: 0;
           padding: 12px var(--_space-md);
-          background: var(--primary);
-          color: var(--surface-container);
-          font-family: var(--_font-body);
-          font-size: 14px;
+          background-color: rgba(130, 207, 255, 0.1);
+          color: #ffffff;
+          font-family: var(--_font-mono);
+          font-size: 12px;
           font-weight: 500;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
           cursor: pointer;
           transition: all 0.2s ease;
-          border: none;
+          border: 1px solid rgba(130, 207, 255, 0.5);
           border-top: var(--_border-width) solid var(--_outline-variant);
           text-align: center;
+          backdrop-filter: blur(8px);
         }
 
         .product-add-btn:hover {
-          color: var(--_surface-container);
-          background: var(--secondary);
+          background-color: rgba(130, 207, 255, 0.2);
+          border-color: var(--primary);
+          transform: scale(1.02);
+        }
+
+        .product-add-btn:active {
+          transform: scale(0.98);
+        }
+
+        .product-add-btn:focus-visible {
+          outline: 2px solid var(--primary);
+          outline-offset: 2px;
         }
       </style>
 

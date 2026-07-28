@@ -76,4 +76,45 @@ describe('paginateProducts', () => {
     expect(page1.items[0].id).toBe('1');
     expect(page2.items[0].id).toBe('25');
   });
+
+  // ===== perPage parameter =====
+
+  it('returns 12 items when perPage=12', () => {
+    const products = makeProducts(50);
+    const result = paginateProducts(products, 1, 12);
+    expect(result.items).toHaveLength(12);
+    expect(result.items[0].id).toBe('1');
+  });
+
+  it('returns 48 items when perPage=48', () => {
+    const products = makeProducts(100);
+    const result = paginateProducts(products, 1, 48);
+    expect(result.items).toHaveLength(48);
+    expect(result.items[0].id).toBe('1');
+  });
+
+  it('paginates correctly with perPage=12 across pages', () => {
+    const products = makeProducts(30);
+    const page1 = paginateProducts(products, 1, 12);
+    const page2 = paginateProducts(products, 2, 12);
+    const page3 = paginateProducts(products, 3, 12);
+    expect(page1.items).toHaveLength(12);
+    expect(page2.items).toHaveLength(12);
+    expect(page3.items).toHaveLength(6); // 30 - 2*12 = 6
+    expect(page1.items[0].id).toBe('1');
+    expect(page2.items[0].id).toBe('13');
+    expect(page3.items[0].id).toBe('25');
+  });
+
+  it('calculates totalPages correctly with perPage=12', () => {
+    const products = makeProducts(50);
+    const result = paginateProducts(products, 1, 12);
+    expect(result.totalPages).toBe(Math.ceil(50 / 12)); // 5
+  });
+
+  it('defaults to PRODUCTS_PER_PAGE when perPage omitted', () => {
+    const products = makeProducts(50);
+    const result = paginateProducts(products, 1);
+    expect(result.items).toHaveLength(PRODUCTS_PER_PAGE);
+  });
 });

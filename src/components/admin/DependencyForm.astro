@@ -5,6 +5,7 @@
  * Can be used as a tab or separate section in admin.
  * Manages hierarchical attribute dependencies.
  */
+import Button from '../Button.astro';
 
 interface Props {
   productId?: string;
@@ -54,7 +55,7 @@ const { productId } = Astro.props;
     <div class="form-error" id="standalone-dep-error"></div>
     
     <div class="form-actions">
-      <button type="submit" class="btn btn--primary">Guardar Dependencia</button>
+      <Button variant="primary" type="submit">Guardar Dependencia</Button>
     </div>
   </form>
 
@@ -111,7 +112,7 @@ const { productId } = Astro.props;
 
   .form-group label {
     color: var(--on-surface-variant);
-    font-family: 'Space Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -119,11 +120,11 @@ const { productId } = Astro.props;
 
   .form-select {
     padding: 10px 12px;
-    background-color: rgba(31, 31, 31, 0.5);
+    background-color: var(--surface-50);
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
     color: var(--on-surface);
-    font-family: 'Hanken Grotesk', sans-serif;
+    font-family: var(--font-body);
     font-size: 14px;
   }
 
@@ -212,7 +213,7 @@ const { productId } = Astro.props;
     justify-content: space-between;
     gap: 12px;
     padding: 12px;
-    background: rgba(31, 31, 31, 0.5);
+    background: var(--surface-50);
     border: 1px solid rgba(62, 72, 80, 0.2);
     border-radius: 0px;
   }
@@ -231,16 +232,6 @@ const { productId } = Astro.props;
   .dep-info strong {
     color: var(--primary);
     font-weight: 500;
-  }
-
-  :global(.btn--danger) {
-    background-color: rgba(255, 180, 171, 0.08);
-    color: var(--error);
-    border: 1px solid rgba(255, 180, 171, 0.3);
-  }
-
-  :global(.btn--danger:hover) {
-    background-color: rgba(255, 180, 171, 0.15);
   }
 </style>
 
@@ -395,7 +386,7 @@ const { productId } = Astro.props;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ parentModuleId, parentValueId, childModuleId, childValueId }),
+        body: JSON.stringify({ parent_module_id: parentModuleId, parent_value_id: parentValueId, child_module_id: childModuleId, child_value_id: childValueId }),
       });
     }
 
