@@ -112,7 +112,7 @@ const { productId } = Astro.props;
 
   .form-group label {
     color: var(--on-surface-variant);
-    font-family: 'Space Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -120,11 +120,11 @@ const { productId } = Astro.props;
 
   .form-select {
     padding: 10px 12px;
-    background-color: rgba(31, 31, 31, 0.5);
+    background-color: var(--surface-50);
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
     color: var(--on-surface);
-    font-family: 'Hanken Grotesk', sans-serif;
+    font-family: var(--font-body);
     font-size: 14px;
   }
 
@@ -213,7 +213,7 @@ const { productId } = Astro.props;
     justify-content: space-between;
     gap: 12px;
     padding: 12px;
-    background: rgba(31, 31, 31, 0.5);
+    background: var(--surface-50);
     border: 1px solid rgba(62, 72, 80, 0.2);
     border-radius: 0px;
   }

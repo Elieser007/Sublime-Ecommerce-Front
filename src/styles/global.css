@@ -85,6 +85,37 @@
   --border-radius: 0px;
   --border-width: 1px;
   --border-hard: 2px;
+  --border-focus: 2px solid var(--primary);
+
+  /* Success */
+  --success: #4caf50;
+  --on-success: #1a3a1a;
+  --success-container: #1a3a1a;
+
+  /* Semi-transparent variants — Primary (Cyan) */
+  --primary-10: rgba(130, 207, 255, 0.1);
+  --primary-50: rgba(130, 207, 255, 0.5);
+  --primary-70: rgba(130, 207, 255, 0.7);
+
+  /* Semi-transparent variants — Secondary (Magenta) */
+  --secondary-50: rgba(255, 176, 204, 0.5);
+  --secondary-70: rgba(255, 176, 204, 0.7);
+
+  /* Semi-transparent variants — Surface */
+  --surface-50: rgba(31, 31, 31, 0.5);
+  --surface-70: rgba(31, 31, 31, 0.7);
+
+  /* Semi-transparent variants — Overlay */
+  --overlay-50: rgba(0, 0, 0, 0.5);
+  --overlay-70: rgba(0, 0, 0, 0.7);
+
+  /* Interactive states */
+  --interactive-bg: var(--surface-container);
+  --interactive-bg-hover: var(--surface-container-high);
+
+  /* Typography helpers */
+  --font-size-xs: 11px;
+  --line-height-tight: 1.1;
 }
 
 /* --- Reset & Base --- */

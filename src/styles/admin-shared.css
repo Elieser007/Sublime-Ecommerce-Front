@@ -62,11 +62,11 @@
 .form-select,
 .form-textarea {
   padding: 12px;
-  background-color: rgba(31, 31, 31, 0.5);
+  background-color: var(--surface-50);
   border: 1px solid rgba(62, 72, 80, 0.3);
   border-radius: 0px;
-  color: #e2e2e2;
-  font-family: 'Hanken Grotesk', sans-serif;
+  color: var(--on-surface);
+  font-family: var(--font-body);
   font-size: 14px;
   min-width: 140px;
 }
@@ -93,14 +93,14 @@
 }
 .form-group label {
   color: var(--on-surface-variant);
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .form-error {
-  color: #ffb4ab;
+  color: var(--error);
   font-size: 14px;
   min-height: 20px;
 }
@@ -133,10 +133,10 @@ tr:hover .cell-actions {
 
 /* ─── Slug Display ───────────────────────────────────────────── */
 .slug-display {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--primary);
-  background: rgba(130, 207, 255, 0.1);
+  background: var(--primary-10);
   padding: 2px 6px;
   border-radius: 2px;
 }
@@ -147,7 +147,7 @@ tr:hover .cell-actions {
   background-color: rgba(53, 53, 53, 0.5);
   border: 1px solid rgba(62, 72, 80, 0.3);
   color: var(--on-surface-variant);
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   border-radius: 0px;
 }
@@ -156,12 +156,12 @@ tr:hover .cell-actions {
 .tag {
   display: inline-block;
   padding: 2px 8px;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   border-radius: 0px;
 }
 .tag--section {
-  background: rgba(130, 207, 255, 0.1);
+  background: var(--primary-10);
   color: var(--primary);
   border: 1px solid rgba(130, 207, 255, 0.3);
 }
@@ -194,7 +194,7 @@ tr:hover .cell-actions {
   padding: 16px;
 }
 .modal {
-  background-color: #131313;
+  background-color: var(--surface-dim);
   border: 1px solid rgba(62, 72, 80, 0.3);
   border-radius: 0px;
   width: 100%;
@@ -213,7 +213,7 @@ tr:hover .cell-actions {
   border-bottom: 1px solid rgba(62, 72, 80, 0.3);
 }
 .modal-header h3 {
-  color: #e2e2e2;
+  color: var(--on-surface);
 }
 .modal-close {
   background: none;
@@ -226,8 +226,8 @@ tr:hover .cell-actions {
   font-size: 18px;
 }
 .modal-close:hover {
-  border-color: #ffb4ab;
-  color: #ffb4ab;
+  border-color: var(--error);
+  color: var(--error);
 }
 .modal-form,
 .modal-body {
@@ -275,7 +275,7 @@ tr:hover .cell-actions {
 }
 .ta-btn:hover {
   background: rgba(130, 207, 255, 0.15);
-  border-color: rgba(130, 207, 255, 0.5);
+  border-color: var(--primary-50);
   transform: scale(1.1);
 }
 /* Warning variant — used in JS template literals (products.astro) */
@@ -292,7 +292,7 @@ tr:hover .cell-actions {
 .ta-btn--price {
   background: rgba(213, 202, 0, 0.08);
   border-color: rgba(213, 202, 0, 0.2);
-  color: #d5ca00;
+  color: var(--tertiary);
 }
 .ta-btn--price:hover {
   background: rgba(213, 202, 0, 0.15);
@@ -301,7 +301,7 @@ tr:hover .cell-actions {
 .ta-btn--delete {
   background: rgba(255, 180, 171, 0.08);
   border-color: rgba(255, 180, 171, 0.2);
-  color: #ffb4ab;
+  color: var(--error);
 }
 .ta-btn--delete:hover {
   background: rgba(255, 180, 171, 0.15);
@@ -310,7 +310,7 @@ tr:hover .cell-actions {
 .ta-btn--attr {
   background: rgba(213, 202, 0, 0.08);
   border-color: rgba(213, 202, 0, 0.2);
-  color: #d5ca00;
+  color: var(--tertiary);
 }
 .ta-btn--attr:hover {
   background: rgba(213, 202, 0, 0.15);
@@ -323,7 +323,7 @@ tr:hover .cell-actions {
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
   text-transform: uppercase;
@@ -338,13 +338,13 @@ tr:hover .cell-actions {
   background-color: currentColor;
 }
 .badge--active {
-  background-color: rgba(130, 207, 255, 0.1);
+  background-color: var(--primary-10);
   color: var(--primary);
   border: 1px solid rgba(130, 207, 255, 0.3);
 }
 .badge--inactive {
   background-color: rgba(255, 180, 171, 0.1);
-  color: #ffb4ab;
+  color: var(--error);
   border: 1px solid rgba(255, 180, 171, 0.3);
 }
 
@@ -353,9 +353,9 @@ tr:hover .cell-actions {
   display: inline-flex;
   align-items: center;
   padding: 4px 10px;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
-  color: #d5ca00;
+  color: var(--tertiary);
   background: rgba(213, 202, 0, 0.1);
   border: 1px solid rgba(213, 202, 0, 0.3);
   border-radius: 0px;
@@ -380,7 +380,7 @@ tr:hover .cell-actions {
 }
 .upload-info {
   padding: 8px 12px;
-  background: rgba(130, 207, 255, 0.1);
+  background: var(--primary-10);
   border: 1px solid rgba(130, 207, 255, 0.3);
 }
 .upload-info p {
@@ -397,11 +397,11 @@ tr:hover .cell-actions {
   animation: cmyk-pulse 1.2s ease-in-out infinite;
 }
 .cmyk-bar span:nth-child(2) {
-  background: #ffb4ab;
+  background: var(--error);
   animation-delay: 0.2s;
 }
 .cmyk-bar span:nth-child(3) {
-  background: #d5ca00;
+  background: var(--tertiary);
   animation-delay: 0.4s;
 }
 @keyframes cmyk-pulse {
@@ -490,7 +490,7 @@ tr:hover .cell-actions {
     background: transparent;
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
-    color: #e2e2e2;
+    color: var(--on-surface);
     cursor: pointer;
     font-size: 20px;
     transition: all 0.15s ease;
@@ -519,7 +519,7 @@ tr:hover .cell-actions {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--overlay-50);
     z-index: 999;
     backdrop-filter: blur(2px);
   }
@@ -550,7 +550,7 @@ tr:hover .cell-actions {
     font-weight: 600;
     color: var(--primary);
     text-transform: uppercase;
-    font-family: 'Space Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     letter-spacing: 0.05em;
     margin-right: 12px;

@@ -214,7 +214,7 @@ const { productId, productName } = Astro.props;
   }
 
   .attr-module-card {
-    background: rgba(31, 31, 31, 0.5);
+    background: var(--surface-50);
     border: 1px solid rgba(62, 72, 80, 0.2);
     border-radius: 0px;
     padding: 12px;
@@ -230,7 +230,7 @@ const { productId, productName } = Astro.props;
 
   .attr-module-name {
     color: var(--primary);
-    font-family: 'Space Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -304,12 +304,12 @@ const { productId, productName } = Astro.props;
   .attr-value-price input {
     width: 80px;
     padding: 4px 6px;
-    background: rgba(31, 31, 31, 0.5);
+    background: var(--surface-50);
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
     color: var(--on-surface);
     font-size: 12px;
-    font-family: 'Space Mono', monospace;
+    font-family: var(--font-mono);
   }
 
   .attr-value-price input:focus {
@@ -319,7 +319,7 @@ const { productId, productName } = Astro.props;
 
   .attr-value-price .price-modifier {
     color: var(--tertiary);
-    font-family: 'Space Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
   }
 
@@ -333,7 +333,7 @@ const { productId, productName } = Astro.props;
   .attr-add-value-form input {
     flex: 1;
     padding: 6px 8px;
-    background: rgba(31, 31, 31, 0.5);
+    background: var(--surface-50);
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
     color: var(--on-surface);
@@ -351,7 +351,7 @@ const { productId, productName } = Astro.props;
     justify-content: space-between;
     gap: 8px;
     padding: 8px 12px;
-    background: rgba(31, 31, 31, 0.5);
+    background: var(--surface-50);
     border: 1px solid rgba(62, 72, 80, 0.2);
     border-radius: 0px;
   }
@@ -374,7 +374,7 @@ const { productId, productName } = Astro.props;
 
   .form-group label {
     color: var(--on-surface-variant);
-    font-family: 'Space Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -382,11 +382,11 @@ const { productId, productName } = Astro.props;
 
   .form-select {
     padding: 10px 12px;
-    background-color: rgba(31, 31, 31, 0.5);
+    background-color: var(--surface-50);
     border: 1px solid rgba(62, 72, 80, 0.3);
     border-radius: 0px;
     color: var(--on-surface);
-    font-family: 'Hanken Grotesk', sans-serif;
+    font-family: var(--font-body);
     font-size: 14px;
   }
 
@@ -459,7 +459,7 @@ const { productId, productName } = Astro.props;
     justify-content: space-between;
     gap: 8px;
     padding: 8px 12px;
-    background: rgba(31, 31, 31, 0.5);
+    background: var(--surface-50);
     border: 1px solid rgba(62, 72, 80, 0.2);
     border-radius: 0px;
   }
@@ -485,7 +485,7 @@ const { productId, productName } = Astro.props;
 
   .attr-picker-btn {
     padding: 4px 10px;
-    font-family: 'Space Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
@@ -493,9 +493,9 @@ const { productId, productName } = Astro.props;
     border-radius: 0px;
     cursor: pointer;
     transition: all 0.2s ease;
-    background-color: rgba(130, 207, 255, 0.1);
+    background-color: var(--primary-10);
     color: var(--primary);
-    border: 1px solid rgba(130, 207, 255, 0.5);
+    border: 1px solid var(--primary-50);
   }
 
   .attr-picker-btn:hover:not(:disabled) {
