@@ -9,7 +9,7 @@ import {
   clearCart,
   formatPrice,
 } from './cart';
-import { djb2Hash, getCartKey, getEffectivePrice, reevalTier, migrateCart } from './cart-utils';
+import { getCartKey, hasAttribute, getAttributeValue, getEffectivePrice, reevalTier, migrateCart } from './cart-utils';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -41,20 +41,6 @@ Object.defineProperty(globalThis, 'localStorage', {
 });
 
 describe('cart-utils', () => {
-  describe('djb2Hash', () => {
-    it('returns a hex string', () => {
-      expect(djb2Hash('hello')).toMatch(/^[0-9a-f]+$/);
-    });
-
-    it('is deterministic', () => {
-      expect(djb2Hash('test')).toBe(djb2Hash('test'));
-    });
-
-    it('produces different hashes for different inputs', () => {
-      expect(djb2Hash('a')).not.toBe(djb2Hash('b'));
-    });
-  });
-
   describe('getCartKey', () => {
     it('returns productId when no attributes', () => {
       expect(getCartKey('123')).toBe('123');
@@ -64,21 +50,85 @@ describe('cart-utils', () => {
       expect(getCartKey('123', {})).toBe('123');
     });
 
-    it('returns composite key with hash when attributes present', () => {
-      const key = getCartKey('123', { mod_1: 'v1' });
-      expect(key).toMatch(/^123-[0-9a-f]+$/);
+    it('formats single attribute as productId:moduleId=valueId', () => {
+      expect(getCartKey('prod-1', { color: 'negro' })).toBe('prod-1:color=negro');
     });
 
-    it('produces same key for same attributes regardless of order', () => {
-      const key1 = getCartKey('123', { b: '2', a: '1' });
-      const key2 = getCartKey('123', { a: '1', b: '2' });
+    it('formats multiple attributes with alphabetical moduleId order', () => {
+      const key = getCartKey('prod-1', { size: 's', color: 'negro' });
+      expect(key).toBe('prod-1:color=negro~size=s');
+    });
+
+    it('handles object attributes extracting value_id', () => {
+      const attrs = {
+        'mod-color': { value_id: 'v-negro', label: 'Negro', raw_value: 'negro' },
+        'mod-size': { value_id: 'v-s', label: 'S', raw_value: 'S' },
+      };
+      const key = getCartKey('prod-abc', attrs);
+      expect(key).toBe('prod-abc:mod-color=v-negro~mod-size=v-s');
+    });
+
+    it('produces same key for same attributes regardless of insertion order', () => {
+      const key1 = getCartKey('prod-1', { b: '2', a: '1' });
+      const key2 = getCartKey('prod-1', { a: '1', b: '2' });
       expect(key1).toBe(key2);
     });
 
-    it('produces different keys for different attributes', () => {
-      const key1 = getCartKey('123', { a: '1' });
-      const key2 = getCartKey('123', { a: '2' });
+    it('produces different keys for different attribute values', () => {
+      const key1 = getCartKey('prod-1', { color: 'negro' });
+      const key2 = getCartKey('prod-1', { color: 'blanco' });
       expect(key1).not.toBe(key2);
+    });
+
+    it('produces different keys for different product IDs', () => {
+      const key1 = getCartKey('prod-1', { color: 'negro' });
+      const key2 = getCartKey('prod-2', { color: 'negro' });
+      expect(key1).not.toBe(key2);
+    });
+
+    it('skips attributes with null value_id', () => {
+      const key = getCartKey('prod-1', { color: 'negro', size: null });
+      expect(key).toBe('prod-1:color=negro');
+    });
+
+    it('returns productId when all attributes have null value_id', () => {
+      expect(getCartKey('prod-1', { color: null, size: null })).toBe('prod-1');
+    });
+  });
+
+  describe('hasAttribute', () => {
+    it('returns true when moduleId exists in key', () => {
+      expect(hasAttribute('prod-1:color=negro~size=s', 'color')).toBe(true);
+    });
+
+    it('returns false when moduleId is not in key', () => {
+      expect(hasAttribute('prod-1:color=negro', 'size')).toBe(false);
+    });
+
+    it('returns false for productId-only key (no colon)', () => {
+      expect(hasAttribute('prod-1', 'color')).toBe(false);
+    });
+
+    it('handles single attribute key', () => {
+      expect(hasAttribute('prod-1:color=negro', 'color')).toBe(true);
+    });
+  });
+
+  describe('getAttributeValue', () => {
+    it('returns value for matching moduleId', () => {
+      expect(getAttributeValue('prod-1:color=negro~size=s', 'color')).toBe('negro');
+    });
+
+    it('returns null when moduleId is not in key', () => {
+      expect(getAttributeValue('prod-1:color=negro', 'size')).toBeNull();
+    });
+
+    it('returns null for productId-only key', () => {
+      expect(getAttributeValue('prod-1', 'color')).toBeNull();
+    });
+
+    it('handles values with hyphens', () => {
+      expect(getAttributeValue('prod-1:mod=v-abc-def', 'mod')).toBe('v-abc-def');
     });
   });
 

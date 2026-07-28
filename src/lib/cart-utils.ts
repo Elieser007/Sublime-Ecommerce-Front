@@ -15,18 +15,34 @@ export interface CartItem {
   selected_attributes?: Record<string, { value_id: string; label: string; raw_value: string; price_modifier?: number }>;
 }
 
-export function djb2Hash(str: string): string {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
-  }
-  return hash.toString(16);
-}
-
 export function getCartKey(productId: string, attributes?: Record<string, any>): string {
   if (!attributes || Object.keys(attributes).length === 0) return productId;
-  const sorted = Object.keys(attributes).sort().map(k => `${k}:${JSON.stringify(attributes[k])}`).join('|');
-  return `${productId}-${djb2Hash(sorted)}`;
+  const parts = Object.keys(attributes)
+    .sort()
+    .map(k => {
+      const v = attributes[k];
+      const valueId = typeof v === 'object' && v !== null ? v.value_id : v;
+      return valueId ? `${k}=${valueId}` : null;
+    })
+    .filter(Boolean);
+  return parts.length > 0 ? `${productId}:${parts.join('~')}` : productId;
+}
+
+export function hasAttribute(compositeKey: string, moduleId: string): boolean {
+  const idx = compositeKey.indexOf(':');
+  if (idx === -1) return false;
+  const segment = compositeKey.slice(idx + 1);
+  return segment.split('~').some(p => p.startsWith(`${moduleId}=`));
+}
+
+export function getAttributeValue(compositeKey: string, moduleId: string): string | null {
+  const idx = compositeKey.indexOf(':');
+  if (idx === -1) return null;
+  const segment = compositeKey.slice(idx + 1);
+  for (const p of segment.split('~')) {
+    if (p.startsWith(`${moduleId}=`)) return p.slice(moduleId.length + 1);
+  }
+  return null;
 }
 
 export function getEffectivePrice(item: CartItem): number {

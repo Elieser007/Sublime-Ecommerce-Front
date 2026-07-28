@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 const CART_ITEMS = [
   {
     id: "test-1",
-    composite_key: "test-1",
+    composite_key: "test-1:mod-1=v1~mod-2=v2",
     name: "Camiseta Sublime",
     price: 120000,
     image: "/placeholder-product.svg",
@@ -231,7 +231,7 @@ test.describe("Cart Page", () => {
     const items = [
       {
         id: "shared-1",
-        composite_key: "shared-1-aaa",
+        composite_key: "shared-1:mod-1=v1",
         name: "Camiseta Roja",
         price: 100000,
         image: "/placeholder-product.svg",
@@ -242,7 +242,7 @@ test.describe("Cart Page", () => {
       },
       {
         id: "shared-1",
-        composite_key: "shared-1-bbb",
+        composite_key: "shared-1:mod-1=v2",
         name: "Camiseta Azul",
         price: 100000,
         image: "/placeholder-product.svg",
