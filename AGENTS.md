@@ -1,27 +1,17 @@
-## Worktree Agent Setup
+## Agent Workflow
 
-This project uses Git worktrees for parallel agent work. Each agent has isolated ports.
+You are working in a feature branch (`agent/N/dev`). Your workflow:
 
-### IMPORTANT: Start your servers FIRST
+1. Make your code changes on your branch
+2. Run tests: `npm test` (both repos)
+3. When ready, merge to dev: `git checkout dev && git merge agent/N/dev && git checkout agent/N/dev`
+4. The maintainer will test on the dev server
 
-Before doing ANY work, you MUST start your backend and frontend servers.
+Do NOT start dev servers. The maintainer runs the dev server to verify all changes.
 
-1. Run `./start.sh` from the worktree root (parent of this directory)
-2. The script reads `.agent-env` for your port assignments
-3. Backend runs on the port specified in `.agent-env`
-4. Frontend runs on the port specified in `.agent-env`
-
-### Your ports
-
-Check `.agent-env` in the worktree root for your specific ports. Do NOT guess ports.
-
-### Verify servers are running
-
-After starting, verify with:
-- Backend: `curl -s http://localhost:YOUR_BACK_PORT/` should return 200
-- Frontend: `curl -s http://localhost:YOUR_FRONT_PORT/` should return 200
-
-If ports conflict with other agents, something is wrong. Check `.agent-env`.
+### Testing
+- Run `npm test` in both repos before merging
+- If tests fail, fix on your branch, then merge again
 
 # AGENTS.md — Sublime E-commerce Frontend
 
