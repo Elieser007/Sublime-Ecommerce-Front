@@ -49,7 +49,7 @@ const columns = [
       </div>
 
       <DataTable columns={columns}>
-        <tr><td colspan="8" class="empty-cell">Cargando...</td></tr>
+        <tr><td colspan="9" class="empty-cell">Cargando...</td></tr>
       </DataTable>
 
       <div class="pagination-bar">
@@ -985,16 +985,39 @@ const columns = [
   async function executeStatusToggle() {
     if (!pendingStatusToggle) return;
     const { id, activate } = pendingStatusToggle;
-    $('status-overlay')!.style.display = 'none';
-    pendingStatusToggle = null;
 
-    const res = await fetch(`${API_URL}/api/products/${id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ isActive: activate }),
-    });
-    if (res.ok) loadProducts();
+    // Show loading state — keep modal open, disable buttons
+    const confirmActivate = $('status-confirm-activate') as HTMLButtonElement;
+    const confirmDeactivate = $('status-confirm-deactivate') as HTMLButtonElement;
+    const cancelBtn = $('status-cancel') as HTMLButtonElement;
+    const activeBtn = activate ? confirmActivate : confirmDeactivate;
+    const origText = activeBtn?.textContent || '';
+    if (activeBtn) { activeBtn.disabled = true; activeBtn.textContent = 'Procesando...'; }
+    if (cancelBtn) cancelBtn.disabled = true;
+
+    try {
+      const res = await fetch(`${API_URL}/api/products/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ isActive: activate }),
+      });
+      $('status-overlay')!.style.display = 'none';
+      pendingStatusToggle = null;
+      if (res.ok) {
+        loadProducts();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || `Error al ${activate ? 'reactivar' : 'desactivar'} el producto`);
+      }
+    } catch {
+      $('status-overlay')!.style.display = 'none';
+      pendingStatusToggle = null;
+      alert(`Error de conexión al ${activate ? 'reactivar' : 'desactivar'} el producto`);
+    } finally {
+      if (activeBtn) { activeBtn.disabled = false; activeBtn.textContent = origText; }
+      if (cancelBtn) cancelBtn.disabled = false;
+    }
   }
 
   $('status-confirm-activate')?.addEventListener('click', executeStatusToggle);
