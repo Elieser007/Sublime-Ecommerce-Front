@@ -23,6 +23,7 @@ import {
 const mockModules: ModuleWithValues[] = [
   {
     id: "mod-color",
+    module_id: "mod-color",
     name: "Color",
     slug: "color_hex",
     frontend_component: "ColorSelector",
@@ -34,6 +35,7 @@ const mockModules: ModuleWithValues[] = [
   },
   {
     id: "mod-size",
+    module_id: "mod-size",
     name: "Talle",
     slug: "size_nomenclature",
     frontend_component: "SizeSelector",
@@ -47,6 +49,7 @@ const mockModules: ModuleWithValues[] = [
   },
   {
     id: "mod-material",
+    module_id: "mod-material",
     name: "Material",
     slug: "material_type",
     frontend_component: "MaterialSelector",

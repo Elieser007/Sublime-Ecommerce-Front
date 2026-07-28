@@ -14,6 +14,7 @@
 
 export interface AttributeModule {
   id: string;
+  module_id: string;
   name: string;
   slug: string;
   frontend_component: string;
@@ -84,7 +85,7 @@ export function filterAvailableOptions(
   }
 
   return modules.map((mod) => {
-    const relevantDeps = dependencies.filter((d) => d.child_module_id === mod.id);
+    const relevantDeps = dependencies.filter((d) => d.child_module_id === mod.module_id);
 
     if (relevantDeps.length === 0) {
       return { ...mod, values: mod.values.map((v) => ({ ...v, available: true })) };
@@ -133,7 +134,7 @@ export function isSelectionComplete(
   return modules.every((mod) => {
     // Skip modules with no values
     if (mod.values.length === 0) return true;
-    return selectedAttributes.has(mod.id);
+    return selectedAttributes.has(mod.module_id);
   });
 }
 

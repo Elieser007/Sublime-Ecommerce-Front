@@ -268,6 +268,14 @@ import CartSummary from '../components/CartSummary.astro';
     margin: 2px 0;
   }
 
+  :global(.cart-item-modifiers) {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--on-surface-variant);
+    letter-spacing: 0.03em;
+    margin: 2px 0;
+  }
+
   :global(.cart-item-tier-badge) {
     display: inline-block;
     font-family: var(--font-mono);
@@ -278,6 +286,13 @@ import CartSummary from '../components/CartSummary.astro';
     padding: 2px 6px;
     margin-top: 4px;
     letter-spacing: 0.03em;
+    transition: all 0.2s ease;
+  }
+
+  :global(.cart-item-tier-badge--active) {
+    color: var(--primary);
+    background-color: rgba(130, 207, 255, 0.1);
+    border-color: rgba(130, 207, 255, 0.3);
   }
 
   /* Quantity Control — rendered by client-side JS */
@@ -599,6 +614,7 @@ import CartSummary from '../components/CartSummary.astro';
 
 <script>
   import { getCart, updateCartQuantity, removeFromCart, formatPrice } from '../lib/cart.js';
+  import { getEffectivePrice } from '../lib/cart-utils';
 
   // ─── <number-input> Web Component ───────────────────────────────
   // Shared component also used in producto/[slug].astro.
@@ -714,16 +730,22 @@ import CartSummary from '../components/CartSummary.astro';
   }
 
   function renderItem(item: any): string {
-    const subtotal = formatPrice(item.price * item.quantity);
+    const effectivePrice = getEffectivePrice(item);
+    const subtotal = formatPrice(effectivePrice * item.quantity);
     const key = item.composite_key || item.id;
 
     let attributeHtml = '';
     if (item.selected_attributes && Object.keys(item.selected_attributes).length > 0) {
-      const labels = Object.values(item.selected_attributes)
-        .map((a: any) => a.label)
-        .filter(Boolean);
-      if (labels.length > 0) {
-        attributeHtml = `<p class="cart-item-attrs">${labels.join(' | ')}</p>`;
+      const entries = Object.values(item.selected_attributes).filter((a: any) => a.label);
+      if (entries.length > 0) {
+        attributeHtml = `<p class="cart-item-attrs">${entries.map((a: any) => a.label).join(' | ')}</p>`;
+        const withModifiers = entries.filter((a: any) => a.price_modifier && a.price_modifier !== 0);
+        if (withModifiers.length > 0) {
+          const modText = withModifiers.map((a: any) =>
+            `${a.label} (+Gs. ${formatPrice(a.price_modifier)})`
+          ).join(' | ');
+          attributeHtml += `<p class="cart-item-modifiers">${modText}</p>`;
+        }
       }
     }
 
@@ -732,7 +754,8 @@ import CartSummary from '../components/CartSummary.astro';
       const volumeTiers = item.price_tiers.filter((t: any) => t.min_quantity > 1);
       if (volumeTiers.length > 0) {
         const best = volumeTiers.reduce((a: any, b: any) => a.price < b.price ? a : b);
-        tierBadgeHtml = `<span class="cart-item-tier-badge">Desde ${best.min_quantity} unds: Gs. ${formatPrice(best.price)}</span>`;
+        const isAtBestTier = item.selected_tier_price != null && item.selected_tier_price <= best.price;
+        tierBadgeHtml = `<span class="cart-item-tier-badge${isAtBestTier ? ' cart-item-tier-badge--active' : ''}">Desde ${best.min_quantity} unds: Gs. ${formatPrice(best.price)}</span>`;
       }
     }
 
@@ -744,7 +767,7 @@ import CartSummary from '../components/CartSummary.astro';
         <div class="cart-item-info">
           <h3 class="cart-item-name">${item.name}</h3>
           ${attributeHtml}
-          <p class="cart-item-price">Gs. ${formatPrice(item.price)} c/u</p>
+          <p class="cart-item-price">Gs. ${formatPrice(effectivePrice)} c/u</p>
           ${tierBadgeHtml}
         </div>
         <div class="cart-item-qty">
@@ -789,12 +812,26 @@ import CartSummary from '../components/CartSummary.astro';
         updateCartQuantity(productId, value);
         pulseSubtotal(productId);
 
-        // Update subtotal display
         const cart = getCart();
-        const item = cart.find((i: any) => i.id === productId);
+        const item = cart.find((i: any) => i.composite_key === productId);
         if (item) {
+          const effective = getEffectivePrice(item);
           const subtotalEl = document.querySelector(`[data-subtotal-for="${productId}"]`);
-          if (subtotalEl) subtotalEl.textContent = `Gs. ${formatPrice(item.price * item.quantity)}`;
+          if (subtotalEl) subtotalEl.textContent = `Gs. ${formatPrice(effective * item.quantity)}`;
+
+          const cartItemEl = (qtyEl as HTMLElement).closest('.cart-item') as HTMLElement;
+          const priceEl = cartItemEl?.querySelector('.cart-item-price');
+          if (priceEl) priceEl.textContent = `Gs. ${formatPrice(effective)} c/u`;
+
+          const badgeEl = cartItemEl?.querySelector('.cart-item-tier-badge') as HTMLElement | null;
+          if (badgeEl && item.price_tiers && item.price_tiers.length > 1) {
+            const volumeTiers = item.price_tiers.filter((t: any) => t.min_quantity > 1);
+            if (volumeTiers.length > 0) {
+              const best = volumeTiers.reduce((a: any, b: any) => a.price < b.price ? a : b);
+              const isAtBestTier = item.selected_tier_price != null && item.selected_tier_price <= best.price;
+              badgeEl.classList.toggle('cart-item-tier-badge--active', isAtBestTier);
+            }
+          }
         }
 
         window.dispatchEvent(new CustomEvent('cart-updated'));

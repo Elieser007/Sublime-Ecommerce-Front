@@ -23,6 +23,7 @@ function createModule(
 ): ModuleWithValues {
   return {
     id,
+    module_id: id,
     name,
     slug: `slug-${id}`,
     frontend_component: "SizeSelector",

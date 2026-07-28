@@ -670,7 +670,7 @@ const basePriceFormatted = formatPrice(product.base_price);
     
     // Get selected attributes from variant selector
     const variantContainer = document.querySelector('.variant-selector') as HTMLElement;
-    const selectedAttributes: Record<string, { value_id: string; label: string; raw_value: string }> = {};
+    const selectedAttributes: Record<string, { value_id: string; label: string; raw_value: string; price_modifier: number }> = {};
     
     if (variantContainer) {
       // Size
@@ -680,6 +680,7 @@ const basePriceFormatted = formatPrice(product.base_price);
           value_id: selectedSize.dataset.valueId!,
           label: selectedSize.querySelector('.size-selector__label-text')?.textContent?.trim() || '',
           raw_value: selectedSize.dataset.valueId!,
+          price_modifier: parseInt(selectedSize.dataset.priceModifier || '0', 10),
         };
       }
       
@@ -690,6 +691,7 @@ const basePriceFormatted = formatPrice(product.base_price);
           value_id: selectedColor.dataset.valueId!,
           label: selectedColor.getAttribute('aria-label') || '',
           raw_value: selectedColor.dataset.valueId!,
+          price_modifier: parseInt(selectedColor.dataset.priceModifier || '0', 10),
         };
       }
       
@@ -701,6 +703,7 @@ const basePriceFormatted = formatPrice(product.base_price);
           value_id: selectedMaterial.value,
           label: option.textContent?.replace(/\s*\(.*\)/, '').trim() || '',
           raw_value: selectedMaterial.value,
+          price_modifier: parseInt(option.dataset.priceModifier || '0', 10),
         };
       }
     }
