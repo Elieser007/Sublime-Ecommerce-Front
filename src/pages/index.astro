@@ -15,6 +15,7 @@
 import { formatPrice, getProductImageUrl } from '../lib/public-api';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PromotionWall from '../components/PromotionWall.astro';
+import Button from '../components/Button.astro';
 
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 
@@ -182,9 +183,9 @@ try {
             </div>
           </div>
 
-          <button class="apply-filters-btn btn btn--primary" id="apply-filters-desktop">
+          <Button variant="primary" class="apply-filters-btn" id="apply-filters-desktop">
             Aplicar
-          </button>
+          </Button>
         </div>
       </aside>
 
@@ -198,9 +199,9 @@ try {
             </div>
 
             <!-- Clear filters (hidden by default) -->
-            <button class="clear-filters-btn btn btn--ghost" id="clear-filters" style="display: none;">
+            <Button variant="ghost" class="clear-filters-btn" id="clear-filters" style="display: none;">
               Limpiar filtros
-            </button>
+            </Button>
 
             <div class="products-grid" id="products-grid">
               {products.map((product) => {
@@ -236,9 +237,9 @@ try {
 
             <!-- Pagination -->
             <div class="pagination" id="pagination" style="display: none;">
-              <button class="load-more-btn btn btn--primary" id="load-more">
+              <Button variant="primary" class="load-more-btn" id="load-more">
                 Cargar más
-              </button>
+              </Button>
               <span class="page-indicator body-sm" id="page-indicator"></span>
             </div>
 
@@ -246,9 +247,9 @@ try {
             <div class="empty-state" id="empty-state" style="display: none;">
               <p class="body-lg">No se encontraron productos</p>
               <p class="body-md" style="color: var(--on-surface-variant); margin-top: var(--space-sm);">Intenta ajustar los filtros o búsqueda</p>
-              <button class="btn btn--primary" id="empty-clear-btn" style="margin-top: var(--space-lg);">
+              <Button variant="primary" id="empty-clear-btn" style="margin-top: var(--space-lg);">
                 Limpiar filtros
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
@@ -357,7 +358,7 @@ try {
             <input type="number" class="price-input" placeholder="Máx" id="price-max-mobile" />
           </div>
         </div>
-        <button class="apply-filters-btn btn btn--primary" id="apply-filters-mobile">Aplicar</button>
+        <Button variant="primary" class="apply-filters-btn" id="apply-filters-mobile">Aplicar</Button>
       </div>
     </div>
   </div>

@@ -2,52 +2,311 @@
 /**
  * Button component — Chromatic High-Contrast design system
  * 
- * Based on admin panel design:
- * - Semi-transparent backgrounds with backdrop-blur
- * - Subtle borders with opacity
- * - Sharp corners (0px radius)
- * - Hover effects with scale transforms
- * - Material icons
+ * Single source of truth for all button styles.
+ * Consolidates global.css .btn rules and admin-shared.css .btn--danger.
  * 
  * Variants:
- * - primary: Cyan accent, semi-transparent bg
+ * - primary: Cyan accent, semi-transparent bg, WHITE text
  * - secondary: Magenta accent, semi-transparent bg
  * - ghost: Transparent, hover shows border
+ * - outline: Border-only, white text — for inline buttons on dark bg
+ * - danger: Red/error accent for destructive actions
+ * - success: Green accent for positive confirmations
+ * - warning: Yellow accent for caution actions
+ * 
+ * Sizes: sm, md (default), lg, xl
+ * States: default, hover, active, disabled, loading
+ * Icons: left, right, or only (icon-only button)
  */
 
 interface Props {
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger' | 'success' | 'warning';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  icon?: string;
+  iconPosition?: 'left' | 'right' | 'only';
   href?: string;
   type?: 'button' | 'submit' | 'reset';
   class?: string;
   disabled?: boolean;
-  icon?: string;
+  loading?: boolean;
   [key: string]: any;
 }
 
 const {
   variant = 'primary',
+  size = 'md',
+  icon,
+  iconPosition = 'left',
   href,
   type = 'button',
   class: className = '',
   disabled = false,
-  icon,
+  loading = false,
   ...rest
 } = Astro.props;
 
 const Tag = href ? 'a' : 'button';
+const isIconOnly = iconPosition === 'only' && icon;
 ---
 
 <Tag
   href={href}
   type={!href ? type : undefined}
-  class:list={['btn', `btn--${variant}`, className]}
-  disabled={disabled}
-  aria-disabled={disabled}
+  class:list={[
+    'btn',
+    `btn--${variant}`,
+    `btn--${size}`,
+    loading && 'btn--loading',
+    className
+  ]}
+  disabled={!href ? disabled : undefined}
+  aria-disabled={disabled || loading}
+  aria-busy={loading}
+  aria-label={isIconOnly ? rest['aria-label'] : undefined}
   {...rest}
 >
-  {icon && <span class="material-symbols-outlined btn-icon">{icon}</span>}
-  <slot />
+  {loading ? (
+    <span class="btn-spinner" aria-hidden="true"></span>
+  ) : (
+    <>
+      {icon && iconPosition !== 'right' && (
+        <span class:list={['btn-icon', isIconOnly && 'btn-icon--only']}>
+          <span class="material-symbols-outlined">{icon}</span>
+        </span>
+      )}
+      {!isIconOnly && <slot />}
+      {icon && iconPosition === 'right' && (
+        <span class="btn-icon">
+          <span class="material-symbols-outlined">{icon}</span>
+        </span>
+      )}
+    </>
+  )}
 </Tag>
 
+<style>
+  /* ============================================================
+     BASE BUTTON — shared foundation
+     ============================================================ */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    font-family: var(--font-mono);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-radius: 0px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+    position: relative;
+  }
 
+  /* ============================================================
+     SIZE TOKENS
+     ============================================================ */
+  .btn--sm {
+    padding: 6px 12px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    height: 28px;
+  }
+
+  .btn--md {
+    padding: 12px 24px;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    height: 40px;
+  }
+
+  .btn--lg {
+    padding: 16px 32px;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    height: 48px;
+  }
+
+  .btn--xl {
+    padding: 20px 40px;
+    font-size: 16px;
+    letter-spacing: 0.06em;
+    height: 56px;
+  }
+
+  /* ============================================================
+     VARIANT STYLES
+     ============================================================ */
+
+  /* Primary: Cyan accent, semi-transparent bg — WHITE text for contrast */
+  .btn--primary {
+    background-color: rgba(130, 207, 255, 0.1);
+    color: #ffffff;
+    border: 1px solid rgba(130, 207, 255, 0.5);
+  }
+
+  .btn--primary:hover {
+    background-color: rgba(130, 207, 255, 0.2);
+    border-color: var(--primary);
+  }
+
+  /* Secondary: Magenta accent, semi-transparent bg */
+  .btn--secondary {
+    background-color: rgba(255, 176, 204, 0.1);
+    color: var(--secondary);
+    border: 1px solid rgba(255, 176, 204, 0.5);
+  }
+
+  .btn--secondary:hover {
+    background-color: rgba(255, 176, 204, 0.2);
+    border-color: var(--secondary);
+  }
+
+  /* Ghost: Transparent, hover shows border */
+  .btn--ghost {
+    background-color: transparent;
+    color: var(--on-surface-variant);
+    border: 1px solid transparent;
+  }
+
+  .btn--ghost:hover {
+    color: var(--on-surface);
+    border-color: var(--outline-variant);
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+
+  /* Outline: Border-only, white text — for inline buttons on dark bg */
+  .btn--outline {
+    background-color: transparent;
+    color: #ffffff;
+    border: 1px solid var(--primary);
+  }
+
+  .btn--outline:hover {
+    background-color: rgba(130, 207, 255, 0.1);
+    border-color: var(--primary);
+  }
+
+  /* Danger: Red/error accent for destructive actions */
+  .btn--danger {
+    background-color: rgba(255, 180, 171, 0.1);
+    color: var(--error);
+    border: 1px solid rgba(255, 180, 171, 0.5);
+  }
+
+  .btn--danger:hover {
+    background-color: rgba(255, 180, 171, 0.2);
+    border-color: var(--error);
+  }
+
+  /* Success: Green accent for positive confirmations */
+  .btn--success {
+    background-color: rgba(76, 175, 80, 0.1);
+    color: #4caf50;
+    border: 1px solid rgba(76, 175, 80, 0.5);
+  }
+
+  .btn--success:hover {
+    background-color: rgba(76, 175, 80, 0.2);
+    border-color: #4caf50;
+  }
+
+  /* Warning: Yellow accent for caution actions */
+  .btn--warning {
+    background-color: rgba(213, 202, 0, 0.1);
+    color: var(--tertiary);
+    border: 1px solid rgba(213, 202, 0, 0.5);
+  }
+
+  .btn--warning:hover {
+    background-color: rgba(213, 202, 0, 0.2);
+    border-color: var(--tertiary);
+  }
+
+  /* ============================================================
+     INTERACTION STATES
+     ============================================================ */
+  .btn:hover {
+    text-decoration: none;
+    transform: scale(1.02);
+  }
+
+  .btn:active {
+    transform: scale(0.98);
+  }
+
+  /* Disabled state */
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    pointer-events: none;
+  }
+
+  /* Focus ring — keyboard navigation only */
+  .btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* ============================================================
+     ICON STYLES
+     ============================================================ */
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .btn-icon--only {
+    /* Icon-only: square aspect, no text */
+  }
+
+  /* ============================================================
+     LOADING STATE
+     ============================================================ */
+  .btn--loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+  }
+
+  .btn--loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: btn-spin 0.6s linear infinite;
+  }
+
+  @keyframes btn-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .btn-spinner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ============================================================
+     HOVER TRANSITIONS (all variants inherit)
+     ============================================================ */
+  .btn--primary,
+  .btn--secondary,
+  .btn--ghost,
+  .btn--outline,
+  .btn--danger,
+  .btn--success,
+  .btn--warning {
+    transition: all 0.2s ease;
+  }
+</style>
