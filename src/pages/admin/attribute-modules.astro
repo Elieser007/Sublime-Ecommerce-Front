@@ -9,6 +9,7 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
+import Button from '../../components/Button.astro';
 
 
 const moduleColumns = [
@@ -50,10 +51,7 @@ const COMPONENT_OPTIONS = [
         <div class="search-box">
           <input type="text" class="form-input body-md" id="search-input" placeholder="Buscar módulos..." />
         </div>
-        <button class="btn btn--primary" id="add-module">
-          <span class="btn-icon">+</span>
-          Nuevo Módulo
-        </button>
+        <Button variant="primary" id="add-module">+ Nuevo Módulo</Button>
       </div>
 
       <!-- Modules Table -->
@@ -93,8 +91,8 @@ const COMPONENT_OPTIONS = [
               <input type="number" name="sort_order" class="form-input body-md" value="0" min="0" />
             </div>
             <div class="form-actions">
-              <button type="button" class="btn btn--secondary" id="module-modal-cancel">Cancelar</button>
-              <button type="submit" class="btn btn--primary">Guardar</button>
+              <Button variant="secondary" type="button" id="module-modal-cancel">Cancelar</Button>
+              <Button variant="primary" type="submit">Guardar</Button>
             </div>
           </form>
         </div>
@@ -134,8 +132,8 @@ const COMPONENT_OPTIONS = [
               <input type="number" name="sort_order" class="form-input body-md" value="0" min="0" />
             </div>
             <div class="form-actions">
-              <button type="button" class="btn btn--secondary" id="value-modal-cancel">Cancelar</button>
-              <button type="submit" class="btn btn--primary">Guardar</button>
+              <Button variant="secondary" type="button" id="value-modal-cancel">Cancelar</Button>
+              <Button variant="primary" type="submit">Guardar</Button>
             </div>
           </form>
         </div>
@@ -593,5 +591,4 @@ const COMPONENT_OPTIONS = [
   .color-picker { width: 40px; height: 38px; padding: 2px; border: 1px solid rgba(62, 72, 80, 0.3); background: rgba(31,31,31,0.5); cursor: pointer; border-radius: 0px; }
 
   .form-hint { color: #626870; font-size: 12px; margin-top: 2px; }
-  .btn--sm { padding: 6px 14px; font-size: 11px; }
 </style>

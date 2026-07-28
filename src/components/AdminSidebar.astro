@@ -6,6 +6,7 @@
  * Shows different menu items based on user role.
  * Includes branch selector for admins.
  */
+import Button from './Button.astro';
 ---
 
 <button class="sidebar-toggle" id="sidebar-toggle" aria-expanded="false" aria-label="Abrir menú de navegación">
@@ -151,8 +152,8 @@
     <p class="deploy-warning">⚠️ Límite: 200 builds por mes en Cloudflare Free. Los builds restantes son para emergencias.</p>
     <div id="deploy-status" class="deploy-status"></div>
     <div class="deploy-actions">
-      <button class="btn btn--secondary" id="deploy-cancel">Cancelar</button>
-      <button class="btn btn--primary" id="deploy-confirm">Deploy</button>
+      <Button variant="secondary" id="deploy-cancel">Cancelar</Button>
+      <Button variant="primary" id="deploy-confirm">Deploy</Button>
     </div>
   </div>
 </dialog>

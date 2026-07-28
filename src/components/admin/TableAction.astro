@@ -3,26 +3,48 @@
  * TableAction — Reusable Action Button for Tables
  * 
  * Small icon button for table row actions (edit, delete, etc.)
- * Matching Chromatic High-Contrast admin panel design.
+ * Matching Chromatic High-Contrast admin design.
+ * 
+ * Variants:
+ * - ghost: Cyan accent (default) — for neutral actions
+ * - danger: Red/error accent — for destructive actions
+ * - warning: Yellow accent — for caution actions (reactivate, price)
  */
 
 interface Props {
   icon?: string;
-  variant?: 'default' | 'delete';
+  onClick?: string;
+  variant?: 'ghost' | 'danger' | 'warning';
+  disabled?: boolean;
   title?: string;
   class?: string;
+  [key: string]: any;
 }
 
-const { icon, variant = 'default', title = '', class: className = '' } = Astro.props;
+const {
+  icon,
+  onClick,
+  variant = 'ghost',
+  disabled = false,
+  title = '',
+  class: className = '',
+  ...rest
+} = Astro.props;
+
+const variantClass = `ta-btn--${variant}`;
 ---
 
 <button
-  class:list={['ta-btn', `ta-btn--${variant}`, className]}
+  class:list={['ta-btn', variantClass, className]}
   title={title}
   type="button"
+  aria-label={title || undefined}
+  disabled={disabled}
+  onclick={onClick}
+  {...rest}
 >
   {icon ? (
-    <span class="ta-icon">{icon}</span>
+    <span class="material-symbols-outlined ta-icon">{icon}</span>
   ) : (
     <slot />
   )}
@@ -45,6 +67,11 @@ const { icon, variant = 'default', title = '', class: className = '' } = Astro.p
     backdrop-filter: blur(4px);
   }
 
+  .ta-btn .ta-icon {
+    font-size: 14px;
+    line-height: 1;
+  }
+
   .ta-btn svg {
     width: 14px;
     height: 14px;
@@ -60,19 +87,40 @@ const { icon, variant = 'default', title = '', class: className = '' } = Astro.p
     transform: scale(0.95);
   }
 
-  .ta-btn--delete {
+  .ta-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* Danger variant */
+  .ta-btn--danger {
     background: rgba(255, 180, 171, 0.08);
     border-color: rgba(255, 180, 171, 0.2);
     color: var(--error);
   }
 
-  .ta-btn--delete:hover {
+  .ta-btn--danger:hover {
     background: rgba(255, 180, 171, 0.15);
     border-color: rgba(255, 180, 171, 0.5);
   }
 
-  .ta-icon {
-    font-size: 14px;
-    line-height: 1;
+  /* Warning variant */
+  .ta-btn--warning {
+    background: rgba(213, 202, 0, 0.08);
+    border-color: rgba(213, 202, 0, 0.2);
+    color: var(--tertiary);
+  }
+
+  .ta-btn--warning:hover {
+    background: rgba(213, 202, 0, 0.15);
+    border-color: rgba(213, 202, 0, 0.5);
+  }
+
+  /* Disabled state */
+  .ta-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    pointer-events: none;
   }
 </style>

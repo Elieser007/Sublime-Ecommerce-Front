@@ -9,6 +9,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import DataTable from '../../components/admin/DataTable.astro';
 import TableAction from '../../components/admin/TableAction.astro';
+import Button from '../../components/Button.astro';
 
 
 const sectionColumns = [
@@ -59,10 +60,7 @@ const subcategoryColumns = [
             <h2 class="body-lg">Secciones</h2>
             <p class="label-sm content-desc">Grupo macro de artículos</p>
           </div>
-          <button class="btn btn--primary" id="add-section">
-            <span class="btn-icon">+</span>
-            Nueva Sección
-          </button>
+          <Button variant="primary" id="add-section">+ Nueva Sección</Button>
         </div>
         <p class="body-md examples">
           Ej: <span class="example-tag">Indumentaria</span> <span class="example-tag">Accesorios</span> <span class="example-tag">Papelería</span>
@@ -79,10 +77,7 @@ const subcategoryColumns = [
             <h2 class="body-lg">Categorías</h2>
             <p class="label-sm content-desc">Producto base a sublimar</p>
           </div>
-          <button class="btn btn--primary" id="add-category">
-            <span class="btn-icon">+</span>
-            Nueva Categoría
-          </button>
+          <Button variant="primary" id="add-category">+ Nueva Categoría</Button>
         </div>
         <p class="body-md examples">
           Ej: <span class="example-tag">Remeras</span> <span class="example-tag">Tazas</span> <span class="example-tag">Termos</span>
@@ -99,10 +94,7 @@ const subcategoryColumns = [
             <h2 class="body-lg">Subcategorías</h2>
             <p class="label-sm content-desc">Detalle técnico o temática</p>
           </div>
-          <button class="btn btn--primary" id="add-subcategory">
-            <span class="btn-icon">+</span>
-            Nueva Subcategoría
-          </button>
+          <Button variant="primary" id="add-subcategory">+ Nueva Subcategoría</Button>
         </div>
         <p class="body-md examples">
           Ej: <span class="example-tag">Anime</span> <span class="example-tag">Frases</span> <span class="example-tag">Tazas Mágicas</span>
@@ -141,8 +133,8 @@ const subcategoryColumns = [
               <input type="number" name="sortOrder" class="form-input body-md" value="0" />
             </div>
             <div class="form-actions">
-              <button type="button" class="btn btn--secondary" id="modal-cancel">Cancelar</button>
-              <button type="submit" class="btn btn--primary">Guardar</button>
+              <Button variant="secondary" id="modal-cancel">Cancelar</Button>
+              <Button variant="primary" type="submit">Guardar</Button>
             </div>
           </form>
         </div>
