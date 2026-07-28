@@ -220,6 +220,9 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 
   searchOverlayClose?.addEventListener("click", closeSearchOverlay);
 
+  // Listen for custom event from catalog page (respects component boundary)
+  window.addEventListener("search-overlay-close", closeSearchOverlay);
+
   searchOverlay?.addEventListener("click", (e) => {
     if (e.target === searchOverlay) closeSearchOverlay();
   });
