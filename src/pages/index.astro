@@ -499,13 +499,18 @@ try {
     function renderPage() {
       const { items, totalPages, hasNextPage } = paginateProducts(filteredProducts, currentPage);
 
-      // Show/hide wrappers
+      // Reorder DOM to match sort/filter order, hide the rest
+      const visibleSet = new Set(items);
       allProducts.forEach((p) => {
-        if (items.includes(p)) {
+        if (visibleSet.has(p)) {
           p._wrapper.style.display = '';
         } else {
           p._wrapper.style.display = 'none';
         }
+      });
+      // Append visible items in sorted order so DOM order matches display order
+      items.forEach((p) => {
+        productsGrid.appendChild(p._wrapper);
       });
 
       // Pagination controls
