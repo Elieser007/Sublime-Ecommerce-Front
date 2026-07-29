@@ -15,6 +15,7 @@
 
 import type { PriceTier } from "./public-api";
 import { formatPrice } from "./format";
+import { getEffectivePrice } from "./cart-utils";
 
 export interface CartItem {
   id: string;
@@ -67,8 +68,8 @@ export function buildCartMessage(cart: CartItem[]): string {
   let total = 0;
 
   cart.forEach((item) => {
-    // Use tier price if available, otherwise base price
-    const unitPrice = item.selected_tier_price ?? item.price;
+    // Use effective price (tier + attribute surcharges)
+    const unitPrice = getEffectivePrice(item);
     const subtotal = unitPrice * item.quantity;
     total += subtotal;
 
@@ -91,7 +92,7 @@ export function buildCartMessage(cart: CartItem[]): string {
     // Volume tier info
     if (item.selected_tier_id && item.selected_tier_min_qty) {
       const tierMinQty = item.selected_tier_min_qty;
-      const tierPrice = item.selected_tier_price || item.price;
+      const tierPrice = getEffectivePrice(item);
       
       lines.push(
         `  📦 Precio por volumen (${tierMinQty}+ unds): Gs. ${formatGuaranies(tierPrice)}/u`
@@ -163,7 +164,7 @@ export function calculateCartTotals(cart: CartItem[]): {
   let itemCount = 0;
 
   cart.forEach((item) => {
-    const unitPrice = item.selected_tier_price ?? item.price;
+    const unitPrice = getEffectivePrice(item);
     subtotal += unitPrice * item.quantity;
     itemCount += item.quantity;
   });
