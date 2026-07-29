@@ -11,7 +11,7 @@
  *   product (required) — JSON string with product data
  */
 
-import { addToCart, getCartCount, formatPrice } from '../lib/cart.js';
+import { addToCart, addToCartWithOptions, getCartCount, formatPrice } from '../lib/cart.js';
 import { escapeHtml } from '../lib/escape-html';
 
 class ProductCard extends HTMLElement {
@@ -214,7 +214,28 @@ class ProductCard extends HTMLElement {
     const btn = this.shadowRoot.querySelector('.product-add-btn');
     if (!btn) return;
 
+    const hasVariants = product.has_variants === true ||
+      (Array.isArray(product.variants) && product.variants.length > 0);
+
+    let modal = null;
+
     btn.addEventListener('click', () => {
+      if (hasVariants) {
+        if (!modal) {
+          modal = document.createElement('variant-modal');
+          modal.setAttribute('product-id', product.id);
+          modal.setAttribute('product-name', product.name);
+          modal.setAttribute('product-price', String(product.price));
+          modal.setAttribute('product-image', product.image || '/placeholder.webp');
+          if (product.price_tiers && product.price_tiers.length > 0) {
+            modal.setAttribute('price-tiers', JSON.stringify(product.price_tiers));
+          }
+          document.body.appendChild(modal);
+        }
+        modal.open(btn);
+        return;
+      }
+
       addToCart({ id: product.id, name: product.name, price: product.price, image: product.image, quantity: 1 });
 
       // Update header cart badge
