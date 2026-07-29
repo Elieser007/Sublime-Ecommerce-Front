@@ -20,10 +20,11 @@
  *   modal-closed  — detail: { productId }
  */
 
-import { addToCartWithOptions, getCartCount } from '../lib/cart.js';
+import { addToCartWithOptions, updateCartBadge } from '../lib/cart.js';
 import { escapeHtml } from '../lib/escape-html';
 import { formatPrice } from '../lib/format';
-import { computeFinalPrice } from '../lib/variant-logic';
+import { isSelectionComplete } from '../lib/variant-logic';
+import { getTierPrice } from '../lib/price-utils';
 
 const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_API_URL) || 'http://localhost:8787';
 
@@ -382,16 +383,9 @@ class VariantModal extends HTMLElement {
       if (val) modifiers.push(val.price_modifier);
     }
 
-    // Apply tier pricing if available
     let basePrice = this._basePrice;
-    if (this._priceTiers && this._priceTiers.length > 0) {
-      const sorted = [...this._priceTiers].sort((a, b) => a.min_quantity - b.min_quantity);
-      const hasBaseTier = sorted.some(t => t.min_quantity <= 1);
-      if (hasBaseTier) {
-        for (const tier of sorted) {
-          if (tier.min_quantity <= this._quantity) basePrice = tier.price;
-        }
-      }
+    if (this._priceTiers?.length > 0) {
+      basePrice = getTierPrice(this._priceTiers, this._quantity);
     }
 
     this._finalPrice = Math.max(0, basePrice + modifiers.reduce((a, b) => a + b, 0));
@@ -460,9 +454,8 @@ class VariantModal extends HTMLElement {
 
   _handleConfirm() {
     if (this._modules.length > 0) {
-      const allSelected = this._modules.every(
-        (mod) => mod.values.length === 0 || this._selectedAttributes[mod.module_id]
-      );
+      const selectedMap = new Map(Object.entries(this._selectedAttributes));
+      const allSelected = isSelectionComplete(this._modules, selectedMap);
       if (!allSelected) {
         const confirmBtn = this._shadow.querySelector('.confirm-btn');
         if (confirmBtn) {
@@ -519,11 +512,7 @@ class VariantModal extends HTMLElement {
   }
 
   _updateBadge() {
-    const badge = document.getElementById('cart-count');
-    if (badge) {
-      badge.textContent = getCartCount().toString();
-      badge.style.display = '';
-    }
+    updateCartBadge();
   }
 
   // ─── Styles ──────────────────────────────────────────────

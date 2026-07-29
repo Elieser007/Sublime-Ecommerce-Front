@@ -155,3 +155,14 @@ export function clearCart() {
   window.dispatchEvent(new Event('storage'));
   return [];
 }
+
+/**
+ * Update the header cart badge count and visibility.
+ */
+export function updateCartBadge() {
+  const badge = document.getElementById('cart-count');
+  if (badge) {
+    badge.textContent = getCartCount().toString();
+    badge.style.display = '';
+  }
+}

@@ -11,7 +11,7 @@
  *   product (required) — JSON string with product data
  */
 
-import { addToCart, addToCartWithOptions, getCartCount, formatPrice } from '../lib/cart.js';
+import { addToCart, addToCartWithOptions, updateCartBadge, formatPrice } from '../lib/cart.js';
 import { escapeHtml } from '../lib/escape-html';
 import { getBestVolumeBadge } from '../lib/price-utils';
 
@@ -232,12 +232,7 @@ class ProductCard extends HTMLElement {
 
       addToCart({ id: product.id, name: product.name, price: product.price, image: product.image, quantity: 1 });
 
-      // Update header cart badge
-      const badge = document.getElementById('cart-count');
-      if (badge) {
-        badge.textContent = getCartCount().toString();
-        badge.style.display = '';
-      }
+      updateCartBadge();
 
       // Visual feedback
       btn.textContent = '¡Agregado!';

@@ -128,7 +128,7 @@ export function reevalTier(item: CartItem): CartItem {
   return {
     ...item,
     selected_tier_id: tier?.id,
-    selected_tier_price: tier?.price ?? item.price,
+    selected_tier_price: tier?.price ?? undefined,
     selected_tier_min_qty: tier?.min_quantity,
   };
 }

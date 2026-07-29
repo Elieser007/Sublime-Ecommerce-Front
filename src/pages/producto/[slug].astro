@@ -134,7 +134,7 @@ const basePriceFormatted = formatPrice(product.base_price);
   </div>
 
   <!-- Inject build-time product data for client-side script -->
-  <script is:inline set:html={`window.__PRODUCT_DATA__ = ${JSON.stringify(product)};`} />
+  <script is:inline set:html={`window.__PRODUCT_DATA__ = ${JSON.stringify(product).replace(/<\//g, '<\\/')};`} />
 </BaseLayout>
 
 <script>
@@ -145,7 +145,7 @@ const basePriceFormatted = formatPrice(product.base_price);
   import { getTierPrice, getTierForQuantity } from '../../lib/price-utils';
   import { buildCartMessage } from '../../lib/whatsapp';
   import { computeFinalPrice, isSelectionComplete } from '../../lib/variant-logic';
-  import { addToCartWithOptions, getCartCount } from '../../lib/cart.js';
+  import { addToCartWithOptions, updateCartBadge } from '../../lib/cart.js';
 
   const API_URL = (typeof import.meta !== "undefined" && import.meta.env?.PUBLIC_API_URL) || "http://localhost:8787";
 
@@ -363,10 +363,7 @@ const basePriceFormatted = formatPrice(product.base_price);
       ...(hasAttributes ? { selected_attributes: selectedAttributes } : {}),
     });
 
-    const badge = document.getElementById('cart-count');
-    if (badge) {
-      badge.textContent = getCartCount().toString();
-    }
+    updateCartBadge();
 
     $addCart.textContent = '¡Agregado!';
     setTimeout(() => { $addCart.textContent = 'Agregar al carrito'; }, 1500);
