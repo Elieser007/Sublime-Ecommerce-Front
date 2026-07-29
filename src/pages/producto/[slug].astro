@@ -430,7 +430,7 @@ const basePriceFormatted = formatPrice(product.base_price);
           role="radio" aria-checked="false" aria-disabled="${val.available === false}" ${val.available === false ? 'disabled' : ''}
           aria-label="${val.label}${val.price_modifier > 0 ? ` +₲${val.price_modifier}` : ''}" title="${val.label}${val.price_modifier > 0 ? ` (+₲${val.price_modifier})` : ''}">
           <span class="color-selector__swatch" style="background-color: ${hex};"></span>
-          ${val.price_modifier > 0 ? `<span class="color-selector__price-modifier">+₲${val.price_modifier.toLocaleString('es-PY')}</span>` : ''}
+          <span class="color-selector__price-modifier">${val.price_modifier > 0 ? `+₲${val.price_modifier.toLocaleString('es-PY')}` : '\u00A0'}</span>
         </button>`;
     }
 
