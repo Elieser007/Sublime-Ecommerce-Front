@@ -26,6 +26,7 @@ export interface PublicProduct {
   image_url: string | null;
   created_at: number;
   price_tiers?: PriceTier[];
+  has_variants?: boolean;
 }
 
 /**

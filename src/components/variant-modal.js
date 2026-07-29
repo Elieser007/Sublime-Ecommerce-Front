@@ -23,6 +23,7 @@
 import { addToCartWithOptions, getCartCount } from '../lib/cart.js';
 import { escapeHtml } from '../lib/escape-html';
 import { formatPrice } from '../lib/format';
+import { computeFinalPrice } from '../lib/variant-logic';
 
 const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_API_URL) || 'http://localhost:8787';
 
@@ -346,14 +347,14 @@ class VariantModal extends HTMLElement {
   }
 
   _recalculatePrice() {
-    let total = this._basePrice;
+    const modifiers = [];
     for (const [moduleId, valueId] of Object.entries(this._selectedAttributes)) {
       const mod = this._modules.find((m) => m.module_id === moduleId);
       if (!mod) continue;
       const val = mod.values.find((v) => v.value_id === valueId);
-      if (val) total += val.price_modifier;
+      if (val) modifiers.push(val.price_modifier);
     }
-    this._finalPrice = Math.max(0, total);
+    this._finalPrice = computeFinalPrice(this._basePrice, modifiers);
 
     const priceEl = this._shadow.querySelector('.modal-price');
     if (priceEl) {

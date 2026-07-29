@@ -147,102 +147,6 @@ const basePriceFormatted = formatPrice(product.base_price);
   import { computeFinalPrice, isSelectionComplete } from '../../lib/variant-logic';
   import { addToCartWithOptions, getCartCount } from '../../lib/cart.js';
 
-  // ─── <number-input> Web Component ───────────────────────────────
-  // Shared component also used in cart.astro.
-  if (!customElements.get('number-input')) {
-    class NumberInput extends HTMLElement {
-      private _value = 1;
-      private _min = 1;
-      private _max = 999;
-      private _step = 1;
-      private _disabled = false;
-      private _shadow: ShadowRoot;
-
-      static get observedAttributes() {
-        return ['data-value', 'data-min', 'data-max', 'data-step', 'data-disabled'];
-      }
-
-      constructor() {
-        super();
-        this._shadow = this.attachShadow({ mode: 'open' });
-      }
-
-      connectedCallback() {
-        this._min = parseInt(this.dataset.min || '1', 10);
-        this._max = parseInt(this.dataset.max || '999', 10);
-        this._step = parseInt(this.dataset.step || '1', 10);
-        this._value = parseInt(this.dataset.value || '1', 10);
-        this._disabled = this.dataset.disabled === 'true';
-        this._value = Math.max(this._min, Math.min(this._max, this._value));
-        this._render();
-        this._attachEvents();
-      }
-
-      get value() { return this._value; }
-      set value(v: number) {
-        const clamped = Math.max(this._min, Math.min(this._max, v));
-        if (clamped === this._value) return;
-        this._value = clamped;
-        this._updateDisplay();
-        this._updateButtons();
-        this.dispatchEvent(new CustomEvent('number-input:change', {
-          bubbles: true, composed: true, detail: { value: this._value },
-        }));
-      }
-
-      private _updateDisplay() {
-        const input = this._shadow.querySelector('.qty-display') as HTMLInputElement;
-        if (input) input.value = String(this._value);
-      }
-
-      private _updateButtons() {
-        const dec = this._shadow.querySelector('.qty-btn--dec') as HTMLButtonElement;
-        const inc = this._shadow.querySelector('.qty-btn--inc') as HTMLButtonElement;
-        if (dec) dec.disabled = this._disabled || this._value <= this._min;
-        if (inc) inc.disabled = this._disabled || this._value >= this._max;
-      }
-
-      private _attachEvents() {
-        this._shadow.querySelector('.qty-btn--dec')?.addEventListener('click', () => {
-          if (!this._disabled) this.value = this._value - this._step;
-        });
-        this._shadow.querySelector('.qty-btn--inc')?.addEventListener('click', () => {
-          if (!this._disabled) this.value = this._value + this._step;
-        });
-        (this._shadow.querySelector('.qty-display') as HTMLInputElement)?.addEventListener('keydown', (e: KeyboardEvent) => {
-          if (this._disabled) return;
-          if (e.key === 'ArrowUp') { e.preventDefault(); this.value = this._value + this._step; }
-          if (e.key === 'ArrowDown') { e.preventDefault(); this.value = this._value - this._step; }
-        });
-      }
-
-      private _render() {
-        const d = this._disabled || this._value <= this._min;
-        const i = this._disabled || this._value >= this._max;
-        this._shadow.innerHTML = `
-          <style>
-            :host { display: inline-block; --_sch: var(--surface-container-high, #2a2a2a); --_ov: var(--outline-variant, #3e4850); --_os: var(--on-surface, #e2e2e2); --_p: var(--primary, #82cfff); --_op: var(--on-primary, #00344b); --_bw: var(--border-width, 1px); --_br: var(--border-radius, 0px); --_fm: var(--font-mono, 'Space Mono', monospace); }
-            .quantity-control { display: inline-flex; align-items: center; }
-            .qty-btn { display:flex;align-items:center;justify-content:center;width:40px;height:40px;background:var(--_sch);border:var(--_bw) solid var(--_ov);border-radius:var(--_br);color:var(--_os);cursor:pointer;font-size:20px;font-family:var(--_fm);transition:all .15s ease;user-select:none;flex-shrink:0; }
-            .qty-btn:hover:not(:disabled) { background:var(--_p);border-color:var(--_p);color:var(--_op); }
-            .qty-btn:active:not(:disabled) { transform:scale(.95); }
-            .qty-btn:focus-visible { outline:2px solid var(--_p);outline-offset:2px; }
-            .qty-btn:disabled { opacity:.3;cursor:not-allowed; }
-            .qty-display { width:52px;height:40px;text-align:center;background:var(--_sch);border-top:var(--_bw) solid var(--_ov);border-bottom:var(--_bw) solid var(--_ov);border-left:none;border-right:none;border-radius:0;color:var(--_os);font-family:var(--_fm);font-size:15px;font-weight:600;-moz-appearance:textfield;appearance:textfield; }
-            .qty-display::-webkit-outer-spin-button,.qty-display::-webkit-inner-spin-button { -webkit-appearance:none;margin:0; }
-            .qty-display:focus { outline:none;background:rgba(130,207,255,.08); }
-            @media(max-width:639px){.qty-btn{width:44px;height:44px;font-size:22px}.qty-display{width:48px;height:44px;font-size:16px}}
-          </style>
-          <div class="quantity-control" part="control">
-            <button class="qty-btn qty-btn--dec" type="button" aria-label="Disminuir" ${d ? 'disabled' : ''}>−</button>
-            <input class="qty-display" type="number" value="${this._value}" min="${this._min}" max="${this._max}" step="${this._step}" ${this._disabled ? 'disabled' : ''} aria-label="Cantidad" readonly />
-            <button class="qty-btn qty-btn--inc" type="button" aria-label="Aumentar" ${i ? 'disabled' : ''}>+</button>
-          </div>`;
-      }
-    }
-    customElements.define('number-input', NumberInput);
-  }
-
   const API_URL = (typeof import.meta !== "undefined" && import.meta.env?.PUBLIC_API_URL) || "http://localhost:8787";
 
   const $volumeSection = document.getElementById('volume-price-section');
@@ -253,7 +157,6 @@ const basePriceFormatted = formatPrice(product.base_price);
   const $whatsappBtn = document.getElementById('detail-whatsapp');
   const $price = document.getElementById('detail-price');
 
-  // Get product data from pre-rendered page (SSG)
   const currentProduct: any = (window as any).__PRODUCT_DATA__;
   let currentTiers: any[] = currentProduct?.price_tiers || [];
   let selectedTier: any = null;
@@ -263,9 +166,46 @@ const basePriceFormatted = formatPrice(product.base_price);
   let selectedAttributesMap = new Map<string, string>();
   let selectedModifiersMap = new Map<string, number>();
 
-  // Initialize variant loading (client-side only)
-  if (currentProduct) {
-    loadVariants(currentProduct.id);
+  let $variantSelector: any = null;
+
+  function renderVariantSelector() {
+    $variantSelector = document.createElement('variant-selector');
+    $variantSelector.setAttribute('modules', JSON.stringify(currentVariantModules));
+    $variantSelector.setAttribute('selected', JSON.stringify(Object.fromEntries(selectedAttributesMap)));
+    $variantSection.appendChild($variantSelector);
+
+    $variantSelector.addEventListener('variant-change', ((e: CustomEvent) => {
+      const { moduleId, valueId, priceModifier } = e.detail;
+      selectedAttributesMap.set(moduleId, valueId);
+      selectedModifiersMap.set(moduleId, priceModifier);
+
+      const baseForTier = selectedTier ? selectedTier.price : currentProduct.base_price;
+      const modifiers = Array.from(selectedModifiersMap.values());
+      variantFinalPrice = computeFinalPrice(baseForTier, modifiers);
+
+      const complete = isSelectionComplete(currentVariantModules, selectedAttributesMap);
+      if ($addCart) $addCart.disabled = !complete;
+
+      refreshVariants();
+    }) as EventListener);
+  }
+
+  function buildSelectedParam(): Record<string, string> {
+    const selected: Record<string, string> = {};
+    for (const [moduleId, valueId] of selectedAttributesMap) {
+      const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
+      if (!mod) continue;
+      const val = mod.values.find((v: any) => v.value_id === valueId);
+      if (val) {
+        selected[mod.slug] = val.raw_value;
+      }
+    }
+    return selected;
+  }
+
+  async function refreshVariants() {
+    const selected = buildSelectedParam();
+    await loadVariants(currentProduct.id, selected);
   }
 
   async function loadVariants(productId: string, selected?: Record<string, string>) {
@@ -288,318 +228,30 @@ const basePriceFormatted = formatPrice(product.base_price);
       currentVariantModules = modules;
       variantFinalPrice = json.data?.final_price ?? json.final_price ?? null;
 
-      renderVariantSelector(modules, productId);
+      if (!$variantSelector) {
+        renderVariantSelector();
+      } else {
+        $variantSelector.setAttribute('modules', JSON.stringify(currentVariantModules));
+        $variantSelector.setAttribute('selected', JSON.stringify(Object.fromEntries(selectedAttributesMap)));
+      }
     } catch (err) {
       console.error('Failed to load variants:', err);
     }
   }
 
-  function buildSelectedParam(): Record<string, string> {
-    const selected: Record<string, string> = {};
-    for (const [moduleId, valueId] of selectedAttributesMap) {
-      const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
-      if (!mod) continue;
-      const val = mod.values.find((v: any) => v.value_id === valueId);
-      if (val) {
-        selected[mod.slug] = val.raw_value;
-      }
-    }
-    return selected;
-  }
-
-  async function refreshVariants() {
-    const selected = buildSelectedParam();
-    await loadVariants(currentProduct.id, selected);
-    reapplySelectedState();
-  }
-
-  function reapplySelectedState() {
-    const container = document.querySelector('.variant-selector') as HTMLElement;
-    if (!container) return;
-
-    for (const [moduleId, valueId] of selectedAttributesMap) {
-      const btn = container.querySelector(
-        `.size-selector__btn[data-module-id="${moduleId}"][data-value-id="${valueId}"]`
-      ) as HTMLButtonElement;
-      if (btn) {
-        if (btn.disabled) {
-          selectedAttributesMap.delete(moduleId);
-        } else {
-          btn.classList.add('size-selector__btn--selected');
-          btn.setAttribute('aria-checked', 'true');
-        }
-        continue;
-      }
-
-      const circle = container.querySelector(
-        `.color-selector__circle[data-module-id="${moduleId}"][data-value-id="${valueId}"]`
-      ) as HTMLButtonElement;
-      if (circle) {
-        if (circle.disabled) {
-          selectedAttributesMap.delete(moduleId);
-        } else {
-          circle.classList.add('color-selector__circle--selected');
-          circle.setAttribute('aria-checked', 'true');
-        }
-        continue;
-      }
-
-      const select = container.querySelector(
-        `.material-selector__select[data-module-id="${moduleId}"]`
-      ) as HTMLSelectElement;
-      if (select) {
-        const opt = Array.from(select.options).find(o => o.value === valueId);
-        if (opt && !opt.disabled) {
-          select.value = valueId;
-        } else {
-          selectedAttributesMap.delete(moduleId);
-        }
-      }
-    }
-
-    const $priceDisplay = container.querySelector('[data-variant-price]') as HTMLElement;
-    if ($priceDisplay && variantFinalPrice != null) {
-      $priceDisplay.textContent = `Gs. ${formatPrice(variantFinalPrice)}`;
-    }
-  }
-
-  function renderVariantSelector(modules: any[], productId: string) {
-    // Build variant selector HTML
-    const sortedModules = [...modules].sort((a: any, b: any) => a.sort_order - b.sort_order);
-
-    let html = `<div class="variant-selector" data-product-id="${productId}" data-base-price="${currentProduct.base_price}" role="group" aria-label="Selección de variantes">`;
-
-    for (const mod of sortedModules) {
-      switch (mod.frontend_component) {
-        case "SizeSelector":
-          html += renderSizeSelector(mod);
-          break;
-        case "ColorSelector":
-          html += renderColorSelector(mod);
-          break;
-        case "MaterialSelector":
-          html += renderMaterialSelector(mod);
-          break;
-      }
-    }
-
-    // Price display
-    const formattedPrice = formatPrice(currentProduct.base_price);
-    html += `
-      <div class="variant-selector__price" aria-live="polite">
-        <span class="variant-selector__price-label label-sm">Precio:</span>
-        <span class="variant-selector__price-value headline-lg" data-variant-price>Gs. ${formattedPrice}</span>
-      </div>
-    </div>`;
-
-    $variantSection.innerHTML = html;
-    initVariantInteractions();
-  }
-
-  function renderSizeSelector(mod: any): string {
-    let html = `<div class="size-selector" role="radiogroup" aria-label="${mod.name}">
-      <span class="size-selector__label label-sm">${mod.name}</span>
-      <div class="size-selector__options">`;
-
-    for (const val of mod.values) {
-      const modifier = val.price_modifier !== 0
-        ? `<span class="size-selector__modifier">${val.price_modifier > 0 ? '+' : ''}₲${val.price_modifier.toLocaleString('es-PY')}</span>`
-        : '';
-      html += `
-        <button type="button" class="size-selector__btn ${val.available === false ? 'size-selector__btn--disabled' : ''}"
-          data-module-id="${mod.module_id}" data-value-id="${val.value_id}" data-price-modifier="${val.price_modifier}"
-          role="radio" aria-checked="false" aria-disabled="${val.available === false}" ${val.available === false ? 'disabled' : ''}>
-          <span class="size-selector__label-text">${val.label}</span>${modifier}
-        </button>`;
-    }
-
-    html += `</div></div>`;
-    return html;
-  }
-
-  function renderColorSelector(mod: any): string {
-    let html = `<div class="color-selector" role="radiogroup" aria-label="${mod.name}">
-      <span class="color-selector__label label-sm">${mod.name}</span>
-      <div class="color-selector__options">`;
-
-    for (const val of mod.values) {
-      const hex = val.hex_color || val.raw_value;
-      html += `
-        <button type="button" class="color-selector__circle ${val.available === false ? 'color-selector__circle--disabled' : ''}"
-          data-module-id="${mod.module_id}" data-value-id="${val.value_id}" data-price-modifier="${val.price_modifier}"
-          role="radio" aria-checked="false" aria-disabled="${val.available === false}" ${val.available === false ? 'disabled' : ''}
-          aria-label="${val.label}${val.price_modifier > 0 ? ` +₲${val.price_modifier}` : ''}" title="${val.label}${val.price_modifier > 0 ? ` (+₲${val.price_modifier})` : ''}">
-          <span class="color-selector__swatch" style="background-color: ${hex};"></span>
-          <span class="color-selector__price-modifier">${val.price_modifier > 0 ? `+₲${val.price_modifier.toLocaleString('es-PY')}` : '\u00A0'}</span>
-        </button>`;
-    }
-
-    html += `</div></div>`;
-    return html;
-  }
-
-  function renderMaterialSelector(mod: any): string {
-    let html = `<div class="material-selector">
-      <label class="material-selector__label label-sm" for="material-${mod.module_id}">${mod.name}</label>
-      <select id="material-${mod.module_id}" class="material-selector__select" data-module-id="${mod.module_id}">
-        <option value="">Seleccionar ${mod.name.toLowerCase()}...</option>`;
-
-    for (const val of mod.values) {
-      const modifier = val.price_modifier !== 0
-        ? ` (${val.price_modifier > 0 ? '+' : ''}₲${val.price_modifier.toLocaleString('es-PY')})`
-        : '';
-      html += `<option value="${val.value_id}" ${val.available === false ? 'disabled' : ''} data-price-modifier="${val.price_modifier}">${val.label}${modifier}</option>`;
-    }
-
-    html += `</select></div>`;
-    return html;
-  }
-
-  function initVariantInteractions() {
-    const container = document.querySelector('.variant-selector') as HTMLElement;
-    if (!container) return;
-
-    function updateVariantPrice() {
-      const modifiers = Array.from(selectedModifiersMap.values());
-      const finalPrice = computeFinalPrice(currentProduct.base_price, modifiers);
-      const $priceDisplay = container.querySelector('[data-variant-price]') as HTMLElement;
-      if ($priceDisplay) {
-        $priceDisplay.textContent = `Gs. ${formatPrice(finalPrice)}`;
-      }
-
-      // Dispatch event
-      window.dispatchEvent(new CustomEvent('variant-change', {
-        detail: {
-          selectedAttributes: Object.fromEntries(selectedAttributesMap),
-          finalPrice,
-          productId: currentProduct.id,
-        }
-      }));
-
-      // Enable/disable add to cart
-      const modules = currentVariantModules.map((m: any) => ({
-        ...m,
-        values: m.values.map((v: any) => ({ ...v, available: true }))
-      }));
-      const complete = isSelectionComplete(modules, selectedAttributesMap);
-      if ($addCart) $addCart.disabled = !complete;
-    }
-
-    // Size buttons
-    container.addEventListener('click', (e) => {
-      const btn = (e.target as HTMLElement).closest('.size-selector__btn') as HTMLButtonElement;
-      if (!btn || btn.disabled) return;
-
-      const moduleId = btn.dataset.moduleId!;
-      const valueId = btn.dataset.valueId!;
-      const priceModifier = parseInt(btn.dataset.priceModifier || '0', 10);
-
-      container.querySelectorAll(`.size-selector__btn[data-module-id="${moduleId}"]`).forEach((b) => {
-        b.classList.remove('size-selector__btn--selected');
-        b.setAttribute('aria-checked', 'false');
-      });
-
-      btn.classList.add('size-selector__btn--selected');
-      btn.setAttribute('aria-checked', 'true');
-
-      selectedAttributesMap.set(moduleId, valueId);
-      selectedModifiersMap.set(moduleId, priceModifier);
-      updateVariantPrice();
-      refreshVariants();
-    });
-
-    // Color circles
-    container.addEventListener('click', (e) => {
-      const btn = (e.target as HTMLElement).closest('.color-selector__circle') as HTMLButtonElement;
-      if (!btn || btn.disabled) return;
-
-      const moduleId = btn.dataset.moduleId!;
-      const valueId = btn.dataset.valueId!;
-      const priceModifier = parseInt(btn.dataset.priceModifier || '0', 10);
-
-      container.querySelectorAll(`.color-selector__circle[data-module-id="${moduleId}"]`).forEach((b) => {
-        b.classList.remove('color-selector__circle--selected');
-        b.setAttribute('aria-checked', 'false');
-      });
-
-      btn.classList.add('color-selector__circle--selected');
-      btn.setAttribute('aria-checked', 'true');
-
-      selectedAttributesMap.set(moduleId, valueId);
-      selectedModifiersMap.set(moduleId, priceModifier);
-      updateVariantPrice();
-      refreshVariants();
-    });
-
-    // Material select
-    container.addEventListener('change', (e) => {
-      const select = e.target as HTMLSelectElement;
-      if (!select.classList.contains('material-selector__select')) return;
-
-      const moduleId = select.dataset.moduleId!;
-      const valueId = select.value;
-
-      if (!valueId) {
-        selectedAttributesMap.delete(moduleId);
-        selectedModifiersMap.delete(moduleId);
-      } else {
-        const priceModifier = parseInt(
-          select.options[select.selectedIndex]?.dataset.priceModifier || '0', 10
-        );
-        selectedAttributesMap.set(moduleId, valueId);
-        selectedModifiersMap.set(moduleId, priceModifier);
-      }
-      updateVariantPrice();
-      refreshVariants();
-    });
-
-    // Keyboard navigation
-    container.addEventListener('keydown', (e) => {
-      const target = e.target as HTMLElement;
-      if (!target.classList.contains('size-selector__btn') && !target.classList.contains('color-selector__circle')) return;
-
-      const group = target.closest('[role="radiogroup"]');
-      if (!group) return;
-
-      const radios = Array.from(group.querySelectorAll('[role="radio"]:not([disabled])')) as HTMLElement[];
-      const currentIndex = radios.indexOf(target);
-
-      let nextIndex = currentIndex;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        nextIndex = (currentIndex + 1) % radios.length;
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        nextIndex = (currentIndex - 1 + radios.length) % radios.length;
-      } else if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        target.click();
-        return;
-      } else {
-        return;
-      }
-
-      e.preventDefault();
-      radios[nextIndex].focus();
-      radios[nextIndex].click();
-    });
-  }
-
   function renderVolumeSection(tiers: any[]) {
-    // Sort tiers by min_quantity
     const sortedTiers = [...tiers].sort((a, b) => a.min_quantity - b.min_quantity);
-    const baseTier = sortedTiers.find(t => t.min_quantity === 1);
-    
-    // Render VolumePriceSelector and PriceTierList via hydration
+    selectedTier = getTierForQuantity(currentTiers, selectedQty);
+
     $volumeSection.innerHTML = `
       <volume-price-selector price-tiers="${encodeURIComponent(JSON.stringify(sortedTiers))}"></volume-price-selector>
       <price-tier-list price-tiers="${encodeURIComponent(JSON.stringify(sortedTiers))}" selected-qty="${selectedQty}"></price-tier-list>
     `;
-    
-    // Initialize quantity stepper
+
     $qtySection.style.display = 'block';
     selectedQty = 1;
     if ($numberInput) $numberInput.value = 1;
-    
-    // Listen for tier changes
+
     window.addEventListener('volume-tier-change', (e: CustomEvent) => {
       const { tier, qty } = e.detail;
       selectedTier = tier;
@@ -607,43 +259,45 @@ const basePriceFormatted = formatPrice(product.base_price);
       if ($numberInput) $numberInput.value = qty;
       updatePriceDisplay();
     });
-    
-    // Quantity stepper — listen for <number-input> change events
+
     $qtySection.addEventListener('number-input:change', ((e: CustomEvent) => {
       selectedQty = e.detail.value;
       updatePriceDisplay();
     }) as EventListener);
-    
-    // Initial price display
+
     updatePriceDisplay();
   }
 
   function updatePriceDisplay() {
     if (currentTiers.length === 0) return;
-    
+
     const tierPrice = getTierPrice(currentTiers, selectedQty);
     const applicableTier = getTierForQuantity(currentTiers, selectedQty);
-    
-    // Update price display
-    $price.textContent = `Gs. ${formatPrice(tierPrice)}`;
-    
-    // Update PriceTierList highlight
+
+    const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
+    const displayPrice = tierPrice + modifierSum;
+
+    $price.textContent = `Gs. ${formatPrice(displayPrice)}`;
+
     const tierList = $volumeSection.querySelector('price-tier-list');
     if (tierList) {
       tierList.setAttribute('selected-qty', selectedQty.toString());
     }
-    
-    // Update WhatsApp link
+
     updateWhatsAppLink(applicableTier);
   }
 
   function updateWhatsAppLink(tier: any) {
     if (!$whatsappBtn) return;
-    
+
+    const baseForTier = tier ? tier.price : currentProduct.base_price;
+    const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
+    const finalPrice = baseForTier + modifierSum;
+
     const cartItem = {
       id: currentProduct.id,
       name: currentProduct.name,
-      price: tier ? tier.price : currentProduct.base_price,
+      price: finalPrice,
       quantity: selectedQty,
       image: getProductImageUrl(
         currentProduct.images && currentProduct.images.length > 0
@@ -651,77 +305,47 @@ const basePriceFormatted = formatPrice(product.base_price);
           : null
       ),
       selected_tier_id: tier?.id,
-      selected_tier_price: tier?.price,
+      selected_tier_price: finalPrice,
       selected_tier_min_qty: tier?.min_quantity,
     };
-    
+
     const message = buildCartMessage([cartItem]);
     const encoded = encodeURIComponent(message);
-    const phone = '595991969608'; // From config
+    const phone = '595991969608';
     $whatsappBtn.href = `https://wa.me/${phone}?text=${encoded}`;
   }
 
-  // Add to cart
   $addCart?.addEventListener('click', () => {
     if (!currentProduct) return;
-    
-    // Use variant price if available, otherwise tier or base price
-    const unitPrice = variantFinalPrice ?? (selectedTier ? selectedTier.price : currentProduct.base_price);
-    const tierMinQty = selectedTier?.min_quantity || 1;
-    
-    // Get selected attributes from variant selector
-    const variantContainer = document.querySelector('.variant-selector') as HTMLElement;
-    const selectedAttributes: Record<string, { value_id: string; label: string; raw_value: string; price_modifier: number }> = {};
-    
-    if (variantContainer) {
-      // Helper to get module name from moduleId
-      const getModuleName = (moduleId: string) => {
-        const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
-        return mod?.name || moduleId;
-      };
 
-      // Size
-      const selectedSize = variantContainer.querySelector('.size-selector__btn--selected') as HTMLElement;
-      if (selectedSize) {
-        const moduleId = selectedSize.dataset.moduleId!;
+    const baseForTier = selectedTier ? selectedTier.price : currentProduct.base_price;
+    const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
+    const unitPrice = baseForTier + modifierSum;
+    const tierMinQty = selectedTier?.min_quantity || 1;
+
+    const selectedAttributes: Record<string, { value_id: string; label: string; raw_value: string; price_modifier: number; type_name?: string }> = {};
+    const getModuleName = (moduleId: string) => {
+      const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
+      return mod?.name || moduleId;
+    };
+
+    for (const [moduleId, valueId] of selectedAttributesMap) {
+      const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
+      if (!mod) continue;
+      const val = mod.values.find((v: any) => v.value_id === valueId);
+      if (val) {
         selectedAttributes[moduleId] = {
-          value_id: selectedSize.dataset.valueId!,
-          label: selectedSize.querySelector('.size-selector__label-text')?.textContent?.trim() || '',
-          raw_value: selectedSize.dataset.valueId!,
-          price_modifier: parseInt(selectedSize.dataset.priceModifier || '0', 10),
+          value_id: valueId,
+          label: val.label,
+          raw_value: val.raw_value,
+          price_modifier: val.price_modifier,
           type_name: getModuleName(moduleId),
-        };
-      }
-      
-      // Color
-      const selectedColor = variantContainer.querySelector('.color-selector__circle--selected') as HTMLElement;
-      if (selectedColor) {
-        const moduleId = selectedColor.dataset.moduleId!;
-        selectedAttributes[moduleId] = {
-          value_id: selectedColor.dataset.valueId!,
-          label: selectedColor.getAttribute('aria-label') || '',
-          raw_value: selectedColor.dataset.valueId!,
-          price_modifier: parseInt(selectedColor.dataset.priceModifier || '0', 10),
-          type_name: getModuleName(moduleId),
-        };
-      }
-      
-      // Material
-      const selectedMaterial = variantContainer.querySelector('.material-selector__select') as HTMLSelectElement;
-      if (selectedMaterial && selectedMaterial.value) {
-        const moduleId = selectedMaterial.dataset.moduleId!;
-        const option = selectedMaterial.options[selectedMaterial.selectedIndex];
-        selectedAttributes[moduleId] = {
-          value_id: selectedMaterial.value,
-          label: option.textContent?.replace(/\s*\(.*\)/, '').trim() || '',
-          raw_value: selectedMaterial.value,
-          price_modifier: parseInt(option.dataset.priceModifier || '0', 10),
         };
       }
     }
-    
+
     const hasAttributes = Object.keys(selectedAttributes).length > 0;
-    
+
     addToCartWithOptions({
       id: currentProduct.id,
       name: currentProduct.name,
@@ -738,21 +362,22 @@ const basePriceFormatted = formatPrice(product.base_price);
       selected_tier_min_qty: tierMinQty,
       ...(hasAttributes ? { selected_attributes: selectedAttributes } : {}),
     });
-    
-    // Update header cart badge
+
     const badge = document.querySelector('.cart-badge');
     if (badge) {
       badge.textContent = getCartCount().toString();
     }
-    
+
     $addCart.textContent = '¡Agregado!';
     setTimeout(() => { $addCart.textContent = 'Agregar al carrito'; }, 1500);
-    
-    // Update WhatsApp link
+
     updateWhatsAppLink(selectedTier);
   });
 
-  // Init volume section if tiers exist at build time
+  if (currentProduct) {
+    loadVariants(currentProduct.id);
+  }
+
   if (currentTiers.length > 0) {
     renderVolumeSection(currentTiers);
   }
@@ -920,211 +545,13 @@ const basePriceFormatted = formatPrice(product.base_price);
     50% { opacity: 1; }
   }
 
-  /* Variant Selector */
-  .variant-selector {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-lg);
+  /* variant-selector component host styles */
+  variant-selector {
+    display: block;
     padding: var(--space-md);
     background-color: var(--surface-container);
     border: var(--border-width) solid var(--outline-variant);
     border-radius: var(--border-radius);
     margin-bottom: var(--space-lg);
-  }
-
-  .variant-selector__price {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-md);
-    padding-top: var(--space-md);
-    border-top: var(--border-width) solid var(--outline-variant);
-  }
-
-  .variant-selector__price-label {
-    color: var(--on-surface-variant);
-  }
-
-  .variant-selector__price-value {
-    color: var(--primary);
-    font-weight: 700;
-  }
-
-  /* Size Selector */
-  .size-selector {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-  }
-
-  .size-selector__label {
-    color: var(--on-surface-variant);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .size-selector__options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-sm);
-  }
-
-  .size-selector__btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
-    padding: var(--space-sm) var(--space-md);
-    background-color: var(--surface-container-high);
-    border: var(--border-width) solid var(--outline-variant);
-    border-radius: var(--border-radius);
-    color: var(--on-surface);
-    cursor: pointer;
-    font-family: var(--font-body);
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.15s ease;
-  }
-
-  .size-selector__btn:hover:not(:disabled) {
-    border-color: var(--primary);
-    background-color: var(--primary-container);
-  }
-
-  .size-selector__btn:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-  }
-
-  .size-selector__btn--selected {
-    background-color: var(--primary);
-    border-color: var(--primary);
-    color: var(--on-primary);
-  }
-
-  .size-selector__btn--disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .size-selector__label-text {
-    line-height: 1;
-  }
-
-  .size-selector__modifier {
-    font-size: 11px;
-    opacity: 0.8;
-    margin-top: 2px;
-  }
-
-  /* Color Selector */
-  .color-selector {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-  }
-
-  .color-selector__label {
-    color: var(--on-surface-variant);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .color-selector__options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-sm);
-  }
-
-  .color-selector__circle {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    width: 44px;
-    padding: 4px 0;
-    background: transparent;
-    border: 2px solid transparent;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    transition: border-color 0.15s ease;
-  }
-
-  .color-selector__circle:hover:not(:disabled) {
-    border-color: var(--outline);
-  }
-
-  .color-selector__circle:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-  }
-
-  .color-selector__circle--selected {
-    border-color: var(--primary);
-  }
-
-  .color-selector__circle--disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .color-selector__swatch {
-    display: block;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: var(--border-width) solid var(--outline-variant);
-  }
-
-  .color-selector__price-modifier {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    color: var(--tertiary);
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-  }
-
-  /* Material Selector */
-  .material-selector {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-  }
-
-  .material-selector__label {
-    color: var(--on-surface-variant);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .material-selector__select {
-    width: 100%;
-    padding: var(--space-md);
-    background-color: var(--surface-container-high);
-    border: var(--border-width) solid var(--outline-variant);
-    border-radius: var(--border-radius);
-    color: var(--on-surface);
-    font-family: var(--font-body);
-    font-size: 16px;
-    cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2382cfff' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right var(--space-md) center;
-    background-size: 20px;
-    padding-right: var(--space-2xl);
-  }
-
-  .material-selector__select:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px var(--primary-container);
-  }
-
-  .material-selector__select:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
   }
 </style>

@@ -634,7 +634,7 @@ class VariantSelector extends HTMLElement {
       // Material
       const select = root.querySelector(
         `.material-selector__select[data-module-id="${moduleId}"]`
-      ) as HTMLSelectElement;
+      );
       if (select) {
         const opt = Array.from(select.options).find((o) => o.value === valueId);
         if (opt && !opt.disabled) {

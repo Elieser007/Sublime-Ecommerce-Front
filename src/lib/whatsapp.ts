@@ -142,21 +142,6 @@ export function generateWhatsAppUrl(
 }
 
 /**
- * Read cart from LocalStorage.
- * Returns empty array if no cart exists.
- */
-export function getCartFromStorage(): CartItem[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = localStorage.getItem("cart");
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
  * Calculate cart totals using tier prices when available
  */
 export function calculateCartTotals(cart: CartItem[]): {

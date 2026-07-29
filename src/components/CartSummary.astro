@@ -47,12 +47,13 @@
 </div>
 
 <script>
-  import { generateWhatsAppUrl, formatGuaranies, getCartFromStorage, calculateCartTotals } from '../lib/whatsapp.ts';
+  import { generateWhatsAppUrl, formatGuaranies, calculateCartTotals } from '../lib/whatsapp.ts';
+  import { getCart } from '../lib/cart.js';
 
   const WHATSAPP_PHONE = '595991969608';
 
   function updateSummary() {
-    const cart = getCartFromStorage();
+    const cart = getCart();
     const { subtotal, itemCount } = calculateCartTotals(cart);
 
     const countEl = document.getElementById('summary-count');
