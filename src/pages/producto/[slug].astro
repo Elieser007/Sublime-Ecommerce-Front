@@ -428,8 +428,9 @@ const basePriceFormatted = formatPrice(product.base_price);
         <button type="button" class="color-selector__circle ${val.available === false ? 'color-selector__circle--disabled' : ''}"
           data-module-id="${mod.module_id}" data-value-id="${val.value_id}" data-price-modifier="${val.price_modifier}"
           role="radio" aria-checked="false" aria-disabled="${val.available === false}" ${val.available === false ? 'disabled' : ''}
-          aria-label="${val.label}" title="${val.label}">
+          aria-label="${val.label}${val.price_modifier > 0 ? ` +₲${val.price_modifier}` : ''}" title="${val.label}${val.price_modifier > 0 ? ` (+₲${val.price_modifier})` : ''}">
           <span class="color-selector__swatch" style="background-color: ${hex};"></span>
+          ${val.price_modifier > 0 ? `<span class="color-selector__price-modifier">+₲${val.price_modifier.toLocaleString('es-PY')}</span>` : ''}
         </button>`;
     }
 
@@ -1038,14 +1039,15 @@ const basePriceFormatted = formatPrice(product.base_price);
 
   .color-selector__circle {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 2px;
     width: 44px;
-    height: 44px;
-    padding: 0;
+    padding: 4px 0;
     background: transparent;
     border: 2px solid transparent;
-    border-radius: 50%;
+    border-radius: var(--border-radius);
     cursor: pointer;
     transition: border-color 0.15s ease;
   }
@@ -1074,6 +1076,14 @@ const basePriceFormatted = formatPrice(product.base_price);
     height: 32px;
     border-radius: 50%;
     border: var(--border-width) solid var(--outline-variant);
+  }
+
+  .color-selector__price-modifier {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--tertiary);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
   }
 
   /* Material Selector */
