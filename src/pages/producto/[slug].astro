@@ -673,33 +673,44 @@ const basePriceFormatted = formatPrice(product.base_price);
     const selectedAttributes: Record<string, { value_id: string; label: string; raw_value: string; price_modifier: number }> = {};
     
     if (variantContainer) {
+      // Helper to get module name from moduleId
+      const getModuleName = (moduleId: string) => {
+        const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
+        return mod?.name || moduleId;
+      };
+
       // Size
       const selectedSize = variantContainer.querySelector('.size-selector__btn--selected') as HTMLElement;
       if (selectedSize) {
-        selectedAttributes[selectedSize.dataset.moduleId!] = {
+        const moduleId = selectedSize.dataset.moduleId!;
+        selectedAttributes[moduleId] = {
           value_id: selectedSize.dataset.valueId!,
           label: selectedSize.querySelector('.size-selector__label-text')?.textContent?.trim() || '',
           raw_value: selectedSize.dataset.valueId!,
           price_modifier: parseInt(selectedSize.dataset.priceModifier || '0', 10),
+          type_name: getModuleName(moduleId),
         };
       }
       
       // Color
       const selectedColor = variantContainer.querySelector('.color-selector__circle--selected') as HTMLElement;
       if (selectedColor) {
-        selectedAttributes[selectedColor.dataset.moduleId!] = {
+        const moduleId = selectedColor.dataset.moduleId!;
+        selectedAttributes[moduleId] = {
           value_id: selectedColor.dataset.valueId!,
           label: selectedColor.getAttribute('aria-label') || '',
           raw_value: selectedColor.dataset.valueId!,
           price_modifier: parseInt(selectedColor.dataset.priceModifier || '0', 10),
+          type_name: getModuleName(moduleId),
         };
       }
       
       // Material
       const selectedMaterial = variantContainer.querySelector('.material-selector__select') as HTMLSelectElement;
       if (selectedMaterial && selectedMaterial.value) {
+        const moduleId = selectedMaterial.dataset.moduleId!;
         const option = selectedMaterial.options[selectedMaterial.selectedIndex];
-        selectedAttributes[selectedMaterial.dataset.moduleId!] = {
+        selectedAttributes[moduleId] = {
           value_id: selectedMaterial.value,
           label: option.textContent?.replace(/\s*\(.*\)/, '').trim() || '',
           raw_value: selectedMaterial.value,

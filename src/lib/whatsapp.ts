@@ -32,6 +32,8 @@ export interface CartItem {
     value_id: string;
     label: string;
     raw_value: string;
+    price_modifier?: number;
+    type_name?: string;
   }>;
 }
 
@@ -76,11 +78,12 @@ export function buildCartMessage(cart: CartItem[]): string {
     // Product line: "• Product Name"
     lines.push(`• ${item.name}`);
 
-    // Variant attributes (Color: Rojo, Talle: XL)
+    // Variant attributes (Talle: L, Color: Negro)
     if (item.selected_attributes) {
       const attrEntries = Object.values(item.selected_attributes);
       for (const attr of attrEntries) {
-        lines.push(`  ${attr.label}`);
+        const typeName = (attr as any).type_name || '';
+        lines.push(`  ${typeName ? `${typeName}: ` : ''}${attr.label}`);
       }
     }
 
