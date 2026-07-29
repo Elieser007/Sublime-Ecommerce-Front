@@ -3,11 +3,9 @@
  *
  * These functions drive the client-side variant selection behavior:
  * - Price calculation (base + modifiers)
- * - Dependency filtering (available/unavailable values)
  * - Selection completeness check
- * - Module sorting
  *
- * Used by: VariantSelector.astro, SizeSelector.astro, ColorSelector.astro, MaterialSelector.astro
+ * Used by: VariantSelector.astro
  */
 
 // ─── TYPES ────────────────────────────────────────────────
@@ -34,13 +32,6 @@ export interface ModuleWithValues extends AttributeModule {
   values: ModuleValue[];
 }
 
-export interface Dependency {
-  parent_module_id: string;
-  parent_value_id: string;
-  child_module_id: string;
-  child_value_id: string | null;
-}
-
 // ─── PRICE CALCULATION ────────────────────────────────────
 
 /**
@@ -54,66 +45,6 @@ export interface Dependency {
 export function computeFinalPrice(basePrice: number, selectedModifiers: number[]): number {
   const total = selectedModifiers.reduce((sum, mod) => sum + mod, basePrice);
   return Math.max(0, total);
-}
-
-// ─── DEPENDENCY FILTERING ─────────────────────────────────
-
-/**
- * Filter available values in child modules based on current selection and dependencies.
- *
- * For each dependency where the parent value is selected:
- * - If child_value_id is set, that specific child value is allowed
- * - If child_value_id is null, all values in the child module are allowed
- *
- * Values not covered by any active dependency become unavailable.
- *
- * @param modules - All modules with their values
- * @param selectedAttributes - Map of moduleId → valueId (current selection)
- * @param dependencies - All dependency rules
- * @returns Modules with values marked as available/unavailable
- */
-export function filterAvailableOptions(
-  modules: ModuleWithValues[],
-  selectedAttributes: Map<string, string>,
-  dependencies: Dependency[]
-): ModuleWithValues[] {
-  if (dependencies.length === 0) {
-    return modules.map((mod) => ({
-      ...mod,
-      values: mod.values.map((v) => ({ ...v, available: true })),
-    }));
-  }
-
-  return modules.map((mod) => {
-    const relevantDeps = dependencies.filter((d) => d.child_module_id === mod.module_id);
-
-    if (relevantDeps.length === 0) {
-      return { ...mod, values: mod.values.map((v) => ({ ...v, available: true })) };
-    }
-
-    return {
-      ...mod,
-      values: mod.values.map((value) => {
-        for (const [parentModuleId, parentValueId] of selectedAttributes) {
-          const depsForThisValue = relevantDeps.filter(
-            (d) => d.parent_module_id === parentModuleId && d.parent_value_id === parentValueId
-          );
-
-          // No deps for this parent value → no restriction
-          if (depsForThisValue.length === 0) continue;
-
-          // Check if value is allowed by this parent's restrictions
-          const isAllowed = depsForThisValue.some(
-            (d) => d.child_value_id === null || d.child_value_id === value.value_id
-          );
-
-          if (!isAllowed) return { ...value, available: false };
-        }
-
-        return { ...value, available: true };
-      }),
-    };
-  });
 }
 
 // ─── SELECTION COMPLETENESS ───────────────────────────────
@@ -138,14 +69,4 @@ export function isSelectionComplete(
   });
 }
 
-// ─── MODULE SORTING ───────────────────────────────────────
 
-/**
- * Sort modules by sort_order ascending. Does not mutate the original array.
- *
- * @param modules - Array of modules to sort
- * @returns New array sorted by sort_order
- */
-export function sortModules(modules: ModuleWithValues[]): ModuleWithValues[] {
-  return [...modules].sort((a, b) => a.sort_order - b.sort_order);
-}

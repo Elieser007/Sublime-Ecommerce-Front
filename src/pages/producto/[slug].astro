@@ -275,7 +275,7 @@ const basePriceFormatted = formatPrice(product.base_price);
     const applicableTier = getTierForQuantity(currentTiers, selectedQty);
 
     const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
-    const displayPrice = tierPrice + modifierSum;
+    const displayPrice = Math.max(0, tierPrice + modifierSum);
 
     $price.textContent = `Gs. ${formatPrice(displayPrice)}`;
 
@@ -292,7 +292,7 @@ const basePriceFormatted = formatPrice(product.base_price);
 
     const baseForTier = tier ? tier.price : currentProduct.base_price;
     const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
-    const finalPrice = baseForTier + modifierSum;
+    const finalPrice = Math.max(0, baseForTier + modifierSum);
 
     const cartItem = {
       id: currentProduct.id,
@@ -320,7 +320,7 @@ const basePriceFormatted = formatPrice(product.base_price);
 
     const baseForTier = selectedTier ? selectedTier.price : currentProduct.base_price;
     const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
-    const unitPrice = baseForTier + modifierSum;
+    const unitPrice = Math.max(0, baseForTier + modifierSum);
     const tierMinQty = selectedTier?.min_quantity || 1;
 
     const selectedAttributes: Record<string, { value_id: string; label: string; raw_value: string; price_modifier: number; type_name?: string }> = {};
@@ -363,7 +363,7 @@ const basePriceFormatted = formatPrice(product.base_price);
       ...(hasAttributes ? { selected_attributes: selectedAttributes } : {}),
     });
 
-    const badge = document.querySelector('.cart-badge');
+    const badge = document.getElementById('cart-count');
     if (badge) {
       badge.textContent = getCartCount().toString();
     }

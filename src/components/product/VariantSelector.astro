@@ -98,7 +98,7 @@ const sortedModules = [...modules].sort((a, b) => a.sort_order - b.sort_order);
 </div>
 
 <script>
-  import { computeFinalPrice, filterAvailableOptions, isSelectionComplete } from "../../lib/variant-logic";
+  import { computeFinalPrice, isSelectionComplete } from "../../lib/variant-logic";
 
   // State
   const selectedAttributes = new Map<string, string>();

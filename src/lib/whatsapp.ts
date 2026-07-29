@@ -15,27 +15,8 @@
 
 import type { PriceTier } from "./public-api";
 import { formatPrice } from "./format";
+import type { CartItem } from "./cart-utils";
 import { getEffectivePrice } from "./cart-utils";
-
-export interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image?: string;
-  // Volume pricing tier fields (optional for backward compat)
-  selected_tier_id?: string;
-  selected_tier_price?: number;
-  selected_tier_min_qty?: number;
-  // Variant attributes (optional for backward compat)
-  selected_attributes?: Record<string, {
-    value_id: string;
-    label: string;
-    raw_value: string;
-    price_modifier?: number;
-    type_name?: string;
-  }>;
-}
 
 /**
  * Format a number as Guaraníes (Gs.)

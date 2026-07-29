@@ -179,15 +179,7 @@ export async function fetchCategoryTree(): Promise<CategoryNode[]> {
 
 // ─── UTILITIES ────────────────────────────────────────────
 
-/**
- * Format price in Guaraníes (no decimals).
- */
-export function formatPrice(price: number): string {
-  return new Intl.NumberFormat("es-PY", {
-    style: "decimal",
-    maximumFractionDigits: 0,
-  }).format(price);
-}
+export { formatPrice } from "./format";
 
 /**
  * Get the image URL for a product, or a placeholder.

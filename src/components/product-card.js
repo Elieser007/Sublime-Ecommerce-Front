@@ -13,6 +13,7 @@
 
 import { addToCart, addToCartWithOptions, getCartCount, formatPrice } from '../lib/cart.js';
 import { escapeHtml } from '../lib/escape-html';
+import { getBestVolumeBadge } from '../lib/price-utils';
 
 class ProductCard extends HTMLElement {
   connectedCallback() {
@@ -23,7 +24,7 @@ class ProductCard extends HTMLElement {
     const imageUrl = product.image || '/placeholder.webp';
     const category = product.category || '';
     const priceTiers = product.price_tiers || [];
-    const bestTier = this._findBestTier(priceTiers);
+    const bestTier = getBestVolumeBadge(priceTiers);
 
     const shadow = this.attachShadow({ mode: 'open' });
 
@@ -201,13 +202,6 @@ class ProductCard extends HTMLElement {
     `;
 
     this._bindCart(product);
-  }
-
-  _findBestTier(tiers) {
-    if (!tiers || tiers.length === 0) return null;
-    const volumeTiers = tiers.filter((t) => t.min_quantity > 1);
-    if (volumeTiers.length === 0) return null;
-    return volumeTiers.reduce((a, b) => (b.price < a.price ? b : a));
   }
 
   _bindCart(product) {

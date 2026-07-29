@@ -615,6 +615,8 @@ import CartSummary from '../components/CartSummary.astro';
 <script>
   import { getCart, updateCartQuantity, removeFromCart, formatPrice } from '../lib/cart.js';
   import { getEffectivePrice } from '../lib/cart-utils';
+  import { getBestVolumeBadge } from '../lib/price-utils';
+  import { escapeHtml } from '../lib/escape-html';
 
   function renderEmptyState(container: HTMLElement) {
     container.innerHTML = `
@@ -636,16 +638,18 @@ import CartSummary from '../components/CartSummary.astro';
     const effectivePrice = getEffectivePrice(item);
     const subtotal = formatPrice(effectivePrice * item.quantity);
     const key = item.composite_key || item.id;
+    const safeKey = escapeHtml(key);
+    const safeName = escapeHtml(item.name);
 
     let attributeHtml = '';
     if (item.selected_attributes && Object.keys(item.selected_attributes).length > 0) {
       const entries = Object.values(item.selected_attributes).filter((a: any) => a.label);
       if (entries.length > 0) {
-        attributeHtml = `<p class="cart-item-attrs">${entries.map((a: any) => a.type_name ? `${a.type_name}: ${a.label}` : a.label).join(' | ')}</p>`;
+        attributeHtml = `<p class="cart-item-attrs">${entries.map((a: any) => a.type_name ? `${escapeHtml(a.type_name)}: ${escapeHtml(a.label)}` : escapeHtml(a.label)).join(' | ')}</p>`;
         const withModifiers = entries.filter((a: any) => a.price_modifier && a.price_modifier !== 0);
         if (withModifiers.length > 0) {
           const modText = withModifiers.map((a: any) =>
-            `${a.label} (+Gs. ${formatPrice(a.price_modifier)})`
+            `${escapeHtml(a.label)} (+Gs. ${formatPrice(a.price_modifier)})`
           ).join(' | ');
           attributeHtml += `<p class="cart-item-modifiers">${modText}</p>`;
         }
@@ -653,22 +657,19 @@ import CartSummary from '../components/CartSummary.astro';
     }
 
     let tierBadgeHtml = '';
-    if (item.price_tiers && item.price_tiers.length > 1) {
-      const volumeTiers = item.price_tiers.filter((t: any) => t.min_quantity > 1);
-      if (volumeTiers.length > 0) {
-        const best = volumeTiers.reduce((a: any, b: any) => a.price < b.price ? a : b);
-        const isAtBestTier = item.selected_tier_price != null && item.selected_tier_price <= best.price;
-        tierBadgeHtml = `<span class="cart-item-tier-badge${isAtBestTier ? ' cart-item-tier-badge--active' : ''}">Desde ${best.min_quantity} unds: Gs. ${formatPrice(best.price)}</span>`;
-      }
+    const best = getBestVolumeBadge(item.price_tiers || []);
+    if (best) {
+      const isAtBestTier = item.selected_tier_price != null && item.selected_tier_price <= best.price;
+      tierBadgeHtml = `<span class="cart-item-tier-badge${isAtBestTier ? ' cart-item-tier-badge--active' : ''}">Desde ${best.min_quantity} unds: Gs. ${formatPrice(best.price)}</span>`;
     }
 
     return `
-      <div class="cart-item" data-product-id="${key}">
+      <div class="cart-item" data-product-id="${safeKey}">
         <div class="cart-item-image">
-          <img src="${item.image}" alt="${item.name}" width="80" height="80" loading="lazy" />
+          <img src="${escapeHtml(item.image)}" alt="${safeName}" width="80" height="80" loading="lazy" />
         </div>
         <div class="cart-item-info">
-          <h3 class="cart-item-name">${item.name}</h3>
+          <h3 class="cart-item-name">${safeName}</h3>
           ${attributeHtml}
           <p class="cart-item-price">Gs. ${formatPrice(effectivePrice)} c/u</p>
           ${tierBadgeHtml}
@@ -678,15 +679,15 @@ import CartSummary from '../components/CartSummary.astro';
             data-value="${item.quantity}"
             data-min="1"
             data-max="99"
-            data-product-id="${key}"
-            data-label="Cantidad de ${item.name}"
+            data-product-id="${safeKey}"
+            data-label="Cantidad de ${safeName}"
           ></number-input>
         </div>
         <div class="cart-item-subtotal">
           <span class="label-sm">Subtotal</span>
-          <p class="cart-item-total" data-subtotal-for="${key}">Gs. ${subtotal}</p>
+          <p class="cart-item-total" data-subtotal-for="${safeKey}">Gs. ${subtotal}</p>
         </div>
-        <button class="cart-item-remove" data-remove-id="${key}" aria-label="Eliminar ${item.name}">
+        <button class="cart-item-remove" data-remove-id="${safeKey}" aria-label="Eliminar ${safeName}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
@@ -727,10 +728,9 @@ import CartSummary from '../components/CartSummary.astro';
           if (priceEl) priceEl.textContent = `Gs. ${formatPrice(effective)} c/u`;
 
           const badgeEl = cartItemEl?.querySelector('.cart-item-tier-badge') as HTMLElement | null;
-          if (badgeEl && item.price_tiers && item.price_tiers.length > 1) {
-            const volumeTiers = item.price_tiers.filter((t: any) => t.min_quantity > 1);
-            if (volumeTiers.length > 0) {
-              const best = volumeTiers.reduce((a: any, b: any) => a.price < b.price ? a : b);
+          if (badgeEl) {
+            const best = getBestVolumeBadge(item.price_tiers || []);
+            if (best) {
               const isAtBestTier = item.selected_tier_price != null && item.selected_tier_price <= best.price;
               badgeEl.classList.toggle('cart-item-tier-badge--active', isAtBestTier);
             }
