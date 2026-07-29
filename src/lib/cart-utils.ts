@@ -15,32 +15,80 @@ export interface CartItem {
   selected_attributes?: Record<string, { value_id: string; label: string; raw_value: string; price_modifier?: number }>;
 }
 
+function escapeKeySegment(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/~/g, '\\~').replace(/=/g, '\\=');
+}
+
+function unescapeKeySegment(s: string): string {
+  return s.replace(/\\=/g, '=').replace(/\\~/g, '~').replace(/\\:/g, ':').replace(/\\\\/g, '\\');
+}
+
+function escapeForMatch(s: string): string {
+  return escapeKeySegment(s);
+}
+
+function parseEscapedPairs(segment: string): string[] {
+  const pairs: string[] = [];
+  let current = '';
+  let i = 0;
+  while (i < segment.length) {
+    if (segment[i] === '\\' && i + 1 < segment.length) {
+      current += segment[i] + segment[i + 1];
+      i += 2;
+    } else if (segment[i] === '~') {
+      pairs.push(current);
+      current = '';
+      i++;
+    } else {
+      current += segment[i];
+      i++;
+    }
+  }
+  if (current) pairs.push(current);
+  return pairs;
+}
+
+function findUnescapedColon(s: string): number {
+  let i = 0;
+  while (i < s.length) {
+    if (s[i] === '\\' && i + 1 < s.length) {
+      i += 2;
+    } else if (s[i] === ':') {
+      return i;
+    } else {
+      i++;
+    }
+  }
+  return -1;
+}
+
 export function getCartKey(productId: string, attributes?: Record<string, any>): string {
-  if (!attributes || Object.keys(attributes).length === 0) return productId;
+  if (!attributes || Object.keys(attributes).length === 0) return escapeKeySegment(productId);
   const parts = Object.keys(attributes)
     .sort()
     .map(k => {
       const v = attributes[k];
       const valueId = typeof v === 'object' && v !== null ? v.value_id : v;
-      return valueId ? `${k}=${valueId}` : null;
+      return valueId ? `${escapeKeySegment(k)}=${escapeKeySegment(String(valueId))}` : null;
     })
     .filter(Boolean);
-  return parts.length > 0 ? `${productId}:${parts.join('~')}` : productId;
+  return parts.length > 0 ? `${escapeKeySegment(productId)}:${parts.join('~')}` : escapeKeySegment(productId);
 }
 
 export function hasAttribute(compositeKey: string, moduleId: string): boolean {
-  const idx = compositeKey.indexOf(':');
+  const idx = findUnescapedColon(compositeKey);
   if (idx === -1) return false;
   const segment = compositeKey.slice(idx + 1);
-  return segment.split('~').some(p => p.startsWith(`${moduleId}=`));
+  return parseEscapedPairs(segment).some(p => p.startsWith(`${escapeForMatch(moduleId)}=`));
 }
 
 export function getAttributeValue(compositeKey: string, moduleId: string): string | null {
-  const idx = compositeKey.indexOf(':');
+  const idx = findUnescapedColon(compositeKey);
   if (idx === -1) return null;
   const segment = compositeKey.slice(idx + 1);
-  for (const p of segment.split('~')) {
-    if (p.startsWith(`${moduleId}=`)) return p.slice(moduleId.length + 1);
+  const prefix = `${escapeForMatch(moduleId)}=`;
+  for (const p of parseEscapedPairs(segment)) {
+    if (p.startsWith(prefix)) return unescapeKeySegment(p.slice(prefix.length));
   }
   return null;
 }
@@ -76,10 +124,20 @@ export function reevalTier(item: CartItem): CartItem {
   };
 }
 
+export function isHashKey(compositeKey: string): boolean {
+  if (!compositeKey) return false;
+  if (compositeKey.includes(':')) return false;
+  const lastDash = compositeKey.lastIndexOf('-');
+  if (lastDash === -1) return false;
+  const suffix = compositeKey.slice(lastDash + 1);
+  return /^[0-9a-f]{6,}$/.test(suffix);
+}
+
 export function migrateCart(cart: CartItem[]): CartItem[] {
   let changed = false;
   const migrated = cart.map((item: any) => {
-    if (!item.composite_key) {
+    const needsMigration = !item.composite_key || isHashKey(item.composite_key);
+    if (needsMigration) {
       changed = true;
       return {
         ...item,

@@ -9,7 +9,7 @@ import {
   clearCart,
   formatPrice,
 } from './cart';
-import { getCartKey, hasAttribute, getAttributeValue, getEffectivePrice, reevalTier, migrateCart } from './cart-utils';
+import { getCartKey, hasAttribute, getAttributeValue, getEffectivePrice, reevalTier, migrateCart, isHashKey } from './cart-utils';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -94,6 +94,35 @@ describe('cart-utils', () => {
     it('returns productId when all attributes have null value_id', () => {
       expect(getCartKey('prod-1', { color: null, size: null })).toBe('prod-1');
     });
+
+    it('escapes colon in productId', () => {
+      expect(getCartKey('prod:1')).toBe('prod\\:1');
+    });
+
+    it('escapes tilde in productId', () => {
+      expect(getCartKey('prod~1')).toBe('prod\\~1');
+    });
+
+    it('escapes equals in productId', () => {
+      expect(getCartKey('prod=1')).toBe('prod\\=1');
+    });
+
+    it('escapes separator chars in attribute key and value', () => {
+      const key = getCartKey('prod-1', { 'mod:1': 'val~2=3' });
+      expect(key).toBe('prod-1:mod\\:1=val\\~2\\=3');
+    });
+
+    it('escapes separator chars in object attribute value_id', () => {
+      const attrs = { 'mod:color': { value_id: 'v:1~2', label: 'X', raw_value: 'x' } };
+      const key = getCartKey('prod-1', attrs);
+      expect(key).toBe('prod-1:mod\\:color=v\\:1\\~2');
+    });
+
+    it('roundtrips keys with escaped separator characters', () => {
+      const key = getCartKey('prod:1', { 'mod~1': 'val=2' });
+      expect(hasAttribute(key, 'mod~1')).toBe(true);
+      expect(getAttributeValue(key, 'mod~1')).toBe('val=2');
+    });
   });
 
   describe('hasAttribute', () => {
@@ -112,6 +141,11 @@ describe('cart-utils', () => {
     it('handles single attribute key', () => {
       expect(hasAttribute('prod-1:color=negro', 'color')).toBe(true);
     });
+
+    it('matches moduleId with special characters', () => {
+      const key = getCartKey('prod-1', { 'mod:1': 'val' });
+      expect(hasAttribute(key, 'mod:1')).toBe(true);
+    });
   });
 
   describe('getAttributeValue', () => {
@@ -129,6 +163,11 @@ describe('cart-utils', () => {
 
     it('handles values with hyphens', () => {
       expect(getAttributeValue('prod-1:mod=v-abc-def', 'mod')).toBe('v-abc-def');
+    });
+
+    it('returns unescaped value with special characters', () => {
+      const key = getCartKey('prod-1', { 'mod:1': 'val~2=3' });
+      expect(getAttributeValue(key, 'mod:1')).toBe('val~2=3');
     });
   });
 
@@ -212,6 +251,56 @@ describe('cart-utils', () => {
     it('returns empty array for empty cart', () => {
       expect(migrateCart([])).toEqual([]);
     });
+
+    it('migrates old hash-based key to readable format', () => {
+      const old = [{ id: 'prod-abc', composite_key: 'prod-abc-c248e64', name: 'A', price: 100, image: 'x', quantity: 1 }];
+      const migrated = migrateCart(old as any);
+      expect(migrated[0].composite_key).toBe('prod-abc');
+    });
+
+    it('migrates hash-based key with attributes to readable format', () => {
+      const attrs = { 'mod-color': { value_id: 'v-negro', label: 'Negro', raw_value: 'negro' } };
+      const old = [{
+        id: 'prod-abc', composite_key: 'prod-abc-a1b2c3', name: 'A', price: 100, image: 'x', quantity: 1,
+        selected_attributes: attrs,
+      }];
+      const migrated = migrateCart(old as any);
+      expect(migrated[0].composite_key).toBe('prod-abc:mod-color=v-negro');
+    });
+
+    it('preserves readable-format composite_key', () => {
+      const items = [{ id: '1', composite_key: '1:color=negro~size=s', name: 'A', price: 100, image: 'x', quantity: 1 }];
+      const migrated = migrateCart(items as any);
+      expect(migrated[0].composite_key).toBe('1:color=negro~size=s');
+    });
+
+    it('preserves product-id-only composite_key', () => {
+      const items = [{ id: '1', composite_key: '1', name: 'A', price: 100, image: 'x', quantity: 1 }];
+      const migrated = migrateCart(items as any);
+      expect(migrated[0].composite_key).toBe('1');
+    });
+  });
+
+  describe('isHashKey', () => {
+    it('returns true for old hash-based key', () => {
+      expect(isHashKey('prod-abc-c248e64')).toBe(true);
+    });
+
+    it('returns false for readable key with colon', () => {
+      expect(isHashKey('prod-abc:color=negro')).toBe(false);
+    });
+
+    it('returns false for product-id-only key', () => {
+      expect(isHashKey('prod-abc')).toBe(false);
+    });
+
+    it('returns false for empty string', () => {
+      expect(isHashKey('')).toBe(false);
+    });
+
+    it('returns false for key with short hex suffix', () => {
+      expect(isHashKey('prod-abc-ab')).toBe(false);
+    });
   });
 });
 
@@ -276,6 +365,11 @@ describe('cart', () => {
     it('defaults quantity to 1 when not provided', () => {
       const result = addToCart({ id: '1', name: 'A', price: 100, image: 'a.webp' });
       expect(result[0].quantity).toBe(1);
+    });
+
+    it('assigns composite_key to new items', () => {
+      const result = addToCart({ id: '1', name: 'A', price: 100, image: 'a.webp' });
+      expect(result[0].composite_key).toBe('1');
     });
   });
 

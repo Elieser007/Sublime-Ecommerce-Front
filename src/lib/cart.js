@@ -50,6 +50,7 @@ export function addToCart(product) {
   } else {
     cart.push({
       id: product.id,
+      composite_key: getCartKey(product.id),
       name: product.name,
       price: product.price,
       image: product.image,
