@@ -738,7 +738,7 @@ import CartSummary from '../components/CartSummary.astro';
     if (item.selected_attributes && Object.keys(item.selected_attributes).length > 0) {
       const entries = Object.values(item.selected_attributes).filter((a: any) => a.label);
       if (entries.length > 0) {
-        attributeHtml = `<p class="cart-item-attrs">${entries.map((a: any) => a.label).join(' | ')}</p>`;
+        attributeHtml = `<p class="cart-item-attrs">${entries.map((a: any) => a.type_name ? `${a.type_name}: ${a.label}` : a.label).join(' | ')}</p>`;
         const withModifiers = entries.filter((a: any) => a.price_modifier && a.price_modifier !== 0);
         if (withModifiers.length > 0) {
           const modText = withModifiers.map((a: any) =>

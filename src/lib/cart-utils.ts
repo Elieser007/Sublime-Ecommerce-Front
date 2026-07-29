@@ -12,7 +12,7 @@ export interface CartItem {
   selected_tier_id?: string;
   selected_tier_price?: number;
   selected_tier_min_qty?: number;
-  selected_attributes?: Record<string, { value_id: string; label: string; raw_value: string; price_modifier?: number }>;
+  selected_attributes?: Record<string, { value_id: string; label: string; raw_value: string; price_modifier?: number; type_name?: string }>;
 }
 
 function escapeKeySegment(s: string): string {
