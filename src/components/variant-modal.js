@@ -183,10 +183,23 @@ class VariantModal extends HTMLElement {
       .sort((a, b) => a.min_quantity - b.min_quantity);
     if (volumeTiers.length === 0) return '';
 
-    const best = volumeTiers.reduce((a, b) => a.price < b.price ? a : b);
-    const isAtBest = this._quantity >= best.min_quantity;
+    const currentQty = this._quantity;
+    const activeTier = volumeTiers.findLast(t => currentQty >= t.min_quantity);
 
-    return `<span class="tier-badge${isAtBest ? ' tier-badge--active' : ''}">Desde ${escapeHtml(String(best.min_quantity))} unds: Gs. ${escapeHtml(formatPrice(best.price))}</span>`;
+    return `
+      <div class="tier-info">
+        <p class="tier-title">Precio por volumen</p>
+        <div class="tier-list">
+          ${volumeTiers.map(t => {
+            const isActive = activeTier && activeTier.min_quantity === t.min_quantity;
+            return `<div class="tier-item${isActive ? ' tier-item--active' : ''}">
+              <span class="tier-qty">${t.min_quantity}+ unds</span>
+              <span class="tier-price">Gs. ${escapeHtml(formatPrice(t.price))}/u</span>
+              ${isActive ? '<span class="tier-badge">¡Activo!</span>' : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
   }
 
   _renderModalBody() {
@@ -418,18 +431,29 @@ class VariantModal extends HTMLElement {
     const qtyEl = this._shadow.querySelector('.qty-value');
     if (qtyEl) qtyEl.textContent = String(this._quantity);
     this._recalculatePrice();
-    this._updateTierBadge();
+    this._updateTierInfo();
   }
 
-  _updateTierBadge() {
-    const badge = this._shadow.querySelector('.tier-badge');
-    if (!badge) return;
+  _updateTierInfo() {
+    const tierInfoEl = this._shadow.querySelector('.tier-info');
+    if (!tierInfoEl) return;
     const volumeTiers = (this._priceTiers || [])
       .filter(t => t.min_quantity > 1)
       .sort((a, b) => a.min_quantity - b.min_quantity);
     if (volumeTiers.length === 0) return;
-    const best = volumeTiers.reduce((a, b) => a.price < b.price ? a : b);
-    badge.classList.toggle('tier-badge--active', this._quantity >= best.min_quantity);
+    const activeTier = volumeTiers.findLast(t => this._quantity >= t.min_quantity);
+    this._shadow.querySelectorAll('.tier-item').forEach((el, i) => {
+      const tier = volumeTiers[i];
+      if (!tier) return;
+      const isActive = activeTier && activeTier.min_quantity === tier.min_quantity;
+      el.classList.toggle('tier-item--active', isActive);
+      const badge = el.querySelector('.tier-badge');
+      if (isActive && !badge) {
+        el.insertAdjacentHTML('beforeend', '<span class="tier-badge">¡Activo!</span>');
+      } else if (!isActive && badge) {
+        badge.remove();
+      }
+    });
   }
 
   // ─── Confirm / Add to Cart ───────────────────────────────
@@ -634,8 +658,70 @@ class VariantModal extends HTMLElement {
       }
 
       .tier-title {
-      .tier-badge{display:inline-block;font-family:var(--_font-mono);font-size:11px;color:var(--_on-surface-variant);margin-top:var(--_space-xs);letter-spacing:.03em}
-      .tier-badge--active{color:var(--_primary);font-weight:600}
+        font-family: var(--_font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--_on-surface-variant);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin: 0 0 var(--_space-xs);
+      }
+
+      .tier-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .tier-item {
+        display: flex;
+        align-items: center;
+        gap: var(--_space-sm);
+        font-family: var(--_font-mono);
+        font-size: 12px;
+        color: var(--_on-surface-variant);
+        padding: 4px 0;
+      }
+
+      .tier-item--active {
+        color: var(--_primary);
+        font-weight: 600;
+      }
+
+      .tier-qty {
+        min-width: 70px;
+      }
+
+      .tier-price {
+        color: var(--_on-surface);
+      }
+
+      .tier-item--active .tier-price {
+        color: var(--_primary);
+      }
+
+      .tier-badge {
+        font-size: 9px;
+        background: var(--_primary);
+        color: var(--_on-primary);
+        padding: 2px 6px;
+        border-radius: 2px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+      }
+
+      /* ── Body ───────────────────────────────────────── */
+
+      .modal-body {
+        padding: var(--_space-lg);
+        overflow-y: auto;
+        flex: 1;
+        font-family: var(--_font-body);
+      }
+
+      .no-variants-msg {
+        color: var(--_on-surface-variant);
         text-align: center;
         padding: var(--_space-lg) 0;
       }
