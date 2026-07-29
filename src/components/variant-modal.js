@@ -176,6 +176,32 @@ class VariantModal extends HTMLElement {
       </div>`;
   }
 
+  _renderTierInfo() {
+    if (!this._priceTiers || this._priceTiers.length === 0) return '';
+    const volumeTiers = this._priceTiers
+      .filter(t => t.min_quantity > 1)
+      .sort((a, b) => a.min_quantity - b.min_quantity);
+    if (volumeTiers.length === 0) return '';
+
+    const currentQty = this._quantity;
+    const activeTier = volumeTiers.findLast(t => currentQty >= t.min_quantity);
+
+    return `
+      <div class="tier-info">
+        <p class="tier-title">Precio por volumen</p>
+        <div class="tier-list">
+          ${volumeTiers.map(t => {
+            const isActive = activeTier && activeTier.min_quantity === t.min_quantity;
+            return `<div class="tier-item${isActive ? ' tier-item--active' : ''}">
+              <span class="tier-qty">${t.min_quantity}+ unds</span>
+              <span class="tier-price">Gs. ${escapeHtml(formatPrice(t.price))}/u</span>
+              ${isActive ? '<span class="tier-badge">¡Activo!</span>' : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }
+
   _renderModalBody() {
     const hasModules = this._modules.length > 0;
     return `
@@ -189,6 +215,7 @@ class VariantModal extends HTMLElement {
             ${escapeHtml(this._productName)}
           </h2>
           <p class="modal-price">Gs. ${escapeHtml(formatPrice(this._finalPrice || this._basePrice))}</p>
+          ${this._renderTierInfo()}
         </div>
       </div>
 
@@ -354,7 +381,20 @@ class VariantModal extends HTMLElement {
       const val = mod.values.find((v) => v.value_id === valueId);
       if (val) modifiers.push(val.price_modifier);
     }
-    this._finalPrice = computeFinalPrice(this._basePrice, modifiers);
+
+    // Apply tier pricing if available
+    let basePrice = this._basePrice;
+    if (this._priceTiers && this._priceTiers.length > 0) {
+      const sorted = [...this._priceTiers].sort((a, b) => a.min_quantity - b.min_quantity);
+      const hasBaseTier = sorted.some(t => t.min_quantity <= 1);
+      if (hasBaseTier) {
+        for (const tier of sorted) {
+          if (tier.min_quantity <= this._quantity) basePrice = tier.price;
+        }
+      }
+    }
+
+    this._finalPrice = Math.max(0, basePrice + modifiers.reduce((a, b) => a + b, 0));
 
     const priceEl = this._shadow.querySelector('.modal-price');
     if (priceEl) {
@@ -390,6 +430,30 @@ class VariantModal extends HTMLElement {
     this._quantity = next;
     const qtyEl = this._shadow.querySelector('.qty-value');
     if (qtyEl) qtyEl.textContent = String(this._quantity);
+    this._recalculatePrice();
+    this._updateTierInfo();
+  }
+
+  _updateTierInfo() {
+    const tierInfoEl = this._shadow.querySelector('.tier-info');
+    if (!tierInfoEl) return;
+    const volumeTiers = (this._priceTiers || [])
+      .filter(t => t.min_quantity > 1)
+      .sort((a, b) => a.min_quantity - b.min_quantity);
+    if (volumeTiers.length === 0) return;
+    const activeTier = volumeTiers.findLast(t => this._quantity >= t.min_quantity);
+    this._shadow.querySelectorAll('.tier-item').forEach((el, i) => {
+      const tier = volumeTiers[i];
+      if (!tier) return;
+      const isActive = activeTier && activeTier.min_quantity === tier.min_quantity;
+      el.classList.toggle('tier-item--active', isActive);
+      const badge = el.querySelector('.tier-badge');
+      if (isActive && !badge) {
+        el.insertAdjacentHTML('beforeend', '<span class="tier-badge">¡Activo!</span>');
+      } else if (!isActive && badge) {
+        badge.remove();
+      }
+    });
   }
 
   // ─── Confirm / Add to Cart ───────────────────────────────
@@ -581,6 +645,70 @@ class VariantModal extends HTMLElement {
         font-weight: 600;
         color: var(--_primary);
         margin: 0;
+      }
+
+      /* ── Tier Info ──────────────────────────────── */
+
+      .tier-info {
+        margin-top: var(--_space-sm);
+        padding: var(--_space-sm) var(--_space-md);
+        background: rgba(130, 207, 255, 0.06);
+        border: 1px solid rgba(130, 207, 255, 0.15);
+        border-radius: var(--_border-radius);
+      }
+
+      .tier-title {
+        font-family: var(--_font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--_on-surface-variant);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin: 0 0 var(--_space-xs);
+      }
+
+      .tier-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .tier-item {
+        display: flex;
+        align-items: center;
+        gap: var(--_space-sm);
+        font-family: var(--_font-mono);
+        font-size: 12px;
+        color: var(--_on-surface-variant);
+        padding: 4px 0;
+      }
+
+      .tier-item--active {
+        color: var(--_primary);
+        font-weight: 600;
+      }
+
+      .tier-qty {
+        min-width: 70px;
+      }
+
+      .tier-price {
+        color: var(--_on-surface);
+      }
+
+      .tier-item--active .tier-price {
+        color: var(--_primary);
+      }
+
+      .tier-badge {
+        font-size: 9px;
+        background: var(--_primary);
+        color: var(--_on-primary);
+        padding: 2px 6px;
+        border-radius: 2px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
       }
 
       /* ── Body ───────────────────────────────────────── */
