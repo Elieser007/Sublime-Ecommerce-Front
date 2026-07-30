@@ -77,15 +77,15 @@ describe('Mobile catalog UX — index.astro source', () => {
     expect(source).toMatch(/let\s+itemsPerPage\s*=\s*24/);
   });
 
-  it('per-page selector buttons exist in HTML', () => {
-    expect(source).toMatch(/data-per-page="12"/);
-    expect(source).toMatch(/data-per-page="24"/);
-    expect(source).toMatch(/data-per-page="48"/);
+  it('per-page selector input exists in HTML', () => {
+    expect(source).toMatch(/id="per-page-input"/);
+    expect(source).toMatch(/type="number"/);
+    expect(source).toMatch(/value="24"/);
   });
 
-  it('per-page selector click handler exists', () => {
-    expect(source).toMatch(/querySelectorAll\('\.per-page-option'\)\.forEach/);
-    expect(source).toMatch(/btn\.addEventListener\('click'/);
+  it('per-page selector input handler exists', () => {
+    expect(source).toMatch(/getElementById\('per-page-input'\)/);
+    expect(source).toMatch(/addEventListener\('input'/);
   });
 
   it('mobile search bar input exists', () => {
