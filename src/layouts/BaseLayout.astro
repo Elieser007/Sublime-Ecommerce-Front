@@ -27,6 +27,17 @@ const {
 <!DOCTYPE html>
 <html lang="es">
   <head>
+    <script is:inline>
+      (function() {
+        var saved = localStorage.getItem('theme') || 'auto';
+        var isDark = saved === 'dark' || (saved === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.style.backgroundColor = isDark ? '#000000' : '#ffffff';
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.dataset.themeMode = saved;
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', isDark ? '#000000' : '#ffffff');
+      })();
+    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
@@ -64,21 +75,6 @@ const {
       <slot />
     </main>
     <Footer />
-    <script is:inline>
-      (function() {
-        var saved = localStorage.getItem('theme') || 'auto';
-        var isDark;
-        if (saved === 'auto') {
-          isDark = matchMedia('(prefers-color-scheme: dark)').matches;
-        } else {
-          isDark = saved === 'dark';
-        }
-        var c = isDark ? '#000000' : '#ffffff';
-        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
-        document.documentElement.classList.toggle('dark', isDark);
-        document.documentElement.dataset.themeMode = saved;
-      })();
-    </script>
   </body>
 </html>
 
@@ -87,6 +83,15 @@ const {
   import '../components/number-input.js';
   import '../components/variant-modal.js';
   import '../components/variant-selector.js';
+
+  document.addEventListener('astro:before-swap', (e) => {
+    const newDocument = e.detail.newDocument;
+    const saved = localStorage.getItem('theme') || 'auto';
+    const isDark = saved === 'dark' || (saved === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    newDocument.documentElement.classList.toggle('dark', isDark);
+    newDocument.documentElement.dataset.themeMode = saved;
+    newDocument.documentElement.style.backgroundColor = isDark ? '#000000' : '#ffffff';
+  });
 </script>
 
 <style is:global>
