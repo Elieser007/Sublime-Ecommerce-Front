@@ -752,7 +752,7 @@ try {
       if (!panel) return;
       panel.classList.remove('hidden');
       requestAnimationFrame(() => panel.classList.add('open'));
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflowY = 'hidden';
     });
 
     // ===== MOBILE FILTERS PANEL (server-rendered, toggled by class) =====
@@ -769,7 +769,7 @@ try {
       if (!panel) return;
       panel.classList.remove('hidden');
       requestAnimationFrame(() => panel.classList.add('open'));
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflowY = 'hidden';
     });
 
     // ===== MOBILE PANEL CLOSE HANDLERS =====
