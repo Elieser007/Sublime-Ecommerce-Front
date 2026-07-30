@@ -160,9 +160,10 @@ export function clearCart() {
  * Update the header cart badge count and visibility.
  */
 export function updateCartBadge() {
+  const count = getCartCount();
   const badge = document.getElementById('cart-count');
   if (badge) {
-    badge.textContent = getCartCount().toString();
-    badge.style.display = '';
+    badge.textContent = count.toString();
+    badge.style.display = count > 0 ? '' : 'none';
   }
 }
