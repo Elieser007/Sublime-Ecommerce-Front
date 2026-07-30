@@ -406,6 +406,8 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
   .menu-toggle {
     display: none;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
     gap: 5px;
     background: none;
     border: none;
@@ -451,10 +453,10 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
     background-color: var(--surface-container);
   }
 
-  html.dark .sun-icon { display: none; }
-  html.dark .moon-icon { display: block; }
-  html:not(.dark) .sun-icon { display: block; }
-  html:not(.dark) .moon-icon { display: none; }
+  :global(html.dark) .sun-icon { display: none; }
+  :global(html.dark) .moon-icon { display: block; }
+  :global(html:not(.dark)) .sun-icon { display: block; }
+  :global(html:not(.dark)) .moon-icon { display: none; }
 
   @media (max-width: 767px) {
     .search-form {
