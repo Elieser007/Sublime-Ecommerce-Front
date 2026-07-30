@@ -1368,4 +1368,32 @@ try {
   :global(.mobile-panel-body .tree-item--root > .tree-row) {
     padding: var(--space-sm) var(--space-md);
   }
+
+  :global(.mobile-panel-body .tree-toggle),
+  :global(.mobile-panel-body .tree-toggle--sm) {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    max-width: 20px;
+    flex-shrink: 0;
+    aspect-ratio: 1;
+  }
+
+  :global(.mobile-panel-body .tree-toggle--sm) {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    max-width: 16px;
+  }
+
+  :global(.mobile-panel-body .tree-spacer) {
+    width: 20px;
+    min-width: 20px;
+    flex-shrink: 0;
+  }
+
+  :global(.mobile-panel-body .tree-spacer--sm) {
+    width: 16px;
+    min-width: 16px;
+  }
 </style>
