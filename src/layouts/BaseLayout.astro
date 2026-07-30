@@ -31,7 +31,7 @@ const {
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#dc2626" />
+    <meta name="theme-color" content="#000000" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Sublime" />
@@ -48,11 +48,7 @@ const {
       (function() {
         var saved = localStorage.getItem('theme');
         var isDark = saved === 'dark' || (saved !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-        var path = location.pathname;
-        var c;
-        if (path === '/login')              c = isDark ? '#450a0a' : '#dc2626';
-        else if (path.startsWith('/admin')) c = isDark ? '#101828' : '#ffffff';
-        else                                c = isDark ? '#7f1d1d' : '#dc2626';
+        var c = isDark ? '#000000' : '#ffffff';
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
         document.documentElement.classList.toggle('dark', isDark);
       })();
