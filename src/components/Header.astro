@@ -184,74 +184,76 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 <script>
   import { updateCartBadge } from '../lib/cart.js';
 
-  // Mobile menu toggle
-  const toggle = document.getElementById("menu-toggle");
-  const nav = document.getElementById("nav-mobile");
+  document.addEventListener('astro:page-load', () => {
+    // Mobile menu toggle
+    const toggle = document.getElementById("menu-toggle");
+    const nav = document.getElementById("nav-mobile");
 
-  toggle?.addEventListener("click", () => {
-    nav?.classList.toggle("open");
-    toggle?.classList.toggle("open");
-  });
+    toggle?.addEventListener("click", () => {
+      nav?.classList.toggle("open");
+      toggle?.classList.toggle("open");
+    });
 
-  // Cart badge — single source of truth in cart.js
-  updateCartBadge();
-  window.addEventListener("storage", updateCartBadge);
-  window.addEventListener("cart-updated", updateCartBadge);
+    // Cart badge — single source of truth in cart.js
+    updateCartBadge();
+    window.addEventListener("storage", updateCartBadge);
+    window.addEventListener("cart-updated", updateCartBadge);
 
-  // Session check — update user icon
-  const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
+    // Session check — update user icon
+    const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
 
-  async function checkSession() {
-    try {
-      const res = await fetch(`${API_URL}/api/me`, { credentials: "include" });
+    async function checkSession() {
+      try {
+        const res = await fetch(`${API_URL}/api/me`, { credentials: "include" });
 
-      if (res.ok) {
-        const data = await res.json();
-        const userBtn = document.getElementById("user-btn");
-        if (userBtn) {
-          userBtn.href = "/dashboard";
+        if (res.ok) {
+          const data = await res.json();
+          const userBtn = document.getElementById("user-btn");
+          if (userBtn) {
+            userBtn.href = "/dashboard";
+          }
         }
+      } catch {
+        // Not logged in — keep login link
       }
-    } catch {
-      // Not logged in — keep login link
     }
-  }
 
-  checkSession();
+    checkSession();
 
-  // Theme toggle
-  const themeToggle = document.getElementById('theme-toggle');
-  function getThemeMode() {
-    return document.documentElement.dataset.themeMode || 'auto';
-  }
-  function applyTheme(mode) {
-    document.documentElement.dataset.themeMode = mode;
-    localStorage.setItem('theme', mode);
-    var isDark;
-    if (mode === 'auto') {
-      isDark = matchMedia('(prefers-color-scheme: dark)').matches;
-    } else {
-      isDark = mode === 'dark';
+    // Theme toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    function getThemeMode() {
+      return document.documentElement.dataset.themeMode || 'auto';
     }
-    document.documentElement.classList.toggle('dark', isDark);
-    var c = isDark ? '#000000' : '#ffffff';
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
-    updateThemeIcon(mode);
-  }
-  function updateThemeIcon(mode) {
-    var sun = themeToggle?.querySelector('.sun-icon');
-    var moon = themeToggle?.querySelector('.moon-icon');
-    var auto = themeToggle?.querySelector('.auto-icon');
-    if (sun) sun.style.display = (mode === 'light') ? 'block' : 'none';
-    if (moon) moon.style.display = (mode === 'dark') ? 'block' : 'none';
-    if (auto) auto.style.display = (mode === 'auto') ? 'block' : 'none';
-  }
-  themeToggle?.addEventListener('click', () => {
-    var current = getThemeMode();
-    var next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
-    applyTheme(next);
+    function applyTheme(mode) {
+      document.documentElement.dataset.themeMode = mode;
+      localStorage.setItem('theme', mode);
+      var isDark;
+      if (mode === 'auto') {
+        isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+      } else {
+        isDark = mode === 'dark';
+      }
+      document.documentElement.classList.toggle('dark', isDark);
+      var c = isDark ? '#000000' : '#ffffff';
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
+      updateThemeIcon(mode);
+    }
+    function updateThemeIcon(mode) {
+      var sun = themeToggle?.querySelector('.sun-icon');
+      var moon = themeToggle?.querySelector('.moon-icon');
+      var auto = themeToggle?.querySelector('.auto-icon');
+      if (sun) sun.style.display = (mode === 'light') ? 'block' : 'none';
+      if (moon) moon.style.display = (mode === 'dark') ? 'block' : 'none';
+      if (auto) auto.style.display = (mode === 'auto') ? 'block' : 'none';
+    }
+    themeToggle?.addEventListener('click', () => {
+      var current = getThemeMode();
+      var next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
+      applyTheme(next);
+    });
+    updateThemeIcon(getThemeMode());
   });
-  updateThemeIcon(getThemeMode());
 </script>
 
 <style>

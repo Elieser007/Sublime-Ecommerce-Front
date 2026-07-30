@@ -231,6 +231,9 @@ try {
 
 <script is:inline>
   function initCatalog() {
+    if (window.__catalogInitialized) return;
+    window.__catalogInitialized = true;
+
     // ===== IMPORTS (inline implementations) =====
     function sortProducts(products, mode) {
       const copy = [...products];
@@ -717,9 +720,9 @@ try {
     render();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initCatalog);
-  } else {
+  document.addEventListener('astro:page-load', initCatalog);
+
+  if (document.readyState !== 'loading') {
     initCatalog();
   }
 </script>
