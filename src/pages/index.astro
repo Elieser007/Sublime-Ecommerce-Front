@@ -16,6 +16,8 @@ import { formatPrice, getProductImageUrl } from '../lib/public-api';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PromotionWall from '../components/PromotionWall.astro';
 import Button from '../components/Button.astro';
+import CategoryTree from '../components/CategoryTree.astro';
+import FilterPanel from '../components/FilterPanel.astro';
 
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 
@@ -112,93 +114,14 @@ try {
         <div class="sidebar-tab-panel active" id="sidebar-categories">
           <div class="sidebar-section">
             <div id="category-tree-container">
-              {tree.length > 0 ? (
-                <ul class="tree-list">
-                  <li class="tree-item tree-item--root active" data-filter="all">
-                    <span class="tree-label tree-label--root" data-filter="all">Todos</span>
-                  </li>
-                  {tree.map((section) => (
-                    <li class="tree-item tree-item--root" data-filter={section.slug}>
-                      <div class="tree-row">
-                        {section.categories && section.categories.length > 0 ? (
-                          <button class="tree-toggle" data-toggle={section.slug} aria-label="Expandir">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                              <polyline points="6 9 12 15 18 9"/>
-                            </svg>
-                          </button>
-                        ) : (
-                          <span class="tree-spacer"></span>
-                        )}
-                        <span class="tree-label tree-label--root" data-filter={section.slug}>{section.name}</span>
-                      </div>
-                      {section.categories && section.categories.length > 0 && (
-                        <ul class="tree-sublist" id={`tree-sublist-${section.slug}`}>
-                          {section.categories.map((cat: any) => (
-                            <li class="tree-item tree-item--cat" data-filter={cat.slug}>
-                              <div class="tree-row">
-                                {cat.subcategories && cat.subcategories.length > 0 ? (
-                                  <button class="tree-toggle tree-toggle--sm" data-toggle={cat.slug} aria-label="Expandir">
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                      <polyline points="6 9 12 15 18 9"/>
-                                    </svg>
-                                  </button>
-                                ) : (
-                                  <span class="tree-spacer tree-spacer--sm"></span>
-                                )}
-                                <span class="tree-label tree-label--cat" data-filter={cat.slug}>{cat.name}</span>
-                              </div>
-                              {cat.subcategories && cat.subcategories.length > 0 && (
-                                <ul class="tree-sublist tree-sublist--sub" id={`tree-sublist-${cat.slug}`}>
-                                  {cat.subcategories.map((sub: any) => (
-                                    <li class="tree-item tree-item--sub" data-filter={sub.slug}>
-                                      <div class="tree-row">
-                                        <span class="tree-spacer tree-spacer--sm"></span>
-                                        <span class="tree-label tree-label--sub" data-filter={sub.slug}>{sub.name}</span>
-                                      </div>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p class="body-sm">Sin categorías</p>
-              )}
+              <CategoryTree tree={tree} idSuffix="desktop" />
             </div>
           </div>
         </div>
 
         <div class="sidebar-tab-panel" id="sidebar-filters">
           <div class="sidebar-section">
-            <!-- Sort -->
-            <div class="filter-group">
-              <h3 class="filter-group-title">Ordenar por</h3>
-              <div class="filter-options">
-                <button class="filter-option active" data-sort="default">Destacados</button>
-                <button class="filter-option" data-sort="price-asc">Menor precio</button>
-                <button class="filter-option" data-sort="price-desc">Mayor precio</button>
-                <button class="filter-option" data-sort="name">Nombre A-Z</button>
-              </div>
-            </div>
-
-            <!-- Price Range -->
-            <div class="filter-group">
-              <h3 class="filter-group-title">Precio</h3>
-              <div class="price-range">
-                <input type="number" class="price-input" placeholder="Mín" id="price-min-desktop" />
-                <span class="price-separator">—</span>
-                <input type="number" class="price-input" placeholder="Máx" id="price-max-desktop" />
-              </div>
-            </div>
-
-            <Button variant="primary" class="apply-filters-btn" id="apply-filters-desktop">
-              Aplicar
-            </Button>
+            <FilterPanel variant="desktop" />
           </div>
         </div>
       </aside>
@@ -287,63 +210,7 @@ try {
         <button class="mobile-panel-close" id="close-categories" aria-label="Cerrar panel">✕</button>
       </div>
       <div class="mobile-panel-body">
-        {tree.length > 0 ? (
-          <ul class="tree-list">
-            <li class="tree-item tree-item--root active" data-filter="all">
-              <span class="tree-label tree-label--root" data-filter="all">Todos</span>
-            </li>
-            {tree.map((section) => (
-              <li class="tree-item tree-item--root" data-filter={section.slug}>
-                <div class="tree-row">
-                  {section.categories && section.categories.length > 0 ? (
-                    <button class="tree-toggle" data-toggle={section.slug} aria-label="Expandir">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <polyline points="6 9 12 15 18 9"/>
-                      </svg>
-                    </button>
-                  ) : (
-                    <span class="tree-spacer"></span>
-                  )}
-                  <span class="tree-label tree-label--root" data-filter={section.slug}>{section.name}</span>
-                </div>
-                {section.categories && section.categories.length > 0 && (
-                  <ul class="tree-sublist" id={`mobile-tree-sublist-${section.slug}`}>
-                    {section.categories.map((cat: any) => (
-                      <li class="tree-item tree-item--cat" data-filter={cat.slug}>
-                        <div class="tree-row">
-                          {cat.subcategories && cat.subcategories.length > 0 ? (
-                            <button class="tree-toggle tree-toggle--sm" data-toggle={cat.slug} aria-label="Expandir">
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                <polyline points="6 9 12 15 18 9"/>
-                              </svg>
-                            </button>
-                          ) : (
-                            <span class="tree-spacer tree-spacer--sm"></span>
-                          )}
-                          <span class="tree-label tree-label--cat" data-filter={cat.slug}>{cat.name}</span>
-                        </div>
-                        {cat.subcategories && cat.subcategories.length > 0 && (
-                          <ul class="tree-sublist tree-sublist--sub" id={`mobile-tree-sublist-${cat.slug}`}>
-                            {cat.subcategories.map((sub: any) => (
-                              <li class="tree-item tree-item--sub" data-filter={sub.slug}>
-                                <div class="tree-row">
-                                  <span class="tree-spacer tree-spacer--sm"></span>
-                                  <span class="tree-label tree-label--sub" data-filter={sub.slug}>{sub.name}</span>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p class="body-sm">Sin categorías</p>
-        )}
+        <CategoryTree tree={tree} idSuffix="mobile" />
       </div>
     </div>
   </div>
@@ -356,24 +223,7 @@ try {
         <button class="mobile-panel-close" id="close-filters" aria-label="Cerrar filtros">✕</button>
       </div>
       <div class="mobile-panel-body">
-        <div class="filter-group">
-          <h3 class="filter-group-title">Ordenar por</h3>
-          <div class="filter-options">
-            <button class="filter-option active" data-sort="default">Destacados</button>
-            <button class="filter-option" data-sort="price-asc">Menor precio</button>
-            <button class="filter-option" data-sort="price-desc">Mayor precio</button>
-            <button class="filter-option" data-sort="name">Nombre A-Z</button>
-          </div>
-        </div>
-        <div class="filter-group">
-          <h3 class="filter-group-title">Precio</h3>
-          <div class="price-range">
-            <input type="number" class="price-input" placeholder="Mín" id="price-min-mobile" />
-            <span class="price-separator">—</span>
-            <input type="number" class="price-input" placeholder="Máx" id="price-max-mobile" />
-          </div>
-        </div>
-        <Button variant="primary" class="apply-filters-btn" id="apply-filters-mobile">Aplicar</Button>
+        <FilterPanel variant="mobile" />
       </div>
     </div>
   </div>
@@ -818,7 +668,7 @@ try {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const id = btn.dataset.toggle;
-          const sublist = document.getElementById(`mobile-tree-sublist-${id}`);
+          const sublist = document.getElementById(`tree-sublist-${id}`);
           if (sublist) {
             sublist.classList.toggle('expanded');
             btn.classList.toggle('expanded');

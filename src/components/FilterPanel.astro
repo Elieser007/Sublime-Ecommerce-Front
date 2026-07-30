@@ -1,0 +1,39 @@
+---
+/**
+ * FilterPanel — Reusable sort + price filter controls
+ * 
+ * Props:
+ *   variant — "desktop" or "mobile" (determines input IDs)
+ */
+interface Props {
+  variant?: 'desktop' | 'mobile';
+}
+
+const { variant = 'desktop' } = Astro.props;
+const inputSuffix = variant === 'mobile' ? '-mobile' : '-desktop';
+
+import Button from './Button.astro';
+---
+
+<div class="filter-group">
+  <h3 class="filter-group-title">Ordenar por</h3>
+  <div class="filter-options">
+    <button class="filter-option active" data-sort="default">Destacados</button>
+    <button class="filter-option" data-sort="price-asc">Menor precio</button>
+    <button class="filter-option" data-sort="price-desc">Mayor precio</button>
+    <button class="filter-option" data-sort="name">Nombre A-Z</button>
+  </div>
+</div>
+
+<div class="filter-group">
+  <h3 class="filter-group-title">Precio</h3>
+  <div class="price-range">
+    <input type="number" class="price-input" placeholder="Mín" id={`price-min${inputSuffix}`} />
+    <span class="price-separator">—</span>
+    <input type="number" class="price-input" placeholder="Máx" id={`price-max${inputSuffix}`} />
+  </div>
+</div>
+
+<Button variant="primary" class="apply-filters-btn" id={`apply-filters${inputSuffix}`}>
+  Aplicar
+</Button>

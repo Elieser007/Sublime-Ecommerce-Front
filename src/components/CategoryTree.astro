@@ -1,0 +1,74 @@
+---
+/**
+ * CategoryTree — Reusable category tree with expand/collapse
+ * 
+ * Props:
+ *   tree — category tree data array
+ *   idSuffix — optional suffix for element IDs (e.g., "desktop", "mobile")
+ */
+interface Props {
+  tree: any[];
+  idSuffix?: string;
+}
+
+const { tree, idSuffix = '' } = Astro.props;
+const suffix = idSuffix ? `-${idSuffix}` : '';
+---
+
+{tree.length > 0 ? (
+  <ul class="tree-list">
+    <li class="tree-item tree-item--root active" data-filter="all">
+      <span class="tree-label tree-label--root" data-filter="all">Todos</span>
+    </li>
+    {tree.map((section) => (
+      <li class="tree-item tree-item--root" data-filter={section.slug}>
+        <div class="tree-row">
+          {section.categories && section.categories.length > 0 ? (
+            <button class="tree-toggle" data-toggle={`${section.slug}${suffix}`} aria-label="Expandir">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+          ) : (
+            <span class="tree-spacer"></span>
+          )}
+          <span class="tree-label tree-label--root" data-filter={section.slug}>{section.name}</span>
+        </div>
+        {section.categories && section.categories.length > 0 && (
+          <ul class="tree-sublist" id={`tree-sublist-${section.slug}${suffix}`}>
+            {section.categories.map((cat: any) => (
+              <li class="tree-item tree-item--cat" data-filter={cat.slug}>
+                <div class="tree-row">
+                  {cat.subcategories && cat.subcategories.length > 0 ? (
+                    <button class="tree-toggle tree-toggle--sm" data-toggle={`${cat.slug}${suffix}`} aria-label="Expandir">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </button>
+                  ) : (
+                    <span class="tree-spacer tree-spacer--sm"></span>
+                  )}
+                  <span class="tree-label tree-label--cat" data-filter={cat.slug}>{cat.name}</span>
+                </div>
+                {cat.subcategories && cat.subcategories.length > 0 && (
+                  <ul class="tree-sublist tree-sublist--sub" id={`tree-sublist-${cat.slug}${suffix}`}>
+                    {cat.subcategories.map((sub: any) => (
+                      <li class="tree-item tree-item--sub" data-filter={sub.slug}>
+                        <div class="tree-row">
+                          <span class="tree-spacer tree-spacer--sm"></span>
+                          <span class="tree-label tree-label--sub" data-filter={sub.slug}>{sub.name}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </li>
+    ))}
+  </ul>
+) : (
+  <p class="body-sm">Sin categorías</p>
+)}
