@@ -973,9 +973,6 @@ try {
   /* Shop Layout */
   .shop-layout {
     padding: var(--space-2xl) var(--margin-mobile);
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
   }
 
   @media (min-width: 768px) {
@@ -988,8 +985,6 @@ try {
     display: grid;
     grid-template-columns: 1fr;
     gap: var(--space-2xl);
-    flex: 1;
-    min-height: 0;
   }
 
   @media (min-width: 768px) {
@@ -1014,37 +1009,7 @@ try {
     }
   }
 
-  .shop-main {
-    min-height: 0;
-  }
 
-  @media (min-width: 768px) {
-    :global(body) {
-      overflow: hidden;
-      height: 100vh;
-    }
-
-    .shop-layout {
-      height: calc(100vh - 72px);
-      overflow: hidden;
-    }
-
-    .shop-grid {
-      height: 100%;
-    }
-
-    .shop-sidebar {
-      max-height: 100%;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-    }
-
-    .shop-main {
-      overflow-y: auto;
-      max-height: 100%;
-      overscroll-behavior: contain;
-    }
-  }
 
   .sidebar-section {
     padding: var(--space-lg);
