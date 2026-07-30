@@ -103,6 +103,11 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 
       <!-- Theme Toggle -->
       <button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">
+        <svg class="auto-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
         <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="5"/>
           <line x1="12" y1="1" x2="12" y2="3"/>
@@ -216,12 +221,37 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 
   // Theme toggle
   const themeToggle = document.getElementById('theme-toggle');
-  themeToggle?.addEventListener('click', () => {
-    const isDark = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    const c = isDark ? '#000000' : '#ffffff';
+  function getThemeMode() {
+    return document.documentElement.dataset.themeMode || 'auto';
+  }
+  function applyTheme(mode) {
+    document.documentElement.dataset.themeMode = mode;
+    localStorage.setItem('theme', mode);
+    var isDark;
+    if (mode === 'auto') {
+      isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    } else {
+      isDark = mode === 'dark';
+    }
+    document.documentElement.classList.toggle('dark', isDark);
+    var c = isDark ? '#000000' : '#ffffff';
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
+    updateThemeIcon(mode);
+  }
+  function updateThemeIcon(mode) {
+    var sun = themeToggle?.querySelector('.sun-icon');
+    var moon = themeToggle?.querySelector('.moon-icon');
+    var auto = themeToggle?.querySelector('.auto-icon');
+    if (sun) sun.style.display = (mode === 'light') ? 'block' : 'none';
+    if (moon) moon.style.display = (mode === 'dark') ? 'block' : 'none';
+    if (auto) auto.style.display = (mode === 'auto') ? 'block' : 'none';
+  }
+  themeToggle?.addEventListener('click', () => {
+    var current = getThemeMode();
+    var next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
+    applyTheme(next);
   });
+  updateThemeIcon(getThemeMode());
 </script>
 
 <style>
@@ -439,10 +469,13 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
     background-color: var(--surface-container);
   }
 
-  :global(html.dark) .sun-icon { display: none; }
-  :global(html.dark) .moon-icon { display: block; }
-  :global(html:not(.dark)) .sun-icon { display: block; }
-  :global(html:not(.dark)) .moon-icon { display: none; }
+  .theme-toggle .sun-icon { display: none; }
+  .theme-toggle .moon-icon { display: none; }
+  .theme-toggle .auto-icon { display: none; }
+
+  :global(html[data-theme-mode="auto"]) .auto-icon { display: block; }
+  :global(html[data-theme-mode="dark"]) .moon-icon { display: block; }
+  :global(html[data-theme-mode="light"]) .sun-icon { display: block; }
 
   @media (max-width: 767px) {
     .search-form {

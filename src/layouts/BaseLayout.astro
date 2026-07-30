@@ -61,11 +61,17 @@ const {
     <Footer />
     <script is:inline>
       (function() {
-        var saved = localStorage.getItem('theme');
-        var isDark = saved === 'dark' || (saved !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        var saved = localStorage.getItem('theme') || 'auto';
+        var isDark;
+        if (saved === 'auto') {
+          isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+        } else {
+          isDark = saved === 'dark';
+        }
         var c = isDark ? '#000000' : '#ffffff';
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
         document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.dataset.themeMode = saved;
       })();
     </script>
   </body>
