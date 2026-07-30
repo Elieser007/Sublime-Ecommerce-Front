@@ -416,7 +416,14 @@ try {
     let currentSearch = '';
     let currentMinPrice = undefined;
     let currentMaxPrice = undefined;
-    let itemsPerPage = 24;
+    const ROWS_PER_BATCH = 6;
+
+    function getItemsPerPage() {
+      const width = window.innerWidth;
+      if (width < 640) return ROWS_PER_BATCH * 1;
+      if (width < 1024) return ROWS_PER_BATCH * 2;
+      return ROWS_PER_BATCH * 3;
+    }
 
     // ===== DOM REFS =====
     const productsGrid = document.getElementById('products-grid');
@@ -499,7 +506,7 @@ try {
 
     function renderPage() {
       const total = filteredProducts.length;
-      const toShow = filteredProducts.slice(0, Math.min(itemsPerPage, total));
+      const toShow = filteredProducts.slice(0, Math.min(getItemsPerPage(), total));
 
       allProducts.forEach((p) => { p._wrapper.style.display = 'none'; });
       toShow.forEach((p) => { p._wrapper.style.display = ''; });
@@ -510,7 +517,7 @@ try {
 
     function loadMore() {
       const total = filteredProducts.length;
-      const nextBatch = filteredProducts.slice(visibleCount, visibleCount + itemsPerPage);
+      const nextBatch = filteredProducts.slice(visibleCount, visibleCount + getItemsPerPage());
       nextBatch.forEach((p) => { p._wrapper.style.display = ''; });
       visibleCount += nextBatch.length;
 
@@ -522,7 +529,7 @@ try {
         pagination.style.display = '';
         loadMoreBtn.style.display = 'none';
         pageIndicator.textContent = 'No hay más productos';
-      } else if (total > itemsPerPage) {
+      } else if (total > getItemsPerPage()) {
         pagination.style.display = '';
         loadMoreBtn.style.display = '';
         const remaining = total - visibleCount;
@@ -996,7 +1003,7 @@ try {
   }
 
   /* Sidebar */
-  .shop-sidebar { display: none; }
+  .shop-sidebar { display: none; overflow: hidden; }
   @media (min-width: 768px) {
     .shop-sidebar {
       display: block;
@@ -1006,6 +1013,8 @@ try {
       position: sticky;
       top: 100px;
       max-height: calc(100vh - 120px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
   }
 
