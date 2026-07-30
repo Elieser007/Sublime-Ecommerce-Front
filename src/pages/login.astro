@@ -218,53 +218,55 @@ import Button from '../components/Button.astro';
   // Better Auth client import (browser-side)
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 
-  // Email/password login
-  const form = document.getElementById('login-form');
-  const errorEl = document.getElementById('auth-error');
-
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(form as HTMLFormElement);
-
-    try {
-      const res = await fetch(`${API_URL}/api/auth/sign-in/email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: formData.get('email'),
-          password: formData.get('password'),
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        showError(data.message || 'Error al iniciar sesión');
-        return;
-      }
-
-      // Success — redirect to protected dashboard
-      window.location.href = '/dashboard';
-    } catch (err) {
-      showError('Error de conexión. Intentá de nuevo.');
-    }
-  });
-
-  // Google OAuth
-  document.getElementById('google-login')?.addEventListener('click', () => {
-    window.location.href = `${API_URL}/api/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(window.location.origin + '/dashboard')}`;
-  });
-
-  // Facebook OAuth
-  document.getElementById('facebook-login')?.addEventListener('click', () => {
-    window.location.href = `${API_URL}/api/auth/sign-in/social?provider=facebook&callbackURL=${encodeURIComponent(window.location.origin + '/dashboard')}`;
-  });
-
   function showError(msg: string) {
+    const errorEl = document.getElementById('auth-error');
     if (!errorEl) return;
     const p = errorEl.querySelector('p');
     if (p) p.textContent = msg;
     errorEl.style.display = 'block';
   }
+
+  document.addEventListener('astro:page-load', () => {
+    // Email/password login
+    const form = document.getElementById('login-form');
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form as HTMLFormElement);
+
+      try {
+        const res = await fetch(`${API_URL}/api/auth/sign-in/email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: formData.get('email'),
+            password: formData.get('password'),
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError(data.message || 'Error al iniciar sesión');
+          return;
+        }
+
+        // Success — redirect to protected dashboard
+        window.location.href = '/dashboard';
+      } catch (err) {
+        showError('Error de conexión. Intentá de nuevo.');
+      }
+    });
+
+    // Google OAuth
+    document.getElementById('google-login')?.addEventListener('click', () => {
+      window.location.href = `${API_URL}/api/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(window.location.origin + '/dashboard')}`;
+    });
+
+    // Facebook OAuth
+    document.getElementById('facebook-login')?.addEventListener('click', () => {
+      window.location.href = `${API_URL}/api/auth/sign-in/social?provider=facebook&callbackURL=${encodeURIComponent(window.location.origin + '/dashboard')}`;
+    });
+  });
 </script>

@@ -74,5 +74,5 @@
   }
 
   window.addEventListener('cart-updated', updateSummary);
-  document.addEventListener('DOMContentLoaded', updateSummary);
+  document.addEventListener('astro:page-load', () => { updateSummary(); });
 </script>

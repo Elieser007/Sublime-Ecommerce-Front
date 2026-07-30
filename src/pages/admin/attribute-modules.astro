@@ -336,159 +336,6 @@ const COMPONENT_OPTIONS = [
     document.getElementById('module-modal').style.display = 'none';
   }
 
-  document.getElementById('add-module')?.addEventListener('click', () => openModuleModal('create'));
-  document.getElementById('module-modal-close')?.addEventListener('click', closeModuleModal);
-  document.getElementById('module-modal-cancel')?.addEventListener('click', closeModuleModal);
-  document.getElementById('module-modal')?.addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeModuleModal();
-  });
-
-  document.getElementById('module-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const id = (document.getElementById('module-id') as HTMLInputElement).value;
-    const isEdit = !!id;
-
-    const body: any = {
-      name: form.name.value,
-      slug: form.slug.value,
-      frontend_component: form.frontend_component.value,
-      sort_order: parseInt(form.sort_order.value) || 0,
-    };
-
-    const url = isEdit
-      ? `${API_URL}/api/admin/attributes/modules/${id}`
-      : `${API_URL}/api/admin/attributes/modules`;
-
-    const res = await fetch(url, {
-      method: isEdit ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(body),
-    });
-
-    if (res.ok) {
-      closeModuleModal();
-      loadModules();
-    } else {
-      const error = await res.json();
-      alert(error.error || 'Error al guardar');
-    }
-  });
-
-  // ─── Edit module ─────────────────────────────────────────
-  (window as any).editModule = function(id: string) {
-    const mod = modules.find((m: any) => m.id === id);
-    if (mod) openModuleModal('edit', mod);
-  };
-
-  // ─── Delete module ───────────────────────────────────────
-  (window as any).deleteModule = async function(id: string) {
-    if (!confirm('¿Estás seguro? Se eliminará este módulo y todos sus valores.')) return;
-
-    const res = await fetch(`${API_URL}/api/admin/attributes/modules/${id}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-
-    if (res.ok) {
-      if (expandedModuleId === id) expandedModuleId = null;
-      delete moduleValues[id];
-      loadModules();
-    }
-  };
-
-  // ─── Value modal ─────────────────────────────────────────
-  function openValueModal(moduleId: string, data?: any) {
-    const overlay = document.getElementById('value-modal');
-    const title = document.getElementById('value-modal-title');
-    const moduleIdInput = document.getElementById('value-module-id') as HTMLInputElement;
-    const valueIdInput = document.getElementById('value-id') as HTMLInputElement;
-    const form = document.getElementById('value-form') as HTMLFormElement;
-
-    if (!overlay || !title) return;
-
-    title.textContent = data ? 'Editar Valor' : 'Nuevo Valor';
-    moduleIdInput.value = moduleId;
-    valueIdInput.value = data?.id || '';
-
-    if (data) {
-      form.label.value = data.label || '';
-      form.raw_value.value = data.raw_value || '';
-      form.hex_color.value = data.hex_color || '';
-      form.hex_color_picker.value = data.hex_color || '#FF0000';
-      form.image_url.value = data.image_url || '';
-      form.sort_order.value = data.sort_order || 0;
-    } else {
-      form.reset();
-      form.sort_order.value = '0';
-      form.hex_color_picker.value = '#FF0000';
-    }
-
-    overlay.style.display = '';
-  }
-
-  function closeValueModal() {
-    document.getElementById('value-modal').style.display = 'none';
-  }
-
-  (window as any).openValueModal = openValueModal;
-
-  document.getElementById('value-modal-close')?.addEventListener('click', closeValueModal);
-  document.getElementById('value-modal-cancel')?.addEventListener('click', closeValueModal);
-  document.getElementById('value-modal')?.addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeValueModal();
-  });
-
-  // Sync color picker with text input
-  document.querySelector('[name="hex_color_picker"]')?.addEventListener('input', (e) => {
-    const textInput = document.querySelector('[name="hex_color"]') as HTMLInputElement;
-    if (textInput) textInput.value = (e.target as HTMLInputElement).value;
-  });
-  document.querySelector('[name="hex_color"]')?.addEventListener('input', (e) => {
-    const picker = document.querySelector('[name="hex_color_picker"]') as HTMLInputElement;
-    const val = (e.target as HTMLInputElement).value;
-    if (picker && /^#[0-9A-Fa-f]{6}$/.test(val)) picker.value = val;
-  });
-
-  document.getElementById('value-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const moduleId = (document.getElementById('value-module-id') as HTMLInputElement).value;
-    const valueId = (document.getElementById('value-id') as HTMLInputElement).value;
-    const isEdit = !!valueId;
-
-    const body: any = {
-      module_id: moduleId,
-      label: form.label.value,
-      raw_value: form.raw_value.value,
-      hex_color: form.hex_color.value || null,
-      image_url: form.image_url.value || null,
-      sort_order: parseInt(form.sort_order.value) || 0,
-    };
-
-    const url = isEdit
-      ? `${API_URL}/api/admin/attributes/values/${valueId}`
-      : `${API_URL}/api/admin/attributes/values`;
-
-    const res = await fetch(url, {
-      method: isEdit ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(body),
-    });
-
-    if (res.ok) {
-      closeValueModal();
-      delete moduleValues[moduleId];
-      loadModules();
-      if (expandedModuleId === moduleId) loadValues(moduleId);
-    } else {
-      const error = await res.json();
-      alert(error.error || 'Error al guardar');
-    }
-  });
-
   // ─── Edit value ──────────────────────────────────────────
   (window as any).editValue = function(moduleId: string, valueId: string) {
     const values = moduleValues[moduleId] || [];
@@ -512,21 +359,115 @@ const COMPONENT_OPTIONS = [
     }
   };
 
-  // ─── Search ──────────────────────────────────────────────
-  document.getElementById('search-input')?.addEventListener('input', () => {
-    renderModules();
-  });
-
-  // ─── ESC to close modals ─────────────────────────────────
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      closeModuleModal();
-      closeValueModal();
-    }
-  });
-
   // ─── Init ────────────────────────────────────────────────
-  loadModules();
+  document.addEventListener('astro:page-load', () => {
+    document.getElementById('add-module')?.addEventListener('click', () => openModuleModal('create'));
+    document.getElementById('module-modal-close')?.addEventListener('click', closeModuleModal);
+    document.getElementById('module-modal-cancel')?.addEventListener('click', closeModuleModal);
+    document.getElementById('module-modal')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeModuleModal();
+    });
+
+    document.getElementById('module-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const id = (document.getElementById('module-id') as HTMLInputElement).value;
+      const isEdit = !!id;
+
+      const body: any = {
+        name: form.name.value,
+        slug: form.slug.value,
+        frontend_component: form.frontend_component.value,
+        sort_order: parseInt(form.sort_order.value) || 0,
+      };
+
+      const url = isEdit
+        ? `${API_URL}/api/admin/attributes/modules/${id}`
+        : `${API_URL}/api/admin/attributes/modules`;
+
+      const res = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        closeModuleModal();
+        loadModules();
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Error al guardar');
+      }
+    });
+
+    document.getElementById('value-modal-close')?.addEventListener('click', closeValueModal);
+    document.getElementById('value-modal-cancel')?.addEventListener('click', closeValueModal);
+    document.getElementById('value-modal')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeValueModal();
+    });
+
+    document.querySelector('[name="hex_color_picker"]')?.addEventListener('input', (e) => {
+      const textInput = document.querySelector('[name="hex_color"]') as HTMLInputElement;
+      if (textInput) textInput.value = (e.target as HTMLInputElement).value;
+    });
+    document.querySelector('[name="hex_color"]')?.addEventListener('input', (e) => {
+      const picker = document.querySelector('[name="hex_color_picker"]') as HTMLInputElement;
+      const val = (e.target as HTMLInputElement).value;
+      if (picker && /^#[0-9A-Fa-f]{6}$/.test(val)) picker.value = val;
+    });
+
+    document.getElementById('value-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const moduleId = (document.getElementById('value-module-id') as HTMLInputElement).value;
+      const valueId = (document.getElementById('value-id') as HTMLInputElement).value;
+      const isEdit = !!valueId;
+
+      const body: any = {
+        module_id: moduleId,
+        label: form.label.value,
+        raw_value: form.raw_value.value,
+        hex_color: form.hex_color.value || null,
+        image_url: form.image_url.value || null,
+        sort_order: parseInt(form.sort_order.value) || 0,
+      };
+
+      const url = isEdit
+        ? `${API_URL}/api/admin/attributes/values/${valueId}`
+        : `${API_URL}/api/admin/attributes/values`;
+
+      const res = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        closeValueModal();
+        delete moduleValues[moduleId];
+        loadModules();
+        if (expandedModuleId === moduleId) loadValues(moduleId);
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Error al guardar');
+      }
+    });
+
+    document.getElementById('search-input')?.addEventListener('input', () => {
+      renderModules();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeModuleModal();
+        closeValueModal();
+      }
+    });
+
+    loadModules();
+  });
 </script>
 
 <style>

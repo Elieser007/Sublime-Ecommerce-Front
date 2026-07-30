@@ -326,81 +326,6 @@ const columns = [
 
   function closeModal() { $('modal-overlay')!.style.display = 'none'; }
 
-  $('add-user')?.addEventListener('click', () => openModal(false));
-  $('modal-close')?.addEventListener('click', closeModal);
-  $('modal-cancel')?.addEventListener('click', closeModal);
-  $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
-
-  let searchTimeout: any;
-  $('search')?.addEventListener('input', (e) => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadUsers(); }, 300);
-  });
-  $('role-filter')?.addEventListener('change', (e) => { currentRole = (e.target as HTMLSelectElement).value; currentPage = 1; loadUsers(); });
-  $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadUsers(); });
-  $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadUsers(); } });
-  $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadUsers(); } });
-
-  $('modal-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const id = ($('modal-id') as HTMLInputElement).value;
-    const isEdit = !!id;
-    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Guardando...';
-
-    try {
-      // Step 1: Upload avatar if new
-      let avatarUrl = avatarUrlInput.value;
-      if (avatarState.isNew && avatarState.blob) {
-        const file = new File([avatarState.blob], 'avatar.webp', { type: 'image/webp' });
-        const uploadResult = await uploadImage(file, API_URL);
-        if (!uploadResult.url) {
-          $('form-error')!.textContent = uploadResult.error || 'Error al subir avatar';
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Guardar';
-          return;
-        }
-        avatarUrl = uploadResult.url;
-      }
-
-      // Step 2: Create or update user
-      const body: any = {
-        name: form.name.value,
-        email: form.email.value,
-        role: form.role.value,
-        avatarUrl: avatarUrl || null,
-      };
-      if (!isEdit) body.password = form.password.value;
-      body.branchIds = Array.from((form.branchIds as unknown as HTMLSelectElement).selectedOptions).map((o) => o.value);
-
-      const res = await fetch(isEdit ? `${API_URL}/api/users/${id}` : `${API_URL}/api/users`, {
-        method: isEdit ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        $('form-error')!.textContent = err.error || 'Error';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Guardar';
-        return;
-      }
-
-      closeModal();
-      loadUsers();
-    } catch (err: any) {
-      $('form-error')!.textContent = err.message || 'Error al guardar';
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Guardar';
-    }
-  });
-
   (window as any).editUser = (id: string) => { const user = items.find((u: any) => u.id === id); if (user) openModal(true, user); };
   (window as any).deleteUser = async (id: string) => {
     if (id === currentUserId) { alert('No puedes eliminarte a ti mismo'); return; }
@@ -409,13 +334,88 @@ const columns = [
     if (res.ok) loadUsers();
   };
 
-  async function init() {
-    const me = await fetch(`${API_URL}/api/me`, { credentials: 'include' });
-    if (me.ok) { const { user } = await me.json(); currentUserId = user.id; }
-    await loadBranches();
-    await loadUsers();
-  }
-  init();
+  let searchTimeout: any;
+  document.addEventListener('astro:page-load', () => {
+    $('add-user')?.addEventListener('click', () => openModal(false));
+    $('modal-close')?.addEventListener('click', closeModal);
+    $('modal-cancel')?.addEventListener('click', closeModal);
+    $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+    $('search')?.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadUsers(); }, 300);
+    });
+    $('role-filter')?.addEventListener('change', (e) => { currentRole = (e.target as HTMLSelectElement).value; currentPage = 1; loadUsers(); });
+    $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadUsers(); });
+    $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadUsers(); } });
+    $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadUsers(); } });
+
+    $('modal-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const id = ($('modal-id') as HTMLInputElement).value;
+      const isEdit = !!id;
+      const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Guardando...';
+
+      try {
+        let avatarUrl = avatarUrlInput.value;
+        if (avatarState.isNew && avatarState.blob) {
+          const file = new File([avatarState.blob], 'avatar.webp', { type: 'image/webp' });
+          const uploadResult = await uploadImage(file, API_URL);
+          if (!uploadResult.url) {
+            $('form-error')!.textContent = uploadResult.error || 'Error al subir avatar';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Guardar';
+            return;
+          }
+          avatarUrl = uploadResult.url;
+        }
+
+        const body: any = {
+          name: form.name.value,
+          email: form.email.value,
+          role: form.role.value,
+          avatarUrl: avatarUrl || null,
+        };
+        if (!isEdit) body.password = form.password.value;
+        body.branchIds = Array.from((form.branchIds as unknown as HTMLSelectElement).selectedOptions).map((o) => o.value);
+
+        const res = await fetch(isEdit ? `${API_URL}/api/users/${id}` : `${API_URL}/api/users`, {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          $('form-error')!.textContent = err.error || 'Error';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Guardar';
+          return;
+        }
+
+        closeModal();
+        loadUsers();
+      } catch (err: any) {
+        $('form-error')!.textContent = err.message || 'Error al guardar';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Guardar';
+      }
+    });
+
+    async function init() {
+      const me = await fetch(`${API_URL}/api/me`, { credentials: 'include' });
+      if (me.ok) { const { user } = await me.json(); currentUserId = user.id; }
+      await loadBranches();
+      await loadUsers();
+    }
+    init();
+  });
 </script>
 
 <style>

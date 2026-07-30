@@ -321,12 +321,6 @@ const columns = [
     }
   }
 
-  // Delete modal event listeners
-  $('delete-cancel')?.addEventListener('click', closeDeleteModal);
-  $('delete-cancel-x')?.addEventListener('click', closeDeleteModal);
-  $('delete-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeDeleteModal(); });
-  $('delete-confirm')?.addEventListener('click', confirmDelete);
-
   // ═══════════════════════════════════════════════════════════
   // SLUG GENERATION
   // ═══════════════════════════════════════════════════════════
@@ -336,18 +330,6 @@ const columns = [
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
   }
-
-  $('modal-name')?.addEventListener('input', (e) => {
-    const name = (e.target as HTMLInputElement).value;
-    const slugInput = $('modal-slug') as HTMLInputElement;
-    if (!slugInput.dataset.manual || slugInput.dataset.manual !== 'true') {
-      slugInput.value = generateSlug(name);
-    }
-  });
-
-  $('modal-slug')?.addEventListener('input', (e) => {
-    (e.target as HTMLInputElement).dataset.manual = 'true';
-  });
 
   // ═══════════════════════════════════════════════════════════
   // PRIMARY IMAGE — Upload Area
@@ -401,44 +383,6 @@ const columns = [
       if (primaryInput) primaryInput.value = '';
     }
   }
-
-  primaryUploadArea?.addEventListener('click', (e) => {
-    if ((e.target as HTMLElement).closest('.primary-remove-btn')) return;
-    primaryInput.click();
-  });
-
-  primaryInput?.addEventListener('change', () => {
-    const file = primaryInput.files?.[0];
-    if (file) handlePrimaryFile(file);
-  });
-
-  primaryRemove?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (primaryImage.imageId && primaryImage.url) {
-      // Existing image — confirm delete from DB + R2
-      openDeleteModal({ type: 'primary', imageId: primaryImage.imageId, imageUrl: primaryImage.url });
-    } else if (primaryImage.blob) {
-      // New unsaved image — just clear state
-      primaryImage = { blob: null, url: null, imageId: null, isNew: false };
-      if (primaryUploadInfo) primaryUploadInfo.style.display = 'none';
-      renderPrimary();
-    }
-  });
-
-  // Drag & drop for primary
-  primaryUploadArea?.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    primaryUploadArea.classList.add('primary-upload-area--dragover');
-  });
-  primaryUploadArea?.addEventListener('dragleave', () => {
-    primaryUploadArea.classList.remove('primary-upload-area--dragover');
-  });
-  primaryUploadArea?.addEventListener('drop', (e) => {
-    e.preventDefault();
-    primaryUploadArea.classList.remove('primary-upload-area--dragover');
-    const file = e.dataTransfer?.files?.[0];
-    if (file && file.type.startsWith('image/')) handlePrimaryFile(file);
-  });
 
   // ═══════════════════════════════════════════════════════════
   // GALLERY — Horizontal Scrollable Strip
@@ -563,12 +507,6 @@ const columns = [
       if (galleryInput) galleryInput.value = '';
     }
   }
-
-  galleryAddBtn?.addEventListener('click', () => galleryInput.click());
-
-  galleryInput?.addEventListener('change', () => {
-    if (galleryInput.files?.length) handleGalleryFiles(galleryInput.files);
-  });
 
   // ═══════════════════════════════════════════════════════════
   // LOAD DEPENDENCIES
@@ -818,151 +756,6 @@ const columns = [
   // EVENT LISTENERS
   // ═══════════════════════════════════════════════════════════
   let searchTimeout: any;
-  $('search')?.addEventListener('input', (e) => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadProducts(); }, 300); });
-  $('section-filter')?.addEventListener('change', onSectionFilterChange);
-  $('category-filter')?.addEventListener('change', onCategoryFilterChange);
-  $('subcategory-filter')?.addEventListener('change', (e) => { currentSubcategory = (e.target as HTMLSelectElement).value; currentPage = 1; loadProducts(); });
-  $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadProducts(); });
-  $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadProducts(); });
-  $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadProducts(); } });
-  $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadProducts(); } });
-
-  $('section-select')?.addEventListener('change', onSectionSelectChange);
-  $('category-select')?.addEventListener('change', onCategorySelectChange);
-
-  $('add-product')?.addEventListener('click', () => openModal(false));
-  $('modal-close')?.addEventListener('click', closeModal);
-  $('modal-cancel')?.addEventListener('click', closeModal);
-  $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
-
-  // ═══════════════════════════════════════════════════════════
-  // FORM SUBMIT — Upload primary + gallery + create/update product
-  // ═══════════════════════════════════════════════════════════
-  $('modal-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const id = ($('modal-id') as HTMLInputElement).value;
-    const isEdit = !!id;
-    const slug = ($('modal-slug') as HTMLInputElement).value.trim();
-    const submitBtn = $('modal-submit') as HTMLButtonElement;
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Guardando...';
-
-    try {
-      // Step 1: Upload primary image if new
-      let primaryUrl: string | null = primaryImage.url;
-      if (primaryImage.isNew && primaryImage.blob) {
-        const formData = new FormData();
-        const fileName = 'primary.webp';
-        formData.append('image', new File([primaryImage.blob], fileName, { type: 'image/webp' }));
-
-        const uploadRes = await fetch(`${API_URL}/api/upload`, {
-          method: 'POST',
-          body: formData,
-          credentials: 'include',
-        });
-
-        if (!uploadRes.ok) {
-          const err = await uploadRes.json().catch(() => ({}));
-          $('form-error')!.textContent = err.error || 'Error al subir la imagen principal';
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Guardar';
-          return;
-        }
-
-        const uploadData = await uploadRes.json();
-        primaryUrl = uploadData.url;
-      }
-
-      // Step 2: Create or update product
-      const body: any = {
-        name: form.name.value,
-        description: form.description.value || null,
-        sectionId: form.sectionId.value,
-        categoryId: form.categoryId.value,
-        subcategoryId: form.subcategoryId.value || null,
-        basePrice: parseInt(form.basePrice.value) || 0,
-      };
-      if (slug) body.slug = slug;
-
-      const res = await fetch(isEdit ? `${API_URL}/api/products/${id}` : `${API_URL}/api/products`, {
-        method: isEdit ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        $('form-error')!.textContent = err.error || 'Error';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Guardar';
-        return;
-      }
-
-      const productResult = await res.json();
-      const productId = productResult.product?.id || id;
-
-      // Step 3: Associate primary image
-      if (primaryUrl && productId) {
-        if (primaryImage.isNew) {
-          // New primary image — associate it
-          await associateImage('products', productId, primaryUrl, API_URL, undefined, { is_primary: 1, sort_order: 0 });
-        }
-        // If not new, primary image is already associated — nothing to do
-      }
-
-      // Step 4: Upload and associate new gallery images — concurrent via Promise.allSettled
-      if (gallery.newImages.length > 0) {
-        const files = gallery.newImages.map((img: any) => img.blob);
-        const uploadResults = await uploadGalleryImages(files, productId, API_URL);
-
-        // Log any failures for debugging
-        const failures = uploadResults.filter((r: any) => r.status === 'rejected');
-        if (failures.length > 0) {
-          console.warn(`${failures.length} gallery image(s) failed to upload`);
-        }
-      }
-
-      // Step 5: Delete removed gallery images
-      // (Handled immediately on X click via delete modal — no batch delete on save)
-
-      closeModal();
-      loadProducts();
-    } catch (err: any) {
-      $('form-error')!.textContent = err.message || 'Error al guardar';
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Guardar';
-    }
-  });
-
-  // Pricing modal
-  $('price-modal-close')?.addEventListener('click', closePricingModal);
-  $('price-modal-cancel')?.addEventListener('click', closePricingModal);
-  $('price-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closePricingModal(); });
-
-  $('add-price-btn')?.addEventListener('click', async () => {
-    if (!pricingProductId) return;
-    const minQuantity = parseInt(($('price-min-qty') as HTMLInputElement).value) || 1;
-    const price = parseInt(($('price-value') as HTMLInputElement).value);
-    if (!price) { alert('Ingresá un precio'); return; }
-    const res = await fetch(`${API_URL}/api/products/${pricingProductId}/prices`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-      body: JSON.stringify({ minQuantity, price }),
-    });
-    if (res.ok) {
-      ($('price-min-qty') as HTMLInputElement).value = '1';
-      ($('price-value') as HTMLInputElement).value = '';
-      loadPrices(pricingProductId);
-    }
-  });
-
-  (window as any).editProduct = (id: string) => {
-    const product = items.find((p: any) => p.id === id);
-    if (product) openModal(true, product);
-  };
 
   // ═══════════════════════════════════════════════════════════
   // STATUS TOGGLE — Modal confirmation
@@ -986,7 +779,6 @@ const columns = [
     if (!pendingStatusToggle) return;
     const { id, activate } = pendingStatusToggle;
 
-    // Show loading state — keep modal open, disable buttons
     const confirmActivate = $('status-confirm-activate') as HTMLButtonElement;
     const confirmDeactivate = $('status-confirm-deactivate') as HTMLButtonElement;
     const cancelBtn = $('status-cancel') as HTMLButtonElement;
@@ -1020,12 +812,6 @@ const columns = [
     }
   }
 
-  $('status-confirm-activate')?.addEventListener('click', executeStatusToggle);
-  $('status-confirm-deactivate')?.addEventListener('click', executeStatusToggle);
-  $('status-cancel')?.addEventListener('click', () => { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; });
-  $('status-cancel-x')?.addEventListener('click', () => { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; });
-  $('status-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; } });
-
   (window as any).openPricing = openPricing;
 
   // ═══════════════════════════════════════════════════════════
@@ -1052,7 +838,199 @@ const columns = [
   };
 
   async function init() { await loadDependencies(); await loadProducts(); }
-  init();
+  document.addEventListener('astro:page-load', () => {
+    $('search')?.addEventListener('input', (e) => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadProducts(); }, 300); });
+    $('section-filter')?.addEventListener('change', onSectionFilterChange);
+    $('category-filter')?.addEventListener('change', onCategoryFilterChange);
+    $('subcategory-filter')?.addEventListener('change', (e) => { currentSubcategory = (e.target as HTMLSelectElement).value; currentPage = 1; loadProducts(); });
+    $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadProducts(); });
+    $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadProducts(); });
+    $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadProducts(); } });
+    $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadProducts(); } });
+
+    $('section-select')?.addEventListener('change', onSectionSelectChange);
+    $('category-select')?.addEventListener('change', onCategorySelectChange);
+
+    $('add-product')?.addEventListener('click', () => openModal(false));
+    $('modal-close')?.addEventListener('click', closeModal);
+    $('modal-cancel')?.addEventListener('click', closeModal);
+    $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+    $('delete-cancel')?.addEventListener('click', closeDeleteModal);
+    $('delete-cancel-x')?.addEventListener('click', closeDeleteModal);
+    $('delete-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeDeleteModal(); });
+    $('delete-confirm')?.addEventListener('click', confirmDelete);
+
+    $('modal-name')?.addEventListener('input', (e) => {
+      const name = (e.target as HTMLInputElement).value;
+      const slugInput = $('modal-slug') as HTMLInputElement;
+      if (!slugInput.dataset.manual || slugInput.dataset.manual !== 'true') {
+        slugInput.value = generateSlug(name);
+      }
+    });
+
+    $('modal-slug')?.addEventListener('input', (e) => {
+      (e.target as HTMLInputElement).dataset.manual = 'true';
+    });
+
+    primaryUploadArea?.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.primary-remove-btn')) return;
+      primaryInput.click();
+    });
+
+    primaryInput?.addEventListener('change', () => {
+      const file = primaryInput.files?.[0];
+      if (file) handlePrimaryFile(file);
+    });
+
+    primaryRemove?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (primaryImage.imageId && primaryImage.url) {
+        openDeleteModal({ type: 'primary', imageId: primaryImage.imageId, imageUrl: primaryImage.url });
+      } else if (primaryImage.blob) {
+        primaryImage = { blob: null, url: null, imageId: null, isNew: false };
+        if (primaryUploadInfo) primaryUploadInfo.style.display = 'none';
+        renderPrimary();
+      }
+    });
+
+    primaryUploadArea?.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      primaryUploadArea.classList.add('primary-upload-area--dragover');
+    });
+    primaryUploadArea?.addEventListener('dragleave', () => {
+      primaryUploadArea.classList.remove('primary-upload-area--dragover');
+    });
+    primaryUploadArea?.addEventListener('drop', (e) => {
+      e.preventDefault();
+      primaryUploadArea.classList.remove('primary-upload-area--dragover');
+      const file = e.dataTransfer?.files?.[0];
+      if (file && file.type.startsWith('image/')) handlePrimaryFile(file);
+    });
+
+    galleryAddBtn?.addEventListener('click', () => galleryInput.click());
+    galleryInput?.addEventListener('change', () => {
+      if (galleryInput.files?.length) handleGalleryFiles(galleryInput.files);
+    });
+
+    $('modal-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const id = ($('modal-id') as HTMLInputElement).value;
+      const isEdit = !!id;
+      const slug = ($('modal-slug') as HTMLInputElement).value.trim();
+      const submitBtn = $('modal-submit') as HTMLButtonElement;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Guardando...';
+
+      try {
+        let primaryUrl: string | null = primaryImage.url;
+        if (primaryImage.isNew && primaryImage.blob) {
+          const formData = new FormData();
+          const fileName = 'primary.webp';
+          formData.append('image', new File([primaryImage.blob], fileName, { type: 'image/webp' }));
+
+          const uploadRes = await fetch(`${API_URL}/api/upload`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+          });
+
+          if (!uploadRes.ok) {
+            const err = await uploadRes.json().catch(() => ({}));
+            $('form-error')!.textContent = err.error || 'Error al subir la imagen principal';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Guardar';
+            return;
+          }
+
+          const uploadData = await uploadRes.json();
+          primaryUrl = uploadData.url;
+        }
+
+        const body: any = {
+          name: form.name.value,
+          description: form.description.value || null,
+          sectionId: form.sectionId.value,
+          categoryId: form.categoryId.value,
+          subcategoryId: form.subcategoryId.value || null,
+          basePrice: parseInt(form.basePrice.value) || 0,
+        };
+        if (slug) body.slug = slug;
+
+        const res = await fetch(isEdit ? `${API_URL}/api/products/${id}` : `${API_URL}/api/products`, {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          $('form-error')!.textContent = err.error || 'Error';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Guardar';
+          return;
+        }
+
+        const productResult = await res.json();
+        const productId = productResult.product?.id || id;
+
+        if (primaryUrl && productId) {
+          if (primaryImage.isNew) {
+            await associateImage('products', productId, primaryUrl, API_URL, undefined, { is_primary: 1, sort_order: 0 });
+          }
+        }
+
+        if (gallery.newImages.length > 0) {
+          const files = gallery.newImages.map((img: any) => img.blob);
+          const uploadResults = await uploadGalleryImages(files, productId, API_URL);
+
+          const failures = uploadResults.filter((r: any) => r.status === 'rejected');
+          if (failures.length > 0) {
+            console.warn(`${failures.length} gallery image(s) failed to upload`);
+          }
+        }
+
+        closeModal();
+        loadProducts();
+      } catch (err: any) {
+        $('form-error')!.textContent = err.message || 'Error al guardar';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Guardar';
+      }
+    });
+
+    $('price-modal-close')?.addEventListener('click', closePricingModal);
+    $('price-modal-cancel')?.addEventListener('click', closePricingModal);
+    $('price-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closePricingModal(); });
+
+    $('add-price-btn')?.addEventListener('click', async () => {
+      if (!pricingProductId) return;
+      const minQuantity = parseInt(($('price-min-qty') as HTMLInputElement).value) || 1;
+      const price = parseInt(($('price-value') as HTMLInputElement).value);
+      if (!price) { alert('Ingresá un precio'); return; }
+      const res = await fetch(`${API_URL}/api/products/${pricingProductId}/prices`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ minQuantity, price }),
+      });
+      if (res.ok) {
+        ($('price-min-qty') as HTMLInputElement).value = '1';
+        ($('price-value') as HTMLInputElement).value = '';
+        loadPrices(pricingProductId);
+      }
+    });
+
+    $('status-confirm-activate')?.addEventListener('click', executeStatusToggle);
+    $('status-confirm-deactivate')?.addEventListener('click', executeStatusToggle);
+    $('status-cancel')?.addEventListener('click', () => { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; });
+    $('status-cancel-x')?.addEventListener('click', () => { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; });
+    $('status-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; } });
+
+    init();
+  });
 </script>
 
 <style>

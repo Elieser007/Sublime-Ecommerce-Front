@@ -268,11 +268,12 @@ import AdminSidebar from '../components/AdminSidebar.astro';
 
 <script>
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
-  const loading = document.getElementById('dashboard-loading');
-  const content = document.getElementById('dashboard-content');
-  const welcomeMessage = document.getElementById('welcome-message');
 
   async function loadDashboard() {
+    const loading = document.getElementById('dashboard-loading');
+    const content = document.getElementById('dashboard-content');
+    const welcomeMessage = document.getElementById('welcome-message');
+
     try {
       const res = await fetch(`${API_URL}/api/me`, {
         credentials: 'include',
@@ -297,20 +298,22 @@ import AdminSidebar from '../components/AdminSidebar.astro';
     }
   }
 
-  loadDashboard();
+  document.addEventListener('astro:page-load', () => {
+    loadDashboard();
 
-  // Logout using Better Auth client
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    try {
-      const { signOut } = await import('/src/lib/auth-client.ts');
-      await signOut({
-        fetchOptions: {
-          onSuccess: () => { window.location.href = '/login'; },
-          onError: () => { window.location.href = '/login'; },
-        },
-      });
-    } catch {
-      window.location.href = '/login';
-    }
+    // Logout using Better Auth client
+    document.getElementById('logout-btn')?.addEventListener('click', async () => {
+      try {
+        const { signOut } = await import('/src/lib/auth-client.ts');
+        await signOut({
+          fetchOptions: {
+            onSuccess: () => { window.location.href = '/login'; },
+            onError: () => { window.location.href = '/login'; },
+          },
+        });
+      } catch {
+        window.location.href = '/login';
+      }
+    });
   });
 </script>

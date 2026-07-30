@@ -176,34 +176,6 @@ const columns = [
 
   function closeModal() { $('modal-overlay')!.style.display = 'none'; }
 
-  $('add-branch')?.addEventListener('click', () => openModal(false));
-  $('modal-close')?.addEventListener('click', closeModal);
-  $('modal-cancel')?.addEventListener('click', closeModal);
-  $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
-
-  let searchTimeout: any;
-  $('search')?.addEventListener('input', (e) => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadBranches(); }, 300);
-  });
-  $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadBranches(); });
-  $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadBranches(); });
-  $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadBranches(); } });
-  $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadBranches(); } });
-
-  $('modal-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const id = ($('modal-id') as HTMLInputElement).value;
-    const isEdit = !!id;
-    const body = { name: form.name.value, address: form.address.value || null, phone: form.phone.value || null };
-    const res = await fetch(isEdit ? `${API_URL}/api/branches/${id}` : `${API_URL}/api/branches`, {
-      method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
-    });
-    if (!res.ok) { const err = await res.json(); $('form-error')!.textContent = err.error || 'Error'; return; }
-    closeModal(); loadBranches();
-  });
-
   (window as any).editBranch = (id: string) => { const branch = items.find((b: any) => b.id === id); if (branch) openModal(true, branch); };
   (window as any).deleteBranch = async (id: string) => {
     if (!confirm('¿Desactivar esta sucursal?')) return;
@@ -211,7 +183,37 @@ const columns = [
     if (res.ok) loadBranches();
   };
 
-  loadBranches();
+  let searchTimeout: any;
+  document.addEventListener('astro:page-load', () => {
+    $('add-branch')?.addEventListener('click', () => openModal(false));
+    $('modal-close')?.addEventListener('click', closeModal);
+    $('modal-cancel')?.addEventListener('click', closeModal);
+    $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+    $('search')?.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadBranches(); }, 300);
+    });
+    $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadBranches(); });
+    $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadBranches(); });
+    $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadBranches(); } });
+    $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadBranches(); } });
+
+    $('modal-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const id = ($('modal-id') as HTMLInputElement).value;
+      const isEdit = !!id;
+      const body = { name: form.name.value, address: form.address.value || null, phone: form.phone.value || null };
+      const res = await fetch(isEdit ? `${API_URL}/api/branches/${id}` : `${API_URL}/api/branches`, {
+        method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
+      });
+      if (!res.ok) { const err = await res.json(); $('form-error')!.textContent = err.error || 'Error'; return; }
+      closeModal(); loadBranches();
+    });
+
+    loadBranches();
+  });
 </script>
 
 <style>

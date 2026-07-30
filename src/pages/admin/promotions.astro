@@ -553,91 +553,6 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 
   function closeModal() { $('modal-overlay')!.style.display = 'none'; }
 
-  // ─── FORM SUBMIT ────────────────────────────────────────
-  $('promo-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const id = ($('promo-id') as HTMLInputElement).value;
-    const isEdit = !!id;
-    const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Guardando...';
-
-    try {
-      // Step 1: Upload image if new
-      let imageUrl = promoImageUrlInput.value;
-      if (promoImageState.isNew && promoImageState.blob) {
-        const fileName = 'promo.webp';
-        const file = new File([promoImageState.blob], fileName, { type: 'image/webp' });
-        const uploadResult = await uploadImage(file, API_URL);
-        if (!uploadResult.url) {
-          $('form-error')!.textContent = uploadResult.error || 'Error al subir imagen';
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Guardar';
-          return;
-        }
-        imageUrl = uploadResult.url;
-      }
-
-      if (!imageUrl) {
-        $('form-error')!.textContent = 'La imagen es requerida';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Guardar';
-        return;
-      }
-
-      // Step 2: Create or update promotion
-      const body: any = {
-        sectionId: selectedSection.id,
-        imageUrl,
-        title: form.title.value || null,
-        description: form.description.value || null,
-        link: form.link.value,
-        tileCols: parseInt(form.tileCols.value) || 1,
-        tileRows: parseInt(form.tileRows.value) || 1,
-        position: parseInt(form.position.value) || 0,
-      };
-
-      const res = await fetch(isEdit ? `${API_URL}/api/promotions/${id}` : `${API_URL}/api/promotions`, {
-        method: isEdit ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        $('form-error')!.textContent = err.error || 'Error al guardar';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Guardar';
-        return;
-      }
-
-      const result = await res.json();
-      const promoId = result.promotion?.id || id;
-
-      // Step 3: Associate image with promotion if new
-      if (promoImageState.isNew && promoId) {
-        await associateImage('promotions', promoId, imageUrl, API_URL, form.title.value || undefined, { is_primary: 1, sort_order: 0 });
-      }
-
-      closeModal();
-      await loadPromotions();
-    } catch (err: any) {
-      $('form-error')!.textContent = err.message || 'Error al guardar';
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Guardar';
-    }
-  });
-
-  // ─── EVENT LISTENERS ────────────────────────────────────
-  $('add-promo-btn')?.addEventListener('click', () => openModal(false));
-  $('modal-close')?.addEventListener('click', closeModal);
-  $('modal-cancel')?.addEventListener('click', closeModal);
-  $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
-
   (window as any).editPromo = (id: string) => {
     const promo = promotions.find((p: any) => p.id === id);
     if (promo) openModal(true, promo);
@@ -649,7 +564,140 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     if (res.ok) loadPromotions();
   };
 
-  loadSections();
+  document.addEventListener('astro:page-load', () => {
+    promoUploadArea?.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.promo-remove-btn')) return;
+      promoInput.click();
+    });
+
+    promoInput?.addEventListener('change', () => {
+      const file = promoInput.files?.[0];
+      if (file) handlePromoFile(file);
+    });
+
+    promoRemove?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      promoImageState = clearPromoImage(promoImageState);
+      if (promoImageUrlInput) promoImageUrlInput.value = '';
+      renderPromoImage();
+    });
+
+    promoUploadArea?.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      promoUploadArea.classList.add('promo-upload-area--dragover');
+    });
+    promoUploadArea?.addEventListener('dragleave', () => {
+      promoUploadArea.classList.remove('promo-upload-area--dragover');
+    });
+    promoUploadArea?.addEventListener('drop', (e) => {
+      e.preventDefault();
+      promoUploadArea.classList.remove('promo-upload-area--dragover');
+      const file = e.dataTransfer?.files?.[0];
+      if (file && file.type.startsWith('image/')) handlePromoFile(file);
+    });
+
+    $('display-type-select')?.addEventListener('change', async (e) => {
+      const newType = (e.target as HTMLSelectElement).value;
+      if (!selectedSection) return;
+
+      const res = await fetch(`${API_URL}/api/promotion-sections/${selectedSection.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ displayType: newType }),
+      });
+
+      if (res.ok) {
+        currentDisplayType = newType;
+        selectedSection.display_type = newType;
+        $('tile-options')!.style.display = newType === 'tiles' ? '' : 'none';
+        renderSections();
+        renderPreview();
+      }
+    });
+
+    $('promo-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const id = ($('promo-id') as HTMLInputElement).value;
+      const isEdit = !!id;
+      const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Guardando...';
+
+      try {
+        let imageUrl = promoImageUrlInput.value;
+        if (promoImageState.isNew && promoImageState.blob) {
+          const fileName = 'promo.webp';
+          const file = new File([promoImageState.blob], fileName, { type: 'image/webp' });
+          const uploadResult = await uploadImage(file, API_URL);
+          if (!uploadResult.url) {
+            $('form-error')!.textContent = uploadResult.error || 'Error al subir imagen';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Guardar';
+            return;
+          }
+          imageUrl = uploadResult.url;
+        }
+
+        if (!imageUrl) {
+          $('form-error')!.textContent = 'La imagen es requerida';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Guardar';
+          return;
+        }
+
+        const body: any = {
+          sectionId: selectedSection.id,
+          imageUrl,
+          title: form.title.value || null,
+          description: form.description.value || null,
+          link: form.link.value,
+          tileCols: parseInt(form.tileCols.value) || 1,
+          tileRows: parseInt(form.tileRows.value) || 1,
+          position: parseInt(form.position.value) || 0,
+        };
+
+        const res = await fetch(isEdit ? `${API_URL}/api/promotions/${id}` : `${API_URL}/api/promotions`, {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          $('form-error')!.textContent = err.error || 'Error al guardar';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Guardar';
+          return;
+        }
+
+        const result = await res.json();
+        const promoId = result.promotion?.id || id;
+
+        if (promoImageState.isNew && promoId) {
+          await associateImage('promotions', promoId, imageUrl, API_URL, form.title.value || undefined, { is_primary: 1, sort_order: 0 });
+        }
+
+        closeModal();
+        await loadPromotions();
+      } catch (err: any) {
+        $('form-error')!.textContent = err.message || 'Error al guardar';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Guardar';
+      }
+    });
+
+    $('add-promo-btn')?.addEventListener('click', () => openModal(false));
+    $('modal-close')?.addEventListener('click', closeModal);
+    $('modal-cancel')?.addEventListener('click', closeModal);
+    $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+    loadSections();
+  });
 </script>
 
 <style is:global>

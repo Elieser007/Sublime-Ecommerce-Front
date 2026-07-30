@@ -148,15 +148,6 @@ const subcategoryColumns = [
   let categories: any[] = [];
   let subcategories: any[] = [];
 
-  document.querySelectorAll('.tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach((c) => c.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById(`tab-${(tab as HTMLElement).dataset.tab}`)?.classList.add('active');
-    });
-  });
-
   async function loadSections() {
     const res = await fetch(`${API_URL}/api/sections`, { credentials: 'include' });
     if (res.ok) { const data = await res.json(); sections = data.sections || []; renderSections(); }
@@ -261,28 +252,6 @@ const subcategoryColumns = [
 
   function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
 
-  document.getElementById('add-section')?.addEventListener('click', () => openModal('section', 'create'));
-  document.getElementById('add-category')?.addEventListener('click', () => openModal('category', 'create'));
-  document.getElementById('add-subcategory')?.addEventListener('click', () => openModal('subcategory', 'create'));
-  document.getElementById('modal-close')?.addEventListener('click', closeModal);
-  document.getElementById('modal-cancel')?.addEventListener('click', closeModal);
-  document.getElementById('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
-
-  document.getElementById('modal-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const type = (document.getElementById('modal-type') as HTMLInputElement).value;
-    const id = (document.getElementById('modal-id') as HTMLInputElement).value;
-    const isEdit = !!id;
-    const body: any = { name: form.name.value, description: form.description.value || null, sortOrder: parseInt(form.sortOrder.value) || 0 };
-    if (type === 'category') body.sectionId = form.parentId.value;
-    if (type === 'subcategory') body.categoryId = form.parentId.value;
-    const endpoint = isEdit ? `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}/${id}` : `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}`;
-    const res = await fetch(endpoint, { method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
-    if (res.ok) { closeModal(); loadSections(); loadCategories(); loadSubcategories(); }
-    else { const error = await res.json(); alert(error.error || 'Error al guardar'); }
-  });
-
   (window as any).editItem = async function(type: string, id: string) {
     let data; if (type === 'section') data = sections.find((s) => s.id === id); else if (type === 'category') data = categories.find((c) => c.id === id); else data = subcategories.find((s) => s.id === id);
     if (data) openModal(type, 'edit', data);
@@ -295,9 +264,42 @@ const subcategoryColumns = [
     if (res.ok) { loadSections(); loadCategories(); loadSubcategories(); }
   };
 
-  loadSections();
-  loadCategories();
-  loadSubcategories();
+  document.addEventListener('astro:page-load', () => {
+    document.querySelectorAll('.tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach((c) => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(`tab-${(tab as HTMLElement).dataset.tab}`)?.classList.add('active');
+      });
+    });
+
+    document.getElementById('add-section')?.addEventListener('click', () => openModal('section', 'create'));
+    document.getElementById('add-category')?.addEventListener('click', () => openModal('category', 'create'));
+    document.getElementById('add-subcategory')?.addEventListener('click', () => openModal('subcategory', 'create'));
+    document.getElementById('modal-close')?.addEventListener('click', closeModal);
+    document.getElementById('modal-cancel')?.addEventListener('click', closeModal);
+    document.getElementById('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+    document.getElementById('modal-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const type = (document.getElementById('modal-type') as HTMLInputElement).value;
+      const id = (document.getElementById('modal-id') as HTMLInputElement).value;
+      const isEdit = !!id;
+      const body: any = { name: form.name.value, description: form.description.value || null, sortOrder: parseInt(form.sortOrder.value) || 0 };
+      if (type === 'category') body.sectionId = form.parentId.value;
+      if (type === 'subcategory') body.categoryId = form.parentId.value;
+      const endpoint = isEdit ? `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}/${id}` : `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}`;
+      const res = await fetch(endpoint, { method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+      if (res.ok) { closeModal(); loadSections(); loadCategories(); loadSubcategories(); }
+      else { const error = await res.json(); alert(error.error || 'Error al guardar'); }
+    });
+
+    loadSections();
+    loadCategories();
+    loadSubcategories();
+  });
 </script>
 
 <style>

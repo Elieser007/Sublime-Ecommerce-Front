@@ -211,34 +211,36 @@ const columns = [
 
   function closeModal() { $('modal-overlay')!.style.display = 'none'; currentOrderId = null; }
 
-  $('modal-close')?.addEventListener('click', closeModal);
-  $('modal-cancel')?.addEventListener('click', closeModal);
-  $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
-
-  let searchTimeout: any;
-  $('search')?.addEventListener('input', (e) => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadOrders(); }, 300); });
-  $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadOrders(); });
-  $('branch-filter')?.addEventListener('change', (e) => { currentBranch = (e.target as HTMLSelectElement).value; currentPage = 1; loadOrders(); });
-  $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadOrders(); });
-  $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadOrders(); } });
-  $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadOrders(); } });
-
-  $('status-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentOrderId) return;
-    const status = ($('status-select') as HTMLSelectElement).value;
-    const notes = ($('notes-input') as HTMLInputElement).value;
-    const res = await fetch(`${API_URL}/api/orders/${currentOrderId}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ status, notes }),
-    });
-    if (!res.ok) { const err = await res.json(); $('form-error')!.textContent = err.error || 'Error'; return; }
-    closeModal(); loadOrders();
-  });
-
   (window as any).viewOrder = viewOrder;
 
-  async function init() { await loadBranches(); await loadOrders(); }
-  init();
+  let searchTimeout: any;
+  document.addEventListener('astro:page-load', () => {
+    $('modal-close')?.addEventListener('click', closeModal);
+    $('modal-cancel')?.addEventListener('click', closeModal);
+    $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+    $('search')?.addEventListener('input', (e) => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadOrders(); }, 300); });
+    $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadOrders(); });
+    $('branch-filter')?.addEventListener('change', (e) => { currentBranch = (e.target as HTMLSelectElement).value; currentPage = 1; loadOrders(); });
+    $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadOrders(); });
+    $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadOrders(); } });
+    $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadOrders(); } });
+
+    $('status-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentOrderId) return;
+      const status = ($('status-select') as HTMLSelectElement).value;
+      const notes = ($('notes-input') as HTMLInputElement).value;
+      const res = await fetch(`${API_URL}/api/orders/${currentOrderId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ status, notes }),
+      });
+      if (!res.ok) { const err = await res.json(); $('form-error')!.textContent = err.error || 'Error'; return; }
+      closeModal(); loadOrders();
+    });
+
+    async function init() { await loadBranches(); await loadOrders(); }
+    init();
+  });
 </script>
 
 <style>
