@@ -126,6 +126,11 @@ const EXCEPTION_PATTERNS: RegExp[] = [
   /style="[^"]*var\(--/,
   // Inline button with token values
   /Ir a la tienda/,
+
+  // HTML meta tags with hex colors (CSS vars can't be used in HTML attributes)
+  /content="#[0-9a-fA-F]+"/,
+  // JavaScript string literals with hex colors (CSS vars unavailable in JS)
+  /'\#[0-9a-fA-F]+'|"\#[0-9a-fA-F]+"/,
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────
