@@ -184,6 +184,9 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 <script>
   import { updateCartBadge } from '../lib/cart.js';
 
+  window.addEventListener("storage", updateCartBadge);
+  window.addEventListener("cart-updated", updateCartBadge);
+
   document.addEventListener('astro:page-load', () => {
     // Mobile menu toggle
     const toggle = document.getElementById("menu-toggle");
@@ -196,8 +199,6 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 
     // Cart badge — single source of truth in cart.js
     updateCartBadge();
-    window.addEventListener("storage", updateCartBadge);
-    window.addEventListener("cart-updated", updateCartBadge);
 
     // Session check — update user icon
     const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
