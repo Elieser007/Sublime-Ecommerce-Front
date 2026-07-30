@@ -70,18 +70,3 @@ describe('Mobile catalog UX — index.astro source', () => {
     expect(clearBody).not.toMatch(/itemsPerPage\s*=\s*24/);
   });
 });
-
-function submitHandlerEndIndex(section: string): number {
-  // Find the end of the mobile search form submit handler
-  const start = section.indexOf('mobileSearchForm.addEventListener');
-  const sub = section.substring(start);
-  // Count braces to find end of handler
-  let depth = 0;
-  let inHandler = false;
-  for (let i = 0; i < sub.length; i++) {
-    if (sub[i] === '{') { depth++; inHandler = true; }
-    if (sub[i] === '}') { depth--; }
-    if (inHandler && depth === 0) return start + i + 1;
-  }
-  return sub.length;
-}
