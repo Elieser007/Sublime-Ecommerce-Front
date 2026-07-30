@@ -87,6 +87,9 @@
   --border-hard: 2px;
   --border-focus: 2px solid var(--primary);
 
+  /* Text high-contrast override for bright backgrounds */
+  --text-black: #000000;
+
   /* Success */
   --success: #4caf50;
   --on-success: #1a3a1a;

@@ -1045,7 +1045,7 @@ try {
   }
 
   :global(.tree-item.active > .tree-row .tree-label) {
-    color: #000000;
+    color: var(--text-black);
     font-weight: 600;
   }
 
@@ -1359,4 +1359,13 @@ try {
     background-color: var(--surface-container);
   }
   :global(.mobile-panel-body) { padding: var(--space-md); }
+
+  :global(.mobile-panel-body .tree-row) {
+    min-height: 44px;
+    padding: var(--space-sm) var(--space-sm);
+  }
+
+  :global(.mobile-panel-body .tree-item--root > .tree-row) {
+    padding: var(--space-sm) var(--space-md);
+  }
 </style>
