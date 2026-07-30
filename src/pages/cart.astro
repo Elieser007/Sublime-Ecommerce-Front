@@ -766,8 +766,8 @@ import CartSummary from '../components/CartSummary.astro';
     });
   }
 
-  // Load cart on DOM ready
-  document.addEventListener('DOMContentLoaded', () => {
+  // Load cart on page load (re-runs on SPA navigation with ClientRouter)
+  document.addEventListener('astro:page-load', () => {
     const cart = getCart();
     const container = document.getElementById('cart-items');
     if (!container) return;
