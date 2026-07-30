@@ -6,8 +6,10 @@
  *   tree — category tree data array
  *   idSuffix — optional suffix for element IDs (e.g., "desktop", "mobile")
  */
+import type { CategoryNode } from '../lib/public-api';
+
 interface Props {
-  tree: any[];
+  tree: CategoryNode[];
   idSuffix?: string;
 }
 
