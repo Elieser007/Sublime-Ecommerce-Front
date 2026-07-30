@@ -104,99 +104,102 @@ try {
     <div class="shop-grid">
       <!-- Desktop Sidebar -->
       <aside class="shop-sidebar">
+        <div class="sidebar-tabs">
+          <button class="sidebar-tab active" data-sidebar-tab="categories">Categorías</button>
+          <button class="sidebar-tab" data-sidebar-tab="filters">Filtros</button>
+        </div>
 
-        <!-- Category Tree Section -->
-        <div class="sidebar-section">
-          <h2 class="sidebar-title">Categorías</h2>
-          <div id="category-tree-container">
-            {tree.length > 0 ? (
-              <ul class="tree-list">
-                <li class="tree-item tree-item--root active" data-filter="all">
-                  <span class="tree-label tree-label--root" data-filter="all">Todos</span>
-                </li>
-                {tree.map((section) => (
-                  <li class="tree-item tree-item--root" data-filter={section.slug}>
-                    <div class="tree-row">
-                      {section.categories && section.categories.length > 0 ? (
-                        <button class="tree-toggle" data-toggle={section.slug} aria-label="Expandir">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                            <polyline points="6 9 12 15 18 9"/>
-                          </svg>
-                        </button>
-                      ) : (
-                        <span class="tree-spacer"></span>
-                      )}
-                      <span class="tree-label tree-label--root" data-filter={section.slug}>{section.name}</span>
-                    </div>
-                    {section.categories && section.categories.length > 0 && (
-                      <ul class="tree-sublist" id={`tree-sublist-${section.slug}`}>
-                        {section.categories.map((cat: any) => (
-                          <li class="tree-item tree-item--cat" data-filter={cat.slug}>
-                            <div class="tree-row">
-                              {cat.subcategories && cat.subcategories.length > 0 ? (
-                                <button class="tree-toggle tree-toggle--sm" data-toggle={cat.slug} aria-label="Expandir">
-                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                    <polyline points="6 9 12 15 18 9"/>
-                                  </svg>
-                                </button>
-                              ) : (
-                                <span class="tree-spacer tree-spacer--sm"></span>
-                              )}
-                              <span class="tree-label tree-label--cat" data-filter={cat.slug}>{cat.name}</span>
-                            </div>
-                            {cat.subcategories && cat.subcategories.length > 0 && (
-                              <ul class="tree-sublist tree-sublist--sub" id={`tree-sublist-${cat.slug}`}>
-                                {cat.subcategories.map((sub: any) => (
-                                  <li class="tree-item tree-item--sub" data-filter={sub.slug}>
-                                    <div class="tree-row">
-                                      <span class="tree-spacer tree-spacer--sm"></span>
-                                      <span class="tree-label tree-label--sub" data-filter={sub.slug}>{sub.name}</span>
-                                    </div>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+        <div class="sidebar-tab-panel active" id="sidebar-categories">
+          <div class="sidebar-section">
+            <div id="category-tree-container">
+              {tree.length > 0 ? (
+                <ul class="tree-list">
+                  <li class="tree-item tree-item--root active" data-filter="all">
+                    <span class="tree-label tree-label--root" data-filter="all">Todos</span>
                   </li>
-                ))}
-              </ul>
-            ) : (
-              <p class="body-sm">Sin categorías</p>
-            )}
+                  {tree.map((section) => (
+                    <li class="tree-item tree-item--root" data-filter={section.slug}>
+                      <div class="tree-row">
+                        {section.categories && section.categories.length > 0 ? (
+                          <button class="tree-toggle" data-toggle={section.slug} aria-label="Expandir">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                              <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                          </button>
+                        ) : (
+                          <span class="tree-spacer"></span>
+                        )}
+                        <span class="tree-label tree-label--root" data-filter={section.slug}>{section.name}</span>
+                      </div>
+                      {section.categories && section.categories.length > 0 && (
+                        <ul class="tree-sublist" id={`tree-sublist-${section.slug}`}>
+                          {section.categories.map((cat: any) => (
+                            <li class="tree-item tree-item--cat" data-filter={cat.slug}>
+                              <div class="tree-row">
+                                {cat.subcategories && cat.subcategories.length > 0 ? (
+                                  <button class="tree-toggle tree-toggle--sm" data-toggle={cat.slug} aria-label="Expandir">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                      <polyline points="6 9 12 15 18 9"/>
+                                    </svg>
+                                  </button>
+                                ) : (
+                                  <span class="tree-spacer tree-spacer--sm"></span>
+                                )}
+                                <span class="tree-label tree-label--cat" data-filter={cat.slug}>{cat.name}</span>
+                              </div>
+                              {cat.subcategories && cat.subcategories.length > 0 && (
+                                <ul class="tree-sublist tree-sublist--sub" id={`tree-sublist-${cat.slug}`}>
+                                  {cat.subcategories.map((sub: any) => (
+                                    <li class="tree-item tree-item--sub" data-filter={sub.slug}>
+                                      <div class="tree-row">
+                                        <span class="tree-spacer tree-spacer--sm"></span>
+                                        <span class="tree-label tree-label--sub" data-filter={sub.slug}>{sub.name}</span>
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="body-sm">Sin categorías</p>
+              )}
+            </div>
           </div>
         </div>
 
-        <!-- Desktop Filters -->
-        <div class="sidebar-section">
-          <h2 class="sidebar-title">Filtros</h2>
-
-          <!-- Sort -->
-          <div class="filter-group">
-            <h3 class="filter-group-title">Ordenar por</h3>
-            <div class="filter-options">
-              <button class="filter-option active" data-sort="default">Destacados</button>
-              <button class="filter-option" data-sort="price-asc">Menor precio</button>
-              <button class="filter-option" data-sort="price-desc">Mayor precio</button>
-              <button class="filter-option" data-sort="name">Nombre A-Z</button>
+        <div class="sidebar-tab-panel" id="sidebar-filters">
+          <div class="sidebar-section">
+            <!-- Sort -->
+            <div class="filter-group">
+              <h3 class="filter-group-title">Ordenar por</h3>
+              <div class="filter-options">
+                <button class="filter-option active" data-sort="default">Destacados</button>
+                <button class="filter-option" data-sort="price-asc">Menor precio</button>
+                <button class="filter-option" data-sort="price-desc">Mayor precio</button>
+                <button class="filter-option" data-sort="name">Nombre A-Z</button>
+              </div>
             </div>
-          </div>
 
-          <!-- Price Range -->
-          <div class="filter-group">
-            <h3 class="filter-group-title">Precio</h3>
-            <div class="price-range">
-              <input type="number" class="price-input" placeholder="Mín" id="price-min-desktop" />
-              <span class="price-separator">—</span>
-              <input type="number" class="price-input" placeholder="Máx" id="price-max-desktop" />
+            <!-- Price Range -->
+            <div class="filter-group">
+              <h3 class="filter-group-title">Precio</h3>
+              <div class="price-range">
+                <input type="number" class="price-input" placeholder="Mín" id="price-min-desktop" />
+                <span class="price-separator">—</span>
+                <input type="number" class="price-input" placeholder="Máx" id="price-max-desktop" />
+              </div>
             </div>
-          </div>
 
-          <Button variant="primary" class="apply-filters-btn" id="apply-filters-desktop">
-            Aplicar
-          </Button>
+            <Button variant="primary" class="apply-filters-btn" id="apply-filters-desktop">
+              Aplicar
+            </Button>
+          </div>
         </div>
       </aside>
 
@@ -435,6 +438,17 @@ try {
     const loadMoreBtn = document.getElementById('load-more');
     const pageIndicator = document.getElementById('page-indicator');
     const emptyClearBtn = document.getElementById('empty-clear-btn');
+
+    // ===== SIDEBAR TABS =====
+    document.querySelectorAll('.sidebar-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.sidebar-tab').forEach((t) => t.classList.remove('active'));
+        document.querySelectorAll('.sidebar-tab-panel').forEach((p) => p.classList.remove('active'));
+        tab.classList.add('active');
+        const panel = document.getElementById(`sidebar-${tab.dataset.sidebarTab}`);
+        if (panel) panel.classList.add('active');
+      });
+    });
 
     // ===== INIT: Read product data from DOM =====
     function initProducts() {
@@ -1009,6 +1023,48 @@ try {
 
 
 
+  /* Sidebar Tabs */
+  .sidebar-tabs {
+    display: flex;
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+
+  .sidebar-tab {
+    flex: 1;
+    padding: var(--space-md) var(--space-sm);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--on-surface-variant);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+  }
+
+  .sidebar-tab:hover {
+    color: var(--on-surface);
+    background-color: var(--surface-container);
+  }
+
+  .sidebar-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+  }
+
+  .sidebar-tab-panel {
+    display: none;
+  }
+
+  .sidebar-tab-panel.active {
+    display: block;
+  }
+
   .sidebar-section {
     padding: var(--space-lg);
     border-bottom: var(--border-width) solid var(--outline-variant);
@@ -1016,27 +1072,6 @@ try {
 
   .sidebar-section:last-child {
     border-bottom: none;
-  }
-
-  .sidebar-title {
-    color: var(--on-surface);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: var(--space-lg);
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-  }
-
-  .sidebar-title::before {
-    content: '';
-    display: block;
-    width: 4px;
-    height: 16px;
-    background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 100%);
   }
 
   /* ====== CATEGORY ACCORDION (GLOBAL - dynamically generated) ====== */
