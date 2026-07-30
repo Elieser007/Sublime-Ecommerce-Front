@@ -101,6 +101,15 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
         <span class="badge" id="wishlist-count" style="display: none;">0</span>
       </a>
 
+      <!-- PWA Install -->
+      <button class="install-btn" id="install-btn" aria-label="Instalar app">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </button>
+
       <!-- Theme Toggle -->
       <button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">
         <svg class="auto-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -199,6 +208,29 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 
     // Cart badge — single source of truth in cart.js
     updateCartBadge();
+
+    // PWA Install Prompt
+    let deferredPrompt: any = null;
+    const installBtn = document.getElementById('install-btn');
+
+    window.addEventListener('beforeinstallprompt', (e: Event) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (installBtn) installBtn.style.display = 'flex';
+    });
+
+    installBtn?.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      if (installBtn) installBtn.style.display = 'none';
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      if (installBtn) installBtn.style.display = 'none';
+    });
 
     // Session check — update user icon
     const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
@@ -401,6 +433,24 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
     background-color: var(--surface-container);
     color: var(--primary);
     text-decoration: none;
+  }
+
+  .install-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: none;
+    color: var(--on-surface);
+    cursor: pointer;
+    border-radius: var(--border-radius);
+    transition: all 0.15s ease;
+  }
+
+  .install-btn:hover {
+    background-color: var(--surface-container);
   }
 
   .badge {

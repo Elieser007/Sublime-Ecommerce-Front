@@ -66,6 +66,7 @@ const {
     <Footer />
     <script is:inline>
       (function() {
+        if (document.documentElement.dataset.themeMode) return;
         var saved = localStorage.getItem('theme') || 'auto';
         var isDark;
         if (saved === 'auto') {
