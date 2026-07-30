@@ -112,7 +112,14 @@ class ProductCard extends HTMLElement {
           font-family: var(--_font-body);
           font-size: 18px;
           font-weight: 400;
-          margin:0;
+          margin: 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          line-height: 1.4;
+          min-height: calc(18px * 1.4 * 2);
+          max-height: calc(18px * 1.4 * 2);
         }
 
         .product-price-row {
