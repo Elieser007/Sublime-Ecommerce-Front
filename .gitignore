@@ -26,3 +26,4 @@ Thumbs.db
 # Agent worktree scripts (local only)
 start.sh
 .agent-env
+node_modules
