@@ -1026,15 +1026,32 @@ try {
   }
 
   /* Shop Layout */
-  .shop-layout { padding: var(--space-2xl) var(--margin-mobile); }
-  @media (min-width: 768px) { .shop-layout { padding: var(--space-2xl) var(--margin-desktop); } }
+  .shop-layout {
+    padding: var(--space-2xl) var(--margin-mobile);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  @media (min-width: 768px) {
+    .shop-layout {
+      padding: var(--space-2xl) var(--margin-desktop);
+    }
+  }
 
   .shop-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: var(--space-2xl);
+    flex: 1;
+    min-height: 0;
   }
-  @media (min-width: 768px) { .shop-grid { grid-template-columns: 280px 1fr; } }
+
+  @media (min-width: 768px) {
+    .shop-grid {
+      grid-template-columns: 280px 1fr;
+    }
+  }
 
   /* Sidebar */
   .shop-sidebar { display: none; }
@@ -1044,10 +1061,43 @@ try {
       background-color: var(--surface);
       border: var(--border-width) solid var(--outline-variant);
       border-radius: var(--border-radius);
-      height: fit-content;
       position: sticky;
       top: 100px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+  }
+
+  .shop-main {
+    min-height: 0;
+  }
+
+  @media (min-width: 768px) {
+    :global(body) {
       overflow: hidden;
+      height: 100vh;
+    }
+
+    .shop-layout {
+      height: calc(100vh - 72px);
+      overflow: hidden;
+    }
+
+    .shop-grid {
+      height: 100%;
+    }
+
+    .shop-sidebar {
+      max-height: 100%;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .shop-main {
+      overflow-y: auto;
+      max-height: 100%;
+      overscroll-behavior: contain;
     }
   }
 
