@@ -458,3 +458,35 @@ body {
   overflow-x: clip;
   max-width: 100vw;
 }
+
+/* ═══════════════════════════════════════════════
+   CUSTOM SCROLLBAR — Design System Compliant
+   Thin, sharp, CMYK accent on hover
+   ═══════════════════════════════════════════════ */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-variant) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--outline-variant);
+  border-radius: 0px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
