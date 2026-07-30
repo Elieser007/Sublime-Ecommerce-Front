@@ -420,25 +420,6 @@ class VariantModal extends HTMLElement {
   }
 
   _updateTierInfo() {
-    const tierInfoEl = this._shadow.querySelector('.tier-info');
-    if (!tierInfoEl) return;
-    const volumeTiers = (this._priceTiers || [])
-      .filter(t => t.min_quantity > 1)
-      .sort((a, b) => a.min_quantity - b.min_quantity);
-    if (volumeTiers.length === 0) return;
-    const activeTier = volumeTiers.findLast(t => this._quantity >= t.min_quantity);
-    this._shadow.querySelectorAll('.tier-item').forEach((el, i) => {
-      const tier = volumeTiers[i];
-      if (!tier) return;
-      const isActive = activeTier && activeTier.min_quantity === tier.min_quantity;
-      el.classList.toggle('tier-item--active', isActive);
-      const badge = el.querySelector('.tier-badge');
-      if (isActive && !badge) {
-        el.insertAdjacentHTML('beforeend', '<span class="tier-badge">¡Activo!</span>');
-      } else if (!isActive && badge) {
-        badge.remove();
-      }
-    });
   }
 
   // ─── Confirm / Add to Cart ───────────────────────────────
@@ -627,69 +608,23 @@ class VariantModal extends HTMLElement {
         margin: 0;
       }
 
-      /* ── Tier Info ──────────────────────────────── */
+      /* ── Volume Badge ──────────────────────────── */
 
-      .tier-info {
-        margin-top: var(--_space-sm);
-        padding: var(--_space-sm) var(--_space-md);
-        background: rgba(130, 207, 255, 0.06);
-        border: 1px solid rgba(130, 207, 255, 0.15);
-        border-radius: var(--_border-radius);
-      }
-
-      .tier-title {
-        font-family: var(--_font-mono);
-        font-size: 10px;
-        font-weight: 600;
-        color: var(--_on-surface-variant);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin: 0 0 var(--_space-xs);
-      }
-
-      .tier-list {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-
-      .tier-item {
-        display: flex;
+      .volume-badge {
+        display: inline-flex;
         align-items: center;
-        gap: var(--_space-sm);
-        font-family: var(--_font-mono);
-        font-size: 12px;
-        color: var(--_on-surface-variant);
-        padding: 4px 0;
-      }
-
-      .tier-item--active {
-        color: var(--_primary);
-        font-weight: 600;
-      }
-
-      .tier-qty {
-        min-width: 70px;
-      }
-
-      .tier-price {
-        color: var(--_on-surface);
-      }
-
-      .tier-item--active .tier-price {
-        color: var(--_primary);
-      }
-
-      .tier-badge {
+        margin-top: var(--_space-sm);
         font-size: 11px;
-        background: var(--_primary);
-        color: var(--_on-primary);
+        font-weight: 500;
+        color: var(--_primary);
+        background: color-mix(in srgb, var(--_primary) 10%, transparent);
+        border: var(--_border-width) solid color-mix(in srgb, var(--_primary) 30%, transparent);
         padding: var(--_space-xs) var(--_space-sm);
-        border-radius: 2px;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        font-weight: 600;
+        word-break: break-word;
         white-space: nowrap;
+        font-family: var(--_font-mono);
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
       }
 
       /* ── Body ───────────────────────────────────────── */
