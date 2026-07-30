@@ -159,7 +159,6 @@ export function migrateCart(cart: CartItem[]): CartItem[] {
   if (changed) {
     try {
       localStorage.setItem('cart', JSON.stringify(migrated));
-      window.dispatchEvent(new Event('storage'));
     } catch { /* ignore in non-browser environments */ }
   }
   return migrated;

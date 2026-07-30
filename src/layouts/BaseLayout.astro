@@ -84,7 +84,7 @@ const {
       import '../components/variant-selector.js';
 
       document.addEventListener('astro:before-swap', (e) => {
-        const newDocument = e.detail.newDocument;
+        const newDocument = e.newDocument;
         const saved = localStorage.getItem('theme') || 'auto';
         const isDark = saved === 'dark' || (saved === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
         newDocument.documentElement.classList.toggle('dark', isDark);
