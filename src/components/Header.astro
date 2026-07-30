@@ -253,45 +253,48 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 
     checkSession();
 
-    // Theme toggle — bind once, not on every navigation
-    (function initThemeToggle() {
-      if (window.__themeToggleBound) return;
-      window.__themeToggleBound = true;
+    // Theme toggle — functions re-defined each navigation for fresh DOM refs
+    function getThemeMode() {
+      return document.documentElement.dataset.themeMode || 'auto';
+    }
+    function updateThemeIcon(mode) {
+      var toggle = document.getElementById('theme-toggle');
+      if (!toggle) return;
+      var sun = toggle.querySelector('.sun-icon');
+      var moon = toggle.querySelector('.moon-icon');
+      var auto = toggle.querySelector('.auto-icon');
+      if (sun) sun.style.display = (mode === 'light') ? 'block' : 'none';
+      if (moon) moon.style.display = (mode === 'dark') ? 'block' : 'none';
+      if (auto) auto.style.display = (mode === 'auto') ? 'block' : 'none';
+    }
+    function applyTheme(mode) {
+      document.documentElement.dataset.themeMode = mode;
+      localStorage.setItem('theme', mode);
+      var isDark;
+      if (mode === 'auto') {
+        isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+      } else {
+        isDark = mode === 'dark';
+      }
+      document.documentElement.classList.toggle('dark', isDark);
+      var c = isDark ? '#000000' : '#ffffff';
+      document.documentElement.style.backgroundColor = c;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
+      updateThemeIcon(mode);
+    }
 
-      const themeToggle = document.getElementById('theme-toggle');
-      function getThemeMode() {
-        return document.documentElement.dataset.themeMode || 'auto';
-      }
-      function applyTheme(mode) {
-        document.documentElement.dataset.themeMode = mode;
-        localStorage.setItem('theme', mode);
-        var isDark;
-        if (mode === 'auto') {
-          isDark = matchMedia('(prefers-color-scheme: dark)').matches;
-        } else {
-          isDark = mode === 'dark';
-        }
-        document.documentElement.classList.toggle('dark', isDark);
-        var c = isDark ? '#000000' : '#ffffff';
-        document.documentElement.style.backgroundColor = c;
-        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
-        updateThemeIcon(mode);
-      }
-      function updateThemeIcon(mode) {
-        var sun = themeToggle?.querySelector('.sun-icon');
-        var moon = themeToggle?.querySelector('.moon-icon');
-        var auto = themeToggle?.querySelector('.auto-icon');
-        if (sun) sun.style.display = (mode === 'light') ? 'block' : 'none';
-        if (moon) moon.style.display = (mode === 'dark') ? 'block' : 'none';
-        if (auto) auto.style.display = (mode === 'auto') ? 'block' : 'none';
-      }
-      themeToggle?.addEventListener('click', () => {
+    // Bind click listener only once across SPA navigations
+    if (!window.__themeToggleBound) {
+      window.__themeToggleBound = true;
+      document.getElementById('theme-toggle')?.addEventListener('click', () => {
         var current = getThemeMode();
         var next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
         applyTheme(next);
       });
-      updateThemeIcon(getThemeMode());
-    })();
+    }
+
+    // Update icon on every navigation (new DOM = fresh elements)
+    updateThemeIcon(getThemeMode());
   });
 </script>
 
@@ -532,9 +535,9 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
   .theme-toggle .moon-icon { display: none; }
   .theme-toggle .auto-icon { display: none; }
 
-  :global(html[data-theme-mode="auto"]) .auto-icon { display: block; }
-  :global(html[data-theme-mode="dark"]) .moon-icon { display: block; }
-  :global(html[data-theme-mode="light"]) .sun-icon { display: block; }
+  :global(html[data-theme-mode="auto"]) .theme-toggle .auto-icon { display: block; }
+  :global(html[data-theme-mode="dark"]) .theme-toggle .moon-icon { display: block; }
+  :global(html[data-theme-mode="light"]) .theme-toggle .sun-icon { display: block; }
 
   @media (max-width: 767px) {
     .search-form {
