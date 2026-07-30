@@ -204,12 +204,9 @@ try {
       <main class="shop-main">
         {products.length > 0 ? (
           <div id="products-container">
-            <!-- Product count + Per-page selector -->
+            <!-- Product count -->
             <div class="product-count" id="product-count">
               <span id="product-count-text">{products.length} productos encontrados</span>
-              <div class="per-page-selector">
-                <input type="number" class="per-page-input" id="per-page-input" value="24" min="1" max="999" aria-label="Productos por página" />
-              </div>
             </div>
 
             <!-- Clear filters (hidden by default) -->
@@ -686,22 +683,6 @@ try {
       });
     }
 
-    // ===== PER-PAGE SELECTOR =====
-    const perPageInput = document.getElementById('per-page-input');
-    if (perPageInput) {
-      let perPageTimeout = null;
-      perPageInput.addEventListener('input', () => {
-        clearTimeout(perPageTimeout);
-        perPageTimeout = setTimeout(() => {
-          const val = parseInt(perPageInput.value, 10);
-          if (val > 0 && val <= 999) {
-            itemsPerPage = val;
-            render();
-          }
-        }, 500);
-      });
-    }
-
     // ===== CLEAR FILTERS =====
     function clearAllFilters() {
       currentSort = 'default';
@@ -731,9 +712,6 @@ try {
       if (headerSearchInput) headerSearchInput.value = '';
       const mobileSearchOverlay = document.getElementById('search-overlay-input');
       if (mobileSearchOverlay) mobileSearchOverlay.value = '';
-      // Reset per-page selector UI
-      const perPageInputReset = document.getElementById('per-page-input');
-      if (perPageInputReset) perPageInputReset.value = '24';
       // Clear mobile search bar input
       const mobileBarInput = document.getElementById('mobile-search-bar-input');
       if (mobileBarInput) mobileBarInput.value = '';
@@ -990,39 +968,6 @@ try {
   .mobile-action-btn:hover {
     border-color: var(--primary);
     color: var(--primary);
-  }
-
-  .per-page-selector {
-    display: flex;
-    align-items: center;
-    margin-left: auto;
-  }
-
-  .per-page-input {
-    width: 52px;
-    height: 36px;
-    padding: var(--space-sm);
-    background: var(--surface-container);
-    border: var(--border-width) solid var(--outline-variant);
-    border-radius: var(--border-radius);
-    color: var(--on-surface);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 500;
-    text-align: center;
-    outline: none;
-    transition: border-color 0.15s ease;
-    -moz-appearance: textfield;
-  }
-
-  .per-page-input::-webkit-outer-spin-button,
-  .per-page-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  .per-page-input:focus {
-    border-color: var(--primary);
   }
 
   /* Shop Layout */

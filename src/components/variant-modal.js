@@ -184,23 +184,14 @@ class VariantModal extends HTMLElement {
       .sort((a, b) => a.min_quantity - b.min_quantity);
     if (volumeTiers.length === 0) return '';
 
-    const currentQty = this._quantity;
-    const activeTier = volumeTiers.findLast(t => currentQty >= t.min_quantity);
+    const bestTier = volumeTiers.reduce((best, current) =>
+      current.price < best.price ? current : best
+    );
 
     return `
-      <div class="tier-info">
-        <p class="tier-title">Precio por volumen</p>
-        <div class="tier-list">
-          ${volumeTiers.map(t => {
-            const isActive = activeTier && activeTier.min_quantity === t.min_quantity;
-            return `<div class="tier-item${isActive ? ' tier-item--active' : ''}">
-              <span class="tier-qty">${t.min_quantity}+ unds</span>
-              <span class="tier-price">Gs. ${escapeHtml(formatPrice(t.price))}/u</span>
-              ${isActive ? '<span class="tier-badge">¡Activo!</span>' : ''}
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
+      <span class="volume-badge">
+        Desde ${bestTier.min_quantity} unds: Gs. ${escapeHtml(formatPrice(bestTier.price))}
+      </span>`;
   }
 
   _renderModalBody() {
