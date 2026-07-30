@@ -406,20 +406,9 @@ try {
       return products.filter((p) => p.name.toLowerCase().includes(lower));
     }
 
-    function paginateProducts(products, page) {
-      const totalPages = Math.ceil(products.length / itemsPerPage);
-      const start = (page - 1) * itemsPerPage;
-      return {
-        items: products.slice(start, start + itemsPerPage),
-        totalPages,
-        hasNextPage: page < totalPages,
-      };
-    }
-
     // ===== STATE =====
     let allProducts = []; // Original product data from DOM
     let filteredProducts = []; // After all filters applied
-    let currentPage = 1;
     let visibleCount = 0;
     let currentSort = 'default';
     let currentCategory = 'all';
@@ -502,7 +491,6 @@ try {
       result = sortProducts(result, currentSort);
 
       filteredProducts = result;
-      currentPage = 1;
       visibleCount = 0;
 
       renderPage();
@@ -905,7 +893,7 @@ try {
 
     // ===== INIT =====
     initProducts();
-    updateUI();
+    render();
   }
 
   if (document.readyState === 'loading') {

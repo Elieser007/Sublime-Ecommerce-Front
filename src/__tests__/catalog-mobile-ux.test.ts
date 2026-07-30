@@ -95,15 +95,6 @@ describe('Mobile catalog UX — index.astro source', () => {
     const clearBody = clearSection.substring(0, clearEnd + 10);
     expect(clearBody).toMatch(/itemsPerPage\s*=\s*24/);
   });
-
-  it('paginateProducts uses itemsPerPage variable', () => {
-    const paginateSection = source.substring(
-      source.indexOf('function paginateProducts(products, page)')
-    );
-    const paginateEnd = paginateSection.indexOf('}');
-    const paginateBody = paginateSection.substring(0, paginateEnd + 1);
-    expect(paginateBody).toMatch(/itemsPerPage/);
-  });
 });
 
 function submitHandlerEndIndex(section: string): number {
