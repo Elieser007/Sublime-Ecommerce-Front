@@ -17,8 +17,8 @@ interface Props {
 }
 
 const {
-  title = 'Sublime E-commerce',
-  description = 'Arte & Diseño — Tu tienda de confianza',
+  title = 'Sublime — Arte & Diseño',
+  description = 'Tu tienda de confianza — Arte & Diseño. Productos únicos con los mejores precios.',
   cartCount = 0,
 } = Astro.props;
 ---
@@ -37,6 +37,21 @@ const {
     <meta name="apple-mobile-web-app-title" content="Sublime" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
     <title>{title}</title>
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Sublime — Arte & Diseño" />
+    <meta property="og:description" content="Tu tienda de confianza — Arte & Diseño. Productos únicos con los mejores precios." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:url" content="https://sublimepy.store" />
+    <meta property="og:site_name" content="Sublime" />
+    <meta property="og:locale" content="es_PY" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Sublime — Arte & Diseño" />
+    <meta name="twitter:description" content="Tu tienda de confianza — Arte & Diseño. Productos únicos con los mejores precios." />
+    <meta name="twitter:image" content="/og-image.png" />
   </head>
   <body>
     <Header cartCount={cartCount} />
