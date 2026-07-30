@@ -51,6 +51,7 @@ const {
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Sublime" />
+    <link rel="manifest" href="/manifest.json" />
     <title>{title}</title>
     <ClientRouter />
 
@@ -75,24 +76,26 @@ const {
       <slot />
     </main>
     <Footer />
+
+    <script>
+      import '../components/product-card.js';
+      import '../components/number-input.js';
+      import '../components/variant-modal.js';
+      import '../components/variant-selector.js';
+
+      document.addEventListener('astro:before-swap', (e) => {
+        const newDocument = e.detail.newDocument;
+        const saved = localStorage.getItem('theme') || 'auto';
+        const isDark = saved === 'dark' || (saved === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+        newDocument.documentElement.classList.toggle('dark', isDark);
+        newDocument.documentElement.dataset.themeMode = saved;
+        newDocument.documentElement.style.backgroundColor = isDark ? '#000000' : '#ffffff';
+        const meta = newDocument.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', isDark ? '#000000' : '#ffffff');
+      });
+    </script>
   </body>
 </html>
-
-<script>
-  import '../components/product-card.js';
-  import '../components/number-input.js';
-  import '../components/variant-modal.js';
-  import '../components/variant-selector.js';
-
-  document.addEventListener('astro:before-swap', (e) => {
-    const newDocument = e.detail.newDocument;
-    const saved = localStorage.getItem('theme') || 'auto';
-    const isDark = saved === 'dark' || (saved === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-    newDocument.documentElement.classList.toggle('dark', isDark);
-    newDocument.documentElement.dataset.themeMode = saved;
-    newDocument.documentElement.style.backgroundColor = isDark ? '#000000' : '#ffffff';
-  });
-</script>
 
 <style is:global>
   /* Global styles already imported via CSS file */

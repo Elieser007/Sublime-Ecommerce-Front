@@ -273,6 +273,7 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
         }
         document.documentElement.classList.toggle('dark', isDark);
         var c = isDark ? '#000000' : '#ffffff';
+        document.documentElement.style.backgroundColor = c;
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
         updateThemeIcon(mode);
       }
