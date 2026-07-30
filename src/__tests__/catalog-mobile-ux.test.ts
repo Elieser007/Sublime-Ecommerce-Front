@@ -73,8 +73,9 @@ describe('Mobile catalog UX — index.astro source', () => {
     expect(catCheck).toBeLessThan(filterCheck);
   });
 
-  it('itemsPerPage state variable exists', () => {
-    expect(source).toMatch(/let\s+itemsPerPage\s*=\s*24/);
+  it('ROWS_PER_BATCH constant and getItemsPerPage function exist', () => {
+    expect(source).toMatch(/const\s+ROWS_PER_BATCH\s*=\s*6/);
+    expect(source).toMatch(/function\s+getItemsPerPage\(\)/);
   });
 
   it('mobile search bar input exists', () => {
@@ -87,13 +88,13 @@ describe('Mobile catalog UX — index.astro source', () => {
     expect(source).toMatch(/debounce|setTimeout.*300/);
   });
 
-  it('clearAllFilters resets itemsPerPage', () => {
+  it('clearAllFilters does not reset itemsPerPage (now dynamic)', () => {
     const clearSection = source.substring(
       source.indexOf('function clearAllFilters()')
     );
     const clearEnd = clearSection.indexOf('render();');
     const clearBody = clearSection.substring(0, clearEnd + 10);
-    expect(clearBody).toMatch(/itemsPerPage\s*=\s*24/);
+    expect(clearBody).not.toMatch(/itemsPerPage\s*=\s*24/);
   });
 });
 
