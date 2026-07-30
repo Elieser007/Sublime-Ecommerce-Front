@@ -30,6 +30,12 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#dc2626" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Sublime" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
     <title>{title}</title>
   </head>
   <body>
@@ -38,6 +44,19 @@ const {
       <slot />
     </main>
     <Footer />
+    <script is:inline>
+      (function() {
+        var saved = localStorage.getItem('theme');
+        var isDark = saved === 'dark' || (saved !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        var path = location.pathname;
+        var c;
+        if (path === '/login')              c = isDark ? '#450a0a' : '#dc2626';
+        else if (path.startsWith('/admin')) c = isDark ? '#101828' : '#ffffff';
+        else                                c = isDark ? '#7f1d1d' : '#dc2626';
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
+        document.documentElement.classList.toggle('dark', isDark);
+      })();
+    </script>
   </body>
 </html>
 

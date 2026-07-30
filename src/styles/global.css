@@ -464,17 +464,17 @@ body {
 
 /* ═══════════════════════════════════════════════
    CUSTOM SCROLLBAR — Design System Compliant
-   Thin, sharp, CMYK accent on hover
+   Sharp corners, surface colors, primary accent
    ═══════════════════════════════════════════════ */
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--outline-variant) transparent;
+  scrollbar-color: var(--surface-container-high) transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 *::-webkit-scrollbar-track {
@@ -482,12 +482,14 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: var(--outline-variant);
+  background: var(--surface-container-high);
+  border: 2px solid transparent;
   border-radius: 0px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
+  border-color: var(--primary);
 }
 
 *::-webkit-scrollbar-corner {

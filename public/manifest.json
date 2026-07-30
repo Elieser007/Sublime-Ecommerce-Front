@@ -1,0 +1,19 @@
+{
+  "name": "Sublime — Arte & Diseño",
+  "short_name": "Sublime",
+  "description": "Tu tienda de confianza — Arte & Diseño",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "business"]
+}
