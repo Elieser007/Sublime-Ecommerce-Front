@@ -24,7 +24,7 @@ import { addToCartWithOptions, updateCartBadge } from '../lib/cart.js';
 import { escapeHtml } from '../lib/escape-html';
 import { formatPrice } from '../lib/format';
 import { isSelectionComplete } from '../lib/variant-logic';
-import { getTierPrice } from '../lib/price-utils';
+import { getBestVolumeBadge, getTierPrice, formatTierLabel } from '../lib/price-utils';
 
 const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_API_URL) || 'http://localhost:8787';
 
@@ -178,19 +178,12 @@ class VariantModal extends HTMLElement {
   }
 
   _renderTierInfo() {
-    if (!this._priceTiers || this._priceTiers.length === 0) return '';
-    const volumeTiers = this._priceTiers
-      .filter(t => t.min_quantity > 1)
-      .sort((a, b) => a.min_quantity - b.min_quantity);
-    if (volumeTiers.length === 0) return '';
-
-    const bestTier = volumeTiers.reduce((best, current) =>
-      current.price < best.price ? current : best
-    );
+    const bestTier = getBestVolumeBadge(this._priceTiers);
+    if (!bestTier) return '';
 
     return `
       <span class="volume-badge">
-        Desde ${bestTier.min_quantity} unds: Gs. ${escapeHtml(formatPrice(bestTier.price))}
+        ${escapeHtml(formatTierLabel(bestTier))}
       </span>`;
   }
 
@@ -420,6 +413,13 @@ class VariantModal extends HTMLElement {
   }
 
   _updateTierInfo() {
+    const badgeEl = this._shadow.querySelector('.volume-badge');
+    if (!badgeEl) return;
+
+    const bestTier = getBestVolumeBadge(this._priceTiers);
+    if (bestTier) {
+      badgeEl.textContent = formatTierLabel(bestTier);
+    }
   }
 
   // ─── Confirm / Add to Cart ───────────────────────────────
@@ -621,10 +621,6 @@ class VariantModal extends HTMLElement {
         border: var(--_border-width) solid color-mix(in srgb, var(--_primary) 30%, transparent);
         padding: var(--_space-xs) var(--_space-sm);
         word-break: break-word;
-        white-space: nowrap;
-        font-family: var(--_font-mono);
-        letter-spacing: 0.03em;
-        text-transform: uppercase;
       }
 
       /* ── Body ───────────────────────────────────────── */
