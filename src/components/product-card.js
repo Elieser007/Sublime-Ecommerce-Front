@@ -11,7 +11,7 @@
  *   product (required) — JSON string with product data
  */
 
-import { addToCart, addToCartWithOptions, updateCartBadge, formatPrice } from '../lib/cart.js';
+import { formatPrice } from '../lib/cart.js';
 import { escapeHtml } from '../lib/escape-html';
 import { getBestVolumeBadge } from '../lib/price-utils';
 
@@ -208,37 +208,21 @@ class ProductCard extends HTMLElement {
     const btn = this.shadowRoot.querySelector('.product-add-btn');
     if (!btn) return;
 
-    const hasVariants = product.has_variants === true ||
-      (Array.isArray(product.variants) && product.variants.length > 0);
-
     let modal = null;
 
     btn.addEventListener('click', () => {
-      if (hasVariants) {
-        if (!modal) {
-          modal = document.createElement('variant-modal');
-          modal.setAttribute('product-id', product.id);
-          modal.setAttribute('product-name', product.name);
-          modal.setAttribute('product-price', String(product.price));
-          modal.setAttribute('product-image', product.image || '/placeholder.webp');
-          if (product.price_tiers && product.price_tiers.length > 0) {
-            modal.setAttribute('price-tiers', JSON.stringify(product.price_tiers));
-          }
-          document.body.appendChild(modal);
+      if (!modal) {
+        modal = document.createElement('variant-modal');
+        modal.setAttribute('product-id', product.id);
+        modal.setAttribute('product-name', product.name);
+        modal.setAttribute('product-price', String(product.price));
+        modal.setAttribute('product-image', product.image || '/placeholder.webp');
+        if (product.price_tiers && product.price_tiers.length > 0) {
+          modal.setAttribute('price-tiers', JSON.stringify(product.price_tiers));
         }
-        modal.open(btn);
-        return;
+        document.body.appendChild(modal);
       }
-
-      addToCart({ id: product.id, name: product.name, price: product.price, image: product.image, quantity: 1 });
-
-      updateCartBadge();
-
-      // Visual feedback
-      btn.textContent = '¡Agregado!';
-      setTimeout(() => {
-        btn.textContent = 'Agregar al carrito';
-      }, 1500);
+      modal.open(btn);
     });
   }
 }
