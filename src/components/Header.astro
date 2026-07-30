@@ -101,6 +101,24 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
         <span class="badge" id="wishlist-count" style="display: none;">0</span>
       </a>
 
+      <!-- Theme Toggle -->
+      <button class="theme-toggle" id="theme-toggle" aria-label="Cambiar tema">
+        <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="moon-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+
       <!-- Cart -->
       <a
         href="/cart"
@@ -168,38 +186,6 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
     toggle?.classList.toggle("open");
   });
 
-  // Mobile search overlay
-  const searchToggle = document.getElementById("search-toggle");
-  const searchOverlay = document.getElementById("search-overlay");
-  const searchOverlayClose = document.getElementById("search-overlay-close");
-  const searchOverlayInput = document.getElementById("search-overlay-input") as HTMLInputElement;
-
-  searchToggle?.addEventListener("click", () => {
-    searchOverlay?.classList.add("open");
-    document.body.style.overflow = "hidden";
-    setTimeout(() => searchOverlayInput?.focus(), 100);
-  });
-
-  function closeSearchOverlay() {
-    searchOverlay?.classList.remove("open");
-    document.body.style.overflow = "";
-  }
-
-  searchOverlayClose?.addEventListener("click", closeSearchOverlay);
-
-  // Listen for custom event from catalog page (respects component boundary)
-  window.addEventListener("search-overlay-close", closeSearchOverlay);
-
-  searchOverlay?.addEventListener("click", (e) => {
-    if (e.target === searchOverlay) closeSearchOverlay();
-  });
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && searchOverlay?.classList.contains("open")) {
-      closeSearchOverlay();
-    }
-  });
-
   // Cart count from LocalStorage
   function updateCartCount() {
     const cart = JSON.parse(localStorage.getItem("cart") || "[]");
@@ -237,6 +223,19 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
   }
 
   checkSession();
+
+  // Theme toggle
+  const themeToggle = document.getElementById('theme-toggle');
+  themeToggle?.addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    var path = location.pathname;
+    var c;
+    if (path === '/login')              c = isDark ? '#450a0a' : '#dc2626';
+    else if (path.startsWith('/admin')) c = isDark ? '#101828' : '#ffffff';
+    else                                c = isDark ? '#7f1d1d' : '#dc2626';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
+  });
 </script>
 
 <style>
@@ -403,91 +402,6 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
     justify-content: center;
   }
 
-  /* Mobile Search Toggle */
-  .search-toggle {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    background: none;
-    border: none;
-    color: var(--on-surface);
-    cursor: pointer;
-    border-radius: var(--border-radius);
-  }
-
-  .search-toggle:hover {
-    background-color: var(--surface-container);
-  }
-
-  /* Search Overlay */
-  .search-overlay {
-    position: fixed;
-    inset: 0;
-    top: 72px;
-    background-color: var(--surface);
-    z-index: 150;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-  }
-
-  .search-overlay.open {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .search-overlay-form {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-md) var(--margin-mobile);
-    border-bottom: var(--border-width) solid var(--outline-variant);
-  }
-
-  .search-overlay-input {
-    flex: 1;
-    padding: var(--space-md);
-    font-family: var(--font-body);
-    font-size: 16px;
-    color: var(--on-surface);
-    background-color: var(--surface-container);
-    border: var(--border-width) solid var(--outline-variant);
-    border-radius: var(--border-radius);
-    outline: none;
-  }
-
-  .search-overlay-input:focus {
-    border-color: var(--primary);
-  }
-
-  .search-overlay-submit {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    background-color: var(--primary);
-    color: var(--on-primary);
-    border: var(--border-width) solid var(--primary);
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  .search-overlay-close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    background: none;
-    border: var(--border-width) solid var(--outline-variant);
-    color: var(--on-surface);
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
   /* Mobile Menu Toggle */
   .menu-toggle {
     display: none;
@@ -519,13 +433,32 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
     transform: rotate(-45deg) translate(5px, -5px);
   }
 
+  /* Theme Toggle */
+  .theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: none;
+    color: var(--on-surface);
+    cursor: pointer;
+    border-radius: var(--border-radius);
+  }
+
+  .theme-toggle:hover {
+    background-color: var(--surface-container);
+  }
+
+  html.dark .sun-icon { display: none; }
+  html.dark .moon-icon { display: block; }
+  html:not(.dark) .sun-icon { display: block; }
+  html:not(.dark) .moon-icon { display: none; }
+
   @media (max-width: 767px) {
     .search-form {
       display: none;
-    }
-
-    .search-toggle {
-      display: flex;
     }
 
     .menu-toggle {

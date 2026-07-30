@@ -29,33 +29,6 @@ describe('Mobile catalog UX — index.astro source', () => {
     expect(firstHandler).toMatch(/document\.querySelector\(`\[data-sort="\$\{currentSort\}"\]`\)\?\.classList\.add\('active'\)/);
   });
 
-  it('closeMobileSearchOverlay function exists', () => {
-    expect(source).toMatch(/function\s+closeMobileSearchOverlay\s*\(\)/);
-  });
-
-  it('closeMobileSearchOverlay is called in mobile search form submit', () => {
-    // Find the mobile search form submit handler
-    const submitSection = source.substring(
-      source.indexOf('const mobileSearchForm = mobileSearchInput?.closest(\'form\')')
-    );
-    const submitHandler = submitSection.substring(
-      0,
-      submitSection.indexOf('// ===== CLEAR FILTERS')
-    );
-    expect(submitHandler).toMatch(/closeMobileSearchOverlay\(\)/);
-  });
-
-  it('mobile search form submit handler calls render()', () => {
-    const submitSection = source.substring(
-      source.indexOf('const mobileSearchForm = mobileSearchInput?.closest(\'form\')')
-    );
-    const submitHandler = submitSection.substring(
-      0,
-      submitHandlerEndIndex(submitSection)
-    );
-    expect(submitHandler).toMatch(/render\(\)/);
-  });
-
   it('escape key listener exists', () => {
     expect(source).toMatch(/document\.addEventListener\s*\(\s*['"]keydown['"]/);
     expect(source).toMatch(/e\.key\s*===\s*['"]Escape['"]/);

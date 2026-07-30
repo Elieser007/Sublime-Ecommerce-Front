@@ -498,35 +498,6 @@ try {
       }
     }
 
-    // ===== MOBILE SEARCH OVERLAY (Header) =====
-    const mobileSearchInput = document.getElementById('search-overlay-input');
-    if (mobileSearchInput) {
-      mobileSearchInput.addEventListener('input', () => {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-          currentSearch = mobileSearchInput.value;
-          // Sync mobile search bar input
-          const mobileBarInput = document.getElementById('mobile-search-bar-input');
-          if (mobileBarInput) mobileBarInput.value = mobileSearchInput.value;
-          render();
-        }, 300);
-      });
-      // Also prevent form submit on mobile overlay
-      const mobileSearchForm = mobileSearchInput?.closest('form');
-      if (mobileSearchForm) {
-        mobileSearchForm.addEventListener('submit', (e) => {
-          e.preventDefault();
-          currentSearch = mobileSearchInput.value;
-          render();
-          closeMobileSearchOverlay();
-        });
-      }
-    }
-
-    function closeMobileSearchOverlay() {
-      window.dispatchEvent(new CustomEvent('search-overlay-close'));
-    }
-
     // ===== MOBILE SEARCH BAR (inline, above category/filter buttons) =====
     const mobileSearchBar = document.getElementById('mobile-search-bar-input');
     if (mobileSearchBar) {
@@ -534,9 +505,6 @@ try {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
           currentSearch = mobileSearchBar.value;
-          // Sync Header search overlay input
-          const overlayInput = document.getElementById('search-overlay-input');
-          if (overlayInput) overlayInput.value = mobileSearchBar.value;
           render();
         }, 300);
       });
@@ -567,8 +535,6 @@ try {
       if (mobileMaxInput) mobileMaxInput.value = '';
       const headerSearchInput = document.getElementById('search-input');
       if (headerSearchInput) headerSearchInput.value = '';
-      const mobileSearchOverlay = document.getElementById('search-overlay-input');
-      if (mobileSearchOverlay) mobileSearchOverlay.value = '';
       // Clear mobile search bar input
       const mobileBarInput = document.getElementById('mobile-search-bar-input');
       if (mobileBarInput) mobileBarInput.value = '';

@@ -31,23 +31,23 @@
   --outline: #87929b;
   --outline-variant: #3e4850;
 
-  /* Primary (Cyan) */
-  --primary: #82cfff;
-  --on-primary: #00344b;
-  --primary-container: #00aeef;
-  --on-primary-container: #003e58;
+  /* Primary (Cyan) — from Logo.astro */
+  --primary: #07b7f4;
+  --on-primary: #00363f;
+  --primary-container: #0091c7;
+  --on-primary-container: #001f2a;
 
-  /* Secondary (Magenta) */
-  --secondary: #ffb0cc;
-  --on-secondary: #640038;
-  --secondary-container: #ff45a1;
-  --on-secondary-container: #580031;
+  /* Secondary (Magenta) — from Logo.astro */
+  --secondary: #fb0c7a;
+  --on-secondary: #520023;
+  --secondary-container: #dc006a;
+  --on-secondary-container: #3d001a;
 
-  /* Tertiary (Yellow) */
-  --tertiary: #d5ca00;
-  --on-tertiary: #353200;
-  --tertiary-container: #afa600;
-  --on-tertiary-container: #3e3a00;
+  /* Tertiary (Yellow) — from Logo.astro */
+  --tertiary: #fec204;
+  --on-tertiary: #3d3000;
+  --tertiary-container: #d5a800;
+  --on-tertiary-container: #2a2200;
 
   /* Error */
   --error: #ffb4ab;
@@ -96,13 +96,13 @@
   --success-container: #1a3a1a;
 
   /* Semi-transparent variants — Primary (Cyan) */
-  --primary-10: rgba(130, 207, 255, 0.1);
-  --primary-50: rgba(130, 207, 255, 0.5);
-  --primary-70: rgba(130, 207, 255, 0.7);
+  --primary-10: rgba(7, 183, 244, 0.1);
+  --primary-50: rgba(7, 183, 244, 0.5);
+  --primary-70: rgba(7, 183, 244, 0.7);
 
   /* Semi-transparent variants — Secondary (Magenta) */
-  --secondary-50: rgba(255, 176, 204, 0.5);
-  --secondary-70: rgba(255, 176, 204, 0.7);
+  --secondary-50: rgba(251, 12, 122, 0.5);
+  --secondary-70: rgba(251, 12, 122, 0.7);
 
   /* Semi-transparent variants — Surface */
   --surface-50: rgba(31, 31, 31, 0.5);
@@ -119,6 +119,52 @@
   /* Typography helpers */
   --font-size-xs: 11px;
   --line-height-tight: 1.1;
+}
+
+/* Light Mode — overrides when .dark class is absent */
+:root:not(.dark) {
+  --surface: #ffffff;
+  --surface-dim: #f5f5f5;
+  --surface-bright: #ffffff;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f8f8f8;
+  --surface-container: #f0f0f0;
+  --surface-container-high: #e8e8e8;
+  --surface-container-highest: #d8d8d8;
+
+  --on-surface: #1a1a1a;
+  --on-surface-variant: #4a4a4a;
+
+  --inverse-surface: #1a1a1a;
+  --inverse-on-surface: #ffffff;
+
+  --outline: #6b6b6b;
+  --outline-variant: #c0c0c0;
+
+  --primary: #0091c7;
+  --on-primary: #ffffff;
+  --primary-container: #c8eaff;
+  --on-primary-container: #001f2a;
+
+  --secondary: #dc006a;
+  --on-secondary: #ffffff;
+  --secondary-container: #ffd9e5;
+  --on-secondary-container: #3d001a;
+
+  --tertiary: #947500;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #ffdea6;
+  --on-tertiary-container: #2a2200;
+
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #410002;
+
+  --background: #ffffff;
+  --on-background: #1a1a1a;
+
+  --text-black: #000000;
 }
 
 /* --- Reset & Base --- */
