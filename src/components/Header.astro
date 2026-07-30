@@ -253,39 +253,44 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 
     checkSession();
 
-    // Theme toggle
-    const themeToggle = document.getElementById('theme-toggle');
-    function getThemeMode() {
-      return document.documentElement.dataset.themeMode || 'auto';
-    }
-    function applyTheme(mode) {
-      document.documentElement.dataset.themeMode = mode;
-      localStorage.setItem('theme', mode);
-      var isDark;
-      if (mode === 'auto') {
-        isDark = matchMedia('(prefers-color-scheme: dark)').matches;
-      } else {
-        isDark = mode === 'dark';
+    // Theme toggle — bind once, not on every navigation
+    (function initThemeToggle() {
+      if (window.__themeToggleBound) return;
+      window.__themeToggleBound = true;
+
+      const themeToggle = document.getElementById('theme-toggle');
+      function getThemeMode() {
+        return document.documentElement.dataset.themeMode || 'auto';
       }
-      document.documentElement.classList.toggle('dark', isDark);
-      var c = isDark ? '#000000' : '#ffffff';
-      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
-      updateThemeIcon(mode);
-    }
-    function updateThemeIcon(mode) {
-      var sun = themeToggle?.querySelector('.sun-icon');
-      var moon = themeToggle?.querySelector('.moon-icon');
-      var auto = themeToggle?.querySelector('.auto-icon');
-      if (sun) sun.style.display = (mode === 'light') ? 'block' : 'none';
-      if (moon) moon.style.display = (mode === 'dark') ? 'block' : 'none';
-      if (auto) auto.style.display = (mode === 'auto') ? 'block' : 'none';
-    }
-    themeToggle?.addEventListener('click', () => {
-      var current = getThemeMode();
-      var next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
-      applyTheme(next);
-    });
-    updateThemeIcon(getThemeMode());
+      function applyTheme(mode) {
+        document.documentElement.dataset.themeMode = mode;
+        localStorage.setItem('theme', mode);
+        var isDark;
+        if (mode === 'auto') {
+          isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+        } else {
+          isDark = mode === 'dark';
+        }
+        document.documentElement.classList.toggle('dark', isDark);
+        var c = isDark ? '#000000' : '#ffffff';
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', c);
+        updateThemeIcon(mode);
+      }
+      function updateThemeIcon(mode) {
+        var sun = themeToggle?.querySelector('.sun-icon');
+        var moon = themeToggle?.querySelector('.moon-icon');
+        var auto = themeToggle?.querySelector('.auto-icon');
+        if (sun) sun.style.display = (mode === 'light') ? 'block' : 'none';
+        if (moon) moon.style.display = (mode === 'dark') ? 'block' : 'none';
+        if (auto) auto.style.display = (mode === 'auto') ? 'block' : 'none';
+      }
+      themeToggle?.addEventListener('click', () => {
+        var current = getThemeMode();
+        var next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
+        applyTheme(next);
+      });
+      updateThemeIcon(getThemeMode());
+    })();
   });
 </script>
 
