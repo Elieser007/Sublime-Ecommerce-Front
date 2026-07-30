@@ -420,6 +420,7 @@ try {
     let allProducts = []; // Original product data from DOM
     let filteredProducts = []; // After all filters applied
     let currentPage = 1;
+    let visibleCount = 0;
     let currentSort = 'default';
     let currentCategory = 'all';
     let currentFilterLevel = 0; // 0=all, 1=section, 2=category, 3=subcategory
@@ -491,33 +492,42 @@ try {
 
       filteredProducts = result;
       currentPage = 1;
+      visibleCount = 0;
 
       renderPage();
       updateUI();
     }
 
     function renderPage() {
-      const { items, totalPages, hasNextPage } = paginateProducts(filteredProducts, currentPage);
+      const total = filteredProducts.length;
+      const toShow = filteredProducts.slice(0, Math.min(itemsPerPage, total));
 
-      // Reorder DOM to match sort/filter order, hide the rest
-      const visibleSet = new Set(items);
-      allProducts.forEach((p) => {
-        if (visibleSet.has(p)) {
-          p._wrapper.style.display = '';
-        } else {
-          p._wrapper.style.display = 'none';
-        }
-      });
-      // Append visible items in sorted order so DOM order matches display order
-      items.forEach((p) => {
-        productsGrid.appendChild(p._wrapper);
-      });
+      allProducts.forEach((p) => { p._wrapper.style.display = 'none'; });
+      toShow.forEach((p) => { p._wrapper.style.display = ''; });
+      visibleCount = toShow.length;
 
-      // Pagination controls
-      if (totalPages > 1) {
+      updateLoadMore(total);
+    }
+
+    function loadMore() {
+      const total = filteredProducts.length;
+      const nextBatch = filteredProducts.slice(visibleCount, visibleCount + itemsPerPage);
+      nextBatch.forEach((p) => { p._wrapper.style.display = ''; });
+      visibleCount += nextBatch.length;
+
+      updateLoadMore(total);
+    }
+
+    function updateLoadMore(total) {
+      if (visibleCount >= total) {
         pagination.style.display = '';
-        loadMoreBtn.style.display = hasNextPage ? '' : 'none';
-        pageIndicator.textContent = `Página ${currentPage} de ${totalPages}`;
+        loadMoreBtn.style.display = 'none';
+        pageIndicator.textContent = 'No hay más productos';
+      } else if (total > itemsPerPage) {
+        pagination.style.display = '';
+        loadMoreBtn.style.display = '';
+        const remaining = total - visibleCount;
+        pageIndicator.textContent = `${remaining} producto${remaining !== 1 ? 's' : ''} restante${remaining !== 1 ? 's' : ''}`;
       } else {
         pagination.style.display = 'none';
       }
@@ -736,8 +746,7 @@ try {
 
     // ===== LOAD MORE (Pagination) =====
     loadMoreBtn?.addEventListener('click', () => {
-      currentPage++;
-      renderPage();
+      loadMore();
     });
 
     // ===== PRODUCT-CARD WEB COMPONENT INIT =====
