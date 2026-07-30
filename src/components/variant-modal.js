@@ -690,14 +690,15 @@ class VariantModal extends HTMLElement {
       }
 
       .tier-badge {
-        font-size: 9px;
+        font-size: 11px;
         background: var(--_primary);
         color: var(--_on-primary);
-        padding: 2px 6px;
+        padding: var(--_space-xs) var(--_space-sm);
         border-radius: 2px;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        font-weight: 700;
+        letter-spacing: 0.03em;
+        font-weight: 600;
+        white-space: nowrap;
       }
 
       /* ── Body ───────────────────────────────────────── */

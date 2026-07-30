@@ -45,6 +45,8 @@ class ProductCard extends HTMLElement {
           --_space-md: var(--space-md, 16px);
           --_font-body: var(--font-body, 'Hanken Grotesk', sans-serif);
           --_font-mono: var(--font-mono, 'Space Mono', monospace);
+          --_primary-container: var(--primary-container, #00aeef);
+          --_on-primary-container: var(--on-primary-container, #003e58);
         }
 
         .product-card {
@@ -134,12 +136,13 @@ class ProductCard extends HTMLElement {
         .volume-badge {
           display: none;
           font-size: 11px;
-          font-weight: 500;
-          color: var(--_primary);
-          background: color-mix(in srgb, var(--_primary) 10%, transparent);
-          border: var(--_border-width) solid color-mix(in srgb, var(--_primary) 30%, transparent);
+          font-weight: 600;
+          color: var(--_on-primary-container);
+          background: var(--_primary-container);
           padding: var(--_space-xs) var(--_space-sm);
-          word-break: break-word;
+          white-space: nowrap;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
         }
 
         .volume-badge.visible {
