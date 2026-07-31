@@ -3,6 +3,11 @@
    Extracted from 9 admin pages to eliminate duplication.
    ═══════════════════════════════════════════════════════════════ */
 
+/* Auth gate: hide content until verified (prevents flash of protected content) */
+.admin-layout:not(.auth-ok) {
+  visibility: hidden;
+}
+
 :root {
   --admin-sidebar-width: 260px;
 }
