@@ -84,7 +84,8 @@ export async function loadProductList(
 export async function uploadGalleryImages(
   files: File[],
   productId: string,
-  apiUrl: string
+  apiUrl: string,
+  startSortOrder = 0
 ): Promise<GalleryUploadResult[]> {
   if (files.length === 0) return [];
 
@@ -106,7 +107,8 @@ export async function uploadGalleryImages(
 
     const uploadData = await uploadRes.json();
 
-    const sortOrder = index;
+    // Offset by startSortOrder so new images append after existing ones.
+    const sortOrder = startSortOrder + index;
 
     const associateRes = await fetch(`${apiUrl}/api/products/${productId}/images`, {
       method: "POST",

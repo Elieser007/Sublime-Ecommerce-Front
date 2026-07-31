@@ -724,6 +724,12 @@ const columns = [
     productModal.close();
   }
 
+  // Exposed on window because the table renders `onclick="editProduct('${p.id}')"`.
+  (window as any).editProduct = (id: string) => {
+    const product = items.find((p: any) => p.id === id);
+    if (product) openModal(true, product);
+  };
+
   // ═══════════════════════════════════════════════════════════
   // PRICING MODAL
   // ═══════════════════════════════════════════════════════════
@@ -988,8 +994,14 @@ const columns = [
         }
 
         if (gallery.newImages.length > 0) {
-          const files = gallery.newImages.map((img: any) => img.blob);
-          const uploadResults = await uploadGalleryImages(files, productId, API_URL);
+          // Processed images are plain Blobs (no .name) — wrap them in File
+          // objects so uploadGalleryImages can derive a filename.
+          const files = gallery.newImages.map((img: any) =>
+            new File([img.blob], img.originalName || 'gallery.webp', { type: 'image/webp' })
+          );
+          // Append new images after existing ones so ordering is preserved.
+          const maxSort = gallery.images.reduce((max: number, img: any) => Math.max(max, img.sort_order ?? 0), 0);
+          const uploadResults = await uploadGalleryImages(files, productId, API_URL, maxSort + 1);
 
           const failures = uploadResults.filter((r: any) => r.status === 'rejected');
           if (failures.length > 0) {

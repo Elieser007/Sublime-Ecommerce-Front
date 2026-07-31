@@ -334,6 +334,64 @@ const COMPONENT_OPTIONS = [
     document.getElementById('module-modal').style.display = 'none';
   }
 
+  // Exposed on window because the table renders `onclick="editModule('${m.id}')"`.
+  (window as any).editModule = function(id: string) {
+    const mod = modules.find((m: any) => m.id === id);
+    if (mod) openModuleModal('edit', mod);
+  };
+
+  // Exposed on window because the table renders `onclick="deleteModule('${m.id}')"`.
+  (window as any).deleteModule = async function(id: string) {
+    if (!confirm('¿Estás seguro? Se eliminará este módulo y todos sus valores.')) return;
+
+    const res = await fetch(`${API_URL}/api/admin/attributes/modules/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      if (expandedModuleId === id) expandedModuleId = null;
+      delete moduleValues[id];
+      loadModules();
+    }
+  };
+
+  // ─── Value modal ─────────────────────────────────────────
+  function openValueModal(moduleId: string, data?: any) {
+    const overlay = document.getElementById('value-modal');
+    const title = document.getElementById('value-modal-title');
+    const moduleIdInput = document.getElementById('value-module-id') as HTMLInputElement;
+    const valueIdInput = document.getElementById('value-id') as HTMLInputElement;
+    const form = document.getElementById('value-form') as HTMLFormElement;
+
+    if (!overlay || !title) return;
+
+    title.textContent = data ? 'Editar Valor' : 'Nuevo Valor';
+    moduleIdInput.value = moduleId;
+    valueIdInput.value = data?.id || '';
+
+    if (data) {
+      form.label.value = data.label || '';
+      form.raw_value.value = data.raw_value || '';
+      form.hex_color.value = data.hex_color || '';
+      form.hex_color_picker.value = data.hex_color || '#FF0000';
+      form.image_url.value = data.image_url || '';
+      form.sort_order.value = data.sort_order || 0;
+    } else {
+      form.reset();
+      form.sort_order.value = '0';
+      form.hex_color_picker.value = '#FF0000';
+    }
+
+    overlay.style.display = '';
+  }
+
+  function closeValueModal() {
+    document.getElementById('value-modal').style.display = 'none';
+  }
+
+  (window as any).openValueModal = openValueModal;
+
   // ─── Edit value ──────────────────────────────────────────
   (window as any).editValue = function(moduleId: string, valueId: string) {
     const values = moduleValues[moduleId] || [];

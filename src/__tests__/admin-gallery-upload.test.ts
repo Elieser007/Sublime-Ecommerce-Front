@@ -175,4 +175,32 @@ describe("uploadGalleryImages", () => {
     expect(results).toHaveLength(1);
     expect(results[0].status).toBe("fulfilled");
   });
+
+  it("offsets sort_order by startSortOrder when provided", async () => {
+    const associatedSortOrders: number[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string, init?: any) => {
+        if (url.includes("/api/upload")) {
+          return {
+            ok: true,
+            json: async () => ({ url: `https://cdn.example.com/${Math.random()}.webp` }),
+          };
+        }
+        if (url.includes("/api/products/prod-1/images")) {
+          associatedSortOrders.push(JSON.parse(init.body).sort_order);
+          return { ok: true, json: async () => ({}) };
+        }
+        return { ok: true, json: async () => ({}) };
+      })
+    );
+
+    const files = [createMockFile("a.webp"), createMockFile("b.webp")];
+    const results = await uploadGalleryImages(files, "prod-1", API_URL, 5);
+
+    expect(results).toHaveLength(2);
+    expect(results.every((r) => r.status === "fulfilled")).toBe(true);
+    // Existing images occupy sorts 0..4, so new ones start at 5.
+    expect(associatedSortOrders).toEqual([5, 6]);
+  });
 });
