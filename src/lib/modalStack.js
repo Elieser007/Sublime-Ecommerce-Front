@@ -1,41 +1,56 @@
 /**
  * modalStack.js — Vanilla JS Modal Stack Manager
  *
- * Manages a stack of open modals with History API integration.
- * When a modal opens, it pushes a history entry so the browser back button
- * closes the modal instead of navigating away.
- *
- * Anti-cycle guard: prevents the popstate fired by manual history.back()
- * from closing another modal in the stack.
+ * Manages a stack of open modals.
+ * Opening a modal annotates the CURRENT history entry via replaceState — no new
+ * entry is added, so no popstate fires and Astro's ClientRouter never re-renders.
  */
 
 const _entries = [];
 let _idCounter = 0;
-let _closeGuardCount = 0;
+
+/**
+ * Annotate the current history entry with the modal-open marker.
+ * replaceState does not add an entry, so no popstate event is fired.
+ * @param {string} id
+ */
+function annotateHistory(id) {
+  try {
+    history.replaceState({ ...history.state, _modalOpen: true, _modalId: id }, '');
+  } catch {
+    // History API unavailable — modal still opens, just without the annotation
+  }
+}
+
+/**
+ * Strip the modal-open annotation from the current history entry.
+ * No-op if the annotation is absent.
+ */
+export function clearHistoryAnnotation() {
+  try {
+    const state = history.state;
+    if (state && (state._modalOpen || state._modalId)) {
+      history.replaceState({ ...state, _modalOpen: false, _modalId: undefined }, '');
+    }
+  } catch {
+    // History API unavailable
+  }
+}
 
 /**
  * Push a new modal onto the stack.
- * @param {Function} closeFn — callback to close this modal (called by back button)
+ * @param {Function} closeFn — callback to close this modal (called by ESC key)
  * @returns {string} modal ID
  */
 export function push(closeFn) {
   const id = `modal-${++_idCounter}`;
   _entries.push({ id, closeFn });
-
-  // Add a history entry so back button triggers popstate
-  // Wrapped in try/catch for restricted environments (sandboxed iframes, private browsing)
-  try {
-    history.pushState({ _modalOpen: true, _modalId: id }, '');
-  } catch {
-    // History API unavailable — modal opens but back-button support is degraded
-  }
-
+  annotateHistory(id);
   return id;
 }
 
 /**
  * Remove a modal from the stack by ID (used when closing manually).
- * Does NOT call history.back() — the caller handles that.
  * @param {string} id
  */
 export function remove(id) {
@@ -44,20 +59,14 @@ export function remove(id) {
 }
 
 /**
- * Close the topmost modal (called by popstate handler or ESC key).
- * @param {Object} [options]
- * @param {boolean} [options.fromPopState=true] — true when called from popstate (back button)
+ * Close the topmost modal (called by ESC key handler).
  * @returns {boolean} true if a modal was closed
  */
-export function closeTop({ fromPopState = true } = {}) {
-  if (_closeGuardCount > 0) {
-    _closeGuardCount--;
-    return false;
-  }
-
+export function closeTop() {
   if (_entries.length === 0) return false;
 
   const top = _entries.pop();
+  clearHistoryAnnotation();
 
   // Wrap closeFn in try/catch so one broken closeFn doesn't break the stack
   try {
@@ -67,25 +76,6 @@ export function closeTop({ fromPopState = true } = {}) {
   }
 
   return true;
-}
-
-/**
- * Begin a close guard — prevents the next popstate from closing a modal.
- * Used before manual history.back() to avoid double-close.
- * Protocol: call beginCloseGuard() → history.back() → setTimeout(endCloseGuard, 150)
- */
-export function beginCloseGuard() {
-  _closeGuardCount++;
-}
-
-/**
- * End a close guard (safety net timeout).
- * The 150ms value is a safety net: history.back() fires popstate synchronously
- * in modern browsers, so the guard is consumed before this timeout fires.
- * If popstate is delayed (heavy main-thread load), this prevents permanent guard lock.
- */
-export function endCloseGuard() {
-  if (_closeGuardCount > 0) _closeGuardCount--;
 }
 
 /**
@@ -109,7 +99,6 @@ export function has(id) {
  */
 export function clear() {
   _entries.length = 0;
-  _closeGuardCount = 0;
 }
 
-export default { push, remove, closeTop, beginCloseGuard, endCloseGuard, size, has, clear };
+export default { push, remove, closeTop, clearHistoryAnnotation, size, has, clear };

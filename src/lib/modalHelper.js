@@ -1,17 +1,15 @@
 /**
- * modalHelper.js — Drop-in wrapper to add back-button support to any modal
+ * modalHelper.js — Drop-in wrapper to add stack-aware open/close to any modal
  *
  * Usage:
  *   import { wrapModal } from '../lib/modalHelper.js';
  *   const { open, close } = wrapModal('modal-overlay');
  *
- *   openModal()  → shows overlay + pushes history entry
- *   closeModal() → hides overlay + pops history entry (with anti-cycle guard)
+ *   openModal()  → shows overlay + annotates the current history entry
+ *   closeModal() → hides overlay + strips the history annotation
  *
- * The 150ms endCloseGuard timeout is a safety net: history.back() fires popstate
- * synchronously in modern browsers, so the guard is consumed before the timeout.
- * If popstate is delayed (heavy main-thread load), the timeout prevents permanent
- * guard lock that would block all subsequent modal closes.
+ * No history entries are pushed or popped: history.back()/go()/forward() are
+ * never called, so Astro's ClientRouter never re-renders the page.
  */
 
 import * as modalStack from './modalStack.js';
@@ -20,7 +18,7 @@ import * as modalStack from './modalStack.js';
  * Wrap a modal overlay element with stack-aware open/close.
  * @param {string} overlayId — DOM id of the overlay element
  * @param {Object} [options]
- * @param {Function} [options.onClose] — additional callback when modal is closed (via back button or manually)
+ * @param {Function} [options.onClose] — additional callback when modal is closed
  * @returns {{ open: Function, close: Function, isOpen: Function }}
  */
 export function wrapModal(overlayId, options = {}) {
@@ -35,9 +33,9 @@ export function wrapModal(overlayId, options = {}) {
     if (!overlay) return;
     overlay.style.display = '';
 
-    // Push to stack (the push() already calls history.pushState)
+    // Push to stack (push() annotates the current history entry)
     stackId = modalStack.push(() => {
-      // This is called by closeTop() when back button is pressed
+      // This is called by closeTop() when ESC closes the modal
       overlay.style.display = 'none';
       stackId = null;
       if (options.onClose) options.onClose();
@@ -51,19 +49,11 @@ export function wrapModal(overlayId, options = {}) {
     // Hide overlay
     overlay.style.display = 'none';
 
-    // Remove from stack and undo history entry
+    // Remove from stack and strip the history annotation set by open()
     if (stackId) {
       modalStack.remove(stackId);
       stackId = null;
-
-      // Undo the history entry pushed by open()
-      modalStack.beginCloseGuard();
-      try {
-        history.back();
-      } catch {
-        // History API unavailable — modal closed, history entry may linger
-      }
-      setTimeout(() => modalStack.endCloseGuard(), 150);
+      modalStack.clearHistoryAnnotation();
     }
 
     if (options.onClose) options.onClose();

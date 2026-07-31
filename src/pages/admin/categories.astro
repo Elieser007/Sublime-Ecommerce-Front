@@ -186,6 +186,18 @@ const subcategoryColumns = [
     await loadSubcategories();
   }
 
+  async function reloadByType(type: string) {
+    if (type === 'section') {
+      await loadSections();
+      renderCategories();
+    } else if (type === 'category') {
+      await loadCategories();
+      renderSubcategories();
+    } else if (type === 'subcategory') {
+      await loadSubcategories();
+    }
+  }
+
   function renderSections() {
     const tbody = document.querySelector('#tab-sections tbody');
     if (!tbody) return;
@@ -327,7 +339,7 @@ const subcategoryColumns = [
     if (!confirm('¿Estás seguro? Se desactivará este elemento.')) return;
     const endpoint = `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}/${id}`;
     const res = await fetch(endpoint, { method: 'DELETE', credentials: 'include' });
-    if (res.ok) { loadAll(); }
+    if (res.ok) { reloadByType(type); }
   };
 
   async function toggleStatus(id: string, activate: boolean, type: string) {
@@ -345,7 +357,7 @@ const subcategoryColumns = [
       credentials: 'include',
       body: JSON.stringify({ isActive: activate }),
     });
-    if (res.ok) { loadAll(); }
+    if (res.ok) { reloadByType(type); }
     else { const err = await res.json().catch(() => ({})); alert(err.error || 'Error al cambiar estado'); }
   }
   (window as any).toggleStatus = toggleStatus;
@@ -380,7 +392,7 @@ const subcategoryColumns = [
       if (type === 'subcategory') body.categoryId = form.parentId.value;
       const endpoint = isEdit ? `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}/${id}` : `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}`;
       const res = await fetch(endpoint, { method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
-      if (res.ok) { closeModal(); loadAll(); }
+      if (res.ok) { closeModal(); reloadByType(type); }
       else { const error = await res.json(); alert(error.error || 'Error al guardar'); }
     });
 

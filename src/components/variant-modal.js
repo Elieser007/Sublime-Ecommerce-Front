@@ -52,7 +52,6 @@ class VariantModal extends HTMLElement {
     this._error = null;
     this._selectorEl = null;
     this._stackId = null;
-    this._closingViaHistory = false;
 
     this._boundHandleKeyDown = this._handleKeyDown.bind(this);
   }
@@ -104,10 +103,8 @@ class VariantModal extends HTMLElement {
     document.body.style.overflow = 'hidden';
     this._fetchVariants();
 
-    // Push to modal stack for back-button support
-    this._closingViaHistory = false;
+    // Push to modal stack for ESC-key support (no history entry is added)
     this._stackId = modalStack.push(() => {
-      this._closingViaHistory = true;
       this.close();
     });
   }
@@ -124,19 +121,12 @@ class VariantModal extends HTMLElement {
 
     document.body.style.overflow = '';
 
-    // Handle modal stack: if closing via history (back button), stack already removed it.
-    // If closing manually, remove from stack and undo the history entry.
+    // Remove from stack and strip the history annotation set by open()
     if (this._stackId) {
-      if (!this._closingViaHistory) {
-        // Manual close — remove from stack and push history.back() to undo open()'s pushState
-        modalStack.remove(this._stackId);
-        modalStack.beginCloseGuard();
-        try { history.back(); } catch { /* History API unavailable */ }
-        setTimeout(() => modalStack.endCloseGuard(), 150);
-      }
+      modalStack.remove(this._stackId);
+      modalStack.clearHistoryAnnotation();
       this._stackId = null;
     }
-    this._closingViaHistory = false;
 
     this.dispatchEvent(new CustomEvent('modal-closed', {
       bubbles: true,
