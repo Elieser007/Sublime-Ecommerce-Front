@@ -1003,9 +1003,32 @@ const columns = [
           const maxSort = gallery.images.reduce((max: number, img: any) => Math.max(max, img.sort_order ?? 0), 0);
           const uploadResults = await uploadGalleryImages(files, productId, API_URL, maxSort + 1);
 
-          const failures = uploadResults.filter((r: any) => r.status === 'rejected');
+          // Surface partial failures instead of closing the modal as if everything
+          // persisted — otherwise images can silently never reach R2 (e.g. upload
+          // rate limit) while the user sees "guardado OK".
+          const failures = uploadResults
+            .map((r: any, i: number) => ({ result: r, index: i }))
+            .filter(({ result }) => result.status === 'rejected');
+
           if (failures.length > 0) {
-            console.warn(`${failures.length} gallery image(s) failed to upload`);
+            // Drop the images that already uploaded+associated so a retry doesn't
+            // duplicate them; keep only the failed ones pending.
+            const succeeded = new Set(
+              uploadResults
+                .map((r: any, i: number) => ({ result: r, index: i }))
+                .filter(({ result }) => result.status === 'fulfilled')
+                .map(({ index }) => index)
+            );
+            gallery.newImages = gallery.newImages.filter((_: any, i: number) => !succeeded.has(i));
+            renderGallery();
+
+            const reasons = failures
+              .map(({ result }) => result.reason?.message || 'Error de subida')
+              .join(' · ');
+            $('form-error')!.textContent =
+              `${failures.length} imagen(es) de galería no se subieron (${reasons}). ` +
+              `El producto se guardó; volvé a tocar Guardar para reintentar las restantes.`;
+            return; // keep modal open — product/primary are already persisted
           }
         }
 
