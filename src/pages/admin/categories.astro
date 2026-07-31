@@ -142,6 +142,7 @@ const subcategoryColumns = [
 
 <script>
   import { wrapModal } from '../../lib/modalHelper';
+  import { escapeHtml } from '../../lib/escape-html';
   const catModal = wrapModal('modal-overlay');
 
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
@@ -150,38 +151,54 @@ const subcategoryColumns = [
   let subcategories: any[] = [];
 
   async function loadSections() {
-    const res = await fetch(`${API_URL}/api/sections`, { credentials: 'include' });
+    const res = await fetch(`${API_URL}/api/admin/sections`, { credentials: 'include' });
+    if (res.status === 401) { window.location.href = '/login'; return; }
     if (res.ok) { const data = await res.json(); sections = data.sections || []; renderSections(); }
   }
 
   async function loadCategories() {
-    const res = await fetch(`${API_URL}/api/categories`, { credentials: 'include' });
+    const res = await fetch(`${API_URL}/api/admin/categories`, { credentials: 'include' });
+    if (res.status === 401) { window.location.href = '/login'; return; }
     if (res.ok) { const data = await res.json(); categories = data.categories || []; renderCategories(); }
   }
 
   async function loadSubcategories() {
-    const res = await fetch(`${API_URL}/api/subcategories`, { credentials: 'include' });
+    const res = await fetch(`${API_URL}/api/admin/subcategories`, { credentials: 'include' });
+    if (res.status === 401) { window.location.href = '/login'; return; }
     if (res.ok) { const data = await res.json(); subcategories = data.subcategories || []; renderSubcategories(); }
+  }
+
+  async function loadAll() {
+    await loadSections();
+    await loadCategories();
+    await loadSubcategories();
   }
 
   function renderSections() {
     const tbody = document.querySelector('#tab-sections tbody');
     if (!tbody) return;
     if (sections.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No hay secciones</td></tr>'; return; }
-    tbody.innerHTML = sections.map((s) => `
-      <tr>
-        <td data-label="Nombre"><strong>${s.name}</strong></td>
-        <td data-label="Slug"><code class="slug-badge">${s.slug}</code></td>
-        <td data-label="Descripción">${s.description || '—'}</td>
-        <td data-label="Estado"><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
+    tbody.innerHTML = sections.map((s) => {
+      const isActive = !!s.is_active;
+      const statusBadge = isActive
+        ? `<span class="badge badge--active"><span class="badge-dot"></span>Activo</span>`
+        : `<span class="badge badge--inactive"><span class="badge-dot"></span>Inactivo</span>`;
+      const actionBtn = isActive
+        ? `<button class="ta-btn ta-btn--delete" onclick="deleteItem('section','${escapeHtml(s.id)}')" title="Desactivar">🗑️</button>`
+        : `<button class="ta-btn ta-btn--warning" onclick="toggleStatus('${escapeHtml(s.id)}', true, 'section')" title="Reactivar">🔄</button>`;
+      return `<tr class="${isActive ? '' : 'row--inactive'}">
+        <td data-label="Nombre"><strong>${escapeHtml(s.name)}</strong></td>
+        <td data-label="Slug"><code class="slug-badge">${escapeHtml(s.slug)}</code></td>
+        <td data-label="Descripción">${escapeHtml(s.description) || '—'}</td>
+        <td data-label="Estado">${statusBadge}</td>
         <td data-label="Acciones">
           <div class="cell-actions">
-            <button class="ta-btn" onclick="editItem('section','${s.id}')" title="Editar">✏️</button>
-            <button class="ta-btn ta-btn--delete" onclick="deleteItem('section','${s.id}')" title="Eliminar">🗑️</button>
+            <button class="ta-btn" onclick="editItem('section','${escapeHtml(s.id)}')" title="Editar">✏️</button>
+            ${actionBtn}
           </div>
         </td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
   }
 
   function renderCategories() {
@@ -190,14 +207,24 @@ const subcategoryColumns = [
     if (categories.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No hay categorías</td></tr>'; return; }
     tbody.innerHTML = categories.map((c) => {
       const sec = sections.find((s) => s.id === c.section_id);
-      return `<tr>
-        <td data-label="Nombre"><strong>${c.name}</strong></td>
-        <td data-label="Sección"><span class="parent-badge">${sec?.name || '—'}</span></td>
-        <td data-label="Slug"><code class="slug-badge">${c.slug}</code></td>
-        <td data-label="Estado"><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
+      const parentInactive = !!sec && sec.is_active === 0;
+      const isActive = !!c.is_active;
+      const statusBadge = parentInactive
+        ? `<span class="badge badge--inactive"><span class="badge-dot"></span>Padre inactivo</span>`
+        : isActive
+          ? `<span class="badge badge--active"><span class="badge-dot"></span>Activo</span>`
+          : `<span class="badge badge--inactive"><span class="badge-dot"></span>Inactivo</span>`;
+      const actionBtn = parentInactive || !isActive
+        ? `<button class="ta-btn ta-btn--warning" onclick="toggleStatus('${escapeHtml(c.id)}', true, 'category')" title="Reactivar">🔄</button>`
+        : `<button class="ta-btn ta-btn--delete" onclick="deleteItem('category','${escapeHtml(c.id)}')" title="Desactivar">🗑️</button>`;
+      return `<tr class="${parentInactive || !isActive ? 'row--inactive' : ''}">
+        <td data-label="Nombre"><strong>${escapeHtml(c.name)}</strong></td>
+        <td data-label="Sección"><span class="parent-badge">${escapeHtml(sec?.name) || '—'}</span></td>
+        <td data-label="Slug"><code class="slug-badge">${escapeHtml(c.slug)}</code></td>
+        <td data-label="Estado">${statusBadge}</td>
         <td data-label="Acciones"><div class="cell-actions">
-          <button class="ta-btn" onclick="editItem('category','${c.id}')" title="Editar">✏️</button>
-          <button class="ta-btn ta-btn--delete" onclick="deleteItem('category','${c.id}')" title="Eliminar">🗑️</button>
+          <button class="ta-btn" onclick="editItem('category','${escapeHtml(c.id)}')" title="Editar">✏️</button>
+          ${actionBtn}
         </div></td>
       </tr>`;
     }).join('');
@@ -209,14 +236,24 @@ const subcategoryColumns = [
     if (subcategories.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No hay subcategorías</td></tr>'; return; }
     tbody.innerHTML = subcategories.map((s) => {
       const cat = categories.find((c) => c.id === s.category_id);
-      return `<tr>
-        <td data-label="Nombre"><strong>${s.name}</strong></td>
-        <td data-label="Categoría"><span class="parent-badge">${cat?.name || '—'}</span></td>
-        <td data-label="Slug"><code class="slug-badge">${s.slug}</code></td>
-        <td data-label="Estado"><span class="badge badge--active"><span class="badge-dot"></span>Activo</span></td>
+      const parentInactive = !!cat && cat.is_active === 0;
+      const isActive = !!s.is_active;
+      const statusBadge = parentInactive
+        ? `<span class="badge badge--inactive"><span class="badge-dot"></span>Padre inactivo</span>`
+        : isActive
+          ? `<span class="badge badge--active"><span class="badge-dot"></span>Activo</span>`
+          : `<span class="badge badge--inactive"><span class="badge-dot"></span>Inactivo</span>`;
+      const actionBtn = parentInactive || !isActive
+        ? `<button class="ta-btn ta-btn--warning" onclick="toggleStatus('${escapeHtml(s.id)}', true, 'subcategory')" title="Reactivar">🔄</button>`
+        : `<button class="ta-btn ta-btn--delete" onclick="deleteItem('subcategory','${escapeHtml(s.id)}')" title="Desactivar">🗑️</button>`;
+      return `<tr class="${parentInactive || !isActive ? 'row--inactive' : ''}">
+        <td data-label="Nombre"><strong>${escapeHtml(s.name)}</strong></td>
+        <td data-label="Categoría"><span class="parent-badge">${escapeHtml(cat?.name) || '—'}</span></td>
+        <td data-label="Slug"><code class="slug-badge">${escapeHtml(s.slug)}</code></td>
+        <td data-label="Estado">${statusBadge}</td>
         <td data-label="Acciones"><div class="cell-actions">
-          <button class="ta-btn" onclick="editItem('subcategory','${s.id}')" title="Editar">✏️</button>
-          <button class="ta-btn ta-btn--delete" onclick="deleteItem('subcategory','${s.id}')" title="Eliminar">🗑️</button>
+          <button class="ta-btn" onclick="editItem('subcategory','${escapeHtml(s.id)}')" title="Editar">✏️</button>
+          ${actionBtn}
         </div></td>
       </tr>`;
     }).join('');
@@ -238,12 +275,28 @@ const subcategoryColumns = [
     if (type === 'category') {
       parentGroup.style.display = '';
       parentLabel.textContent = 'Sección *';
-      parentSelect.innerHTML = '<option value="">Seleccionar...</option>' + sections.map((s) => `<option value="${s.id}">${s.name}</option>`).join('');
+      const activeParents = sections.filter((s) => !!s.is_active);
+      const parentOptions = activeParents.map((s) => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`);
+      if (data?.section_id) {
+        const currentParent = sections.find((s) => s.id === data.section_id);
+        if (currentParent && !currentParent.is_active) {
+          parentOptions.unshift(`<option value="${escapeHtml(currentParent.id)}" disabled>${escapeHtml(currentParent.name)} (inactivo)</option>`);
+        }
+      }
+      parentSelect.innerHTML = '<option value="">Seleccionar...</option>' + parentOptions.join('');
       if (data?.section_id) parentSelect.value = data.section_id;
     } else if (type === 'subcategory') {
       parentGroup.style.display = '';
       parentLabel.textContent = 'Categoría *';
-      parentSelect.innerHTML = '<option value="">Seleccionar...</option>' + categories.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+      const activeParents = categories.filter((c) => !!c.is_active);
+      const parentOptions = activeParents.map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`);
+      if (data?.category_id) {
+        const currentParent = categories.find((c) => c.id === data.category_id);
+        if (currentParent && !currentParent.is_active) {
+          parentOptions.unshift(`<option value="${escapeHtml(currentParent.id)}" disabled>${escapeHtml(currentParent.name)} (inactivo)</option>`);
+        }
+      }
+      parentSelect.innerHTML = '<option value="">Seleccionar...</option>' + parentOptions.join('');
       if (data?.category_id) parentSelect.value = data.category_id;
     } else { parentGroup.style.display = 'none'; }
     if (data) { const form = document.getElementById('modal-form') as HTMLFormElement; form.name.value = data.name || ''; form.description.value = data.description || ''; form.sortOrder.value = data.sort_order || 0; }
@@ -259,11 +312,31 @@ const subcategoryColumns = [
   };
 
   (window as any).deleteItem = async function(type: string, id: string) {
-    if (!confirm('¿Estás seguro? Se desactivará este elemento y sus hijos.')) return;
+    if (!confirm('¿Estás seguro? Se desactivará este elemento.')) return;
     const endpoint = `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}/${id}`;
     const res = await fetch(endpoint, { method: 'DELETE', credentials: 'include' });
-    if (res.ok) { loadSections(); loadCategories(); loadSubcategories(); }
+    if (res.ok) { loadAll(); }
   };
+
+  async function toggleStatus(id: string, activate: boolean, type: string) {
+    const item = type === 'section' ? sections.find((s) => s.id === id) : type === 'category' ? categories.find((c) => c.id === id) : subcategories.find((s) => s.id === id);
+    const name = item?.name || 'este elemento';
+    if (activate) {
+      if (!confirm(`¿Reactivar ${name}?`)) return;
+    } else {
+      if (!confirm(`¿Desactivar ${name}?`)) return;
+    }
+    const endpoint = type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories';
+    const res = await fetch(`${API_URL}/api/${endpoint}/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ isActive: activate }),
+    });
+    if (res.ok) { loadAll(); }
+    else { const err = await res.json().catch(() => ({})); alert(err.error || 'Error al cambiar estado'); }
+  }
+  (window as any).toggleStatus = toggleStatus;
 
   document.addEventListener('astro:page-load', () => {
     document.querySelectorAll('.tab').forEach((tab) => {
@@ -293,13 +366,11 @@ const subcategoryColumns = [
       if (type === 'subcategory') body.categoryId = form.parentId.value;
       const endpoint = isEdit ? `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}/${id}` : `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}`;
       const res = await fetch(endpoint, { method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
-      if (res.ok) { closeModal(); loadSections(); loadCategories(); loadSubcategories(); }
+      if (res.ok) { closeModal(); loadAll(); }
       else { const error = await res.json(); alert(error.error || 'Error al guardar'); }
     });
 
-    loadSections();
-    loadCategories();
-    loadSubcategories();
+    loadAll();
   });
 </script>
 
@@ -318,4 +389,7 @@ const subcategoryColumns = [
   .examples { color: var(--on-surface-variant); margin-bottom: var(--space-xl); }
   .example-tag { display: inline-block; padding: 2px 8px; background-color: rgba(31, 31, 31, 0.5); border: 1px solid rgba(62, 72, 80, 0.3); font-family: 'Space Mono', monospace; font-size: 11px; margin: 0 2px; }
   .parent-badge { display: inline-block; padding: 4px 10px; background-color: rgba(130, 207, 255, 0.1); border: 1px solid rgba(130, 207, 255, 0.3); color: var(--primary); font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 0px; }
+
+  tr.row--inactive { opacity: 0.55; }
+  tr.row--inactive:hover { opacity: 0.85; }
 </style>
