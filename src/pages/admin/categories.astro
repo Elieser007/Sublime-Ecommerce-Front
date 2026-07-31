@@ -391,7 +391,7 @@ const subcategoryColumns = [
         slugInput.value = generateSlug((e.target as HTMLInputElement).value);
       }
     });
-    slugInput?.addEventListener('input', (e) => { (e.target as HTMLInputElement).dataset.manual = 'true'; });
+    slugInput?.addEventListener('input', (e) => { const val = (e.target as HTMLInputElement).value; if (val.trim() === '') { slugInput.dataset.manual = ''; } else { slugInput.dataset.manual = 'true'; } });
 
     loadAll();
   });

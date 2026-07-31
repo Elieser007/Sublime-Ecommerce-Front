@@ -4,7 +4,7 @@
 
 Astro SSG frontend for a medium-business e-commerce. Dark theme, CMYK accent palette, sharp corners, Swiss-inspired functionalism. All public pages are pre-rendered at build time; admin pages use client-side auth guards.
 
-**Deployment**: Cloudflare Pages (auto-deploys from `main`). Build command: `npm run build`, output: `dist/`.
+**Deployment**: Cloudflare Pages (auto-deploys from `main`). Build command: `pnpm build`, output: `dist/`.
 
 ## Stack
 
@@ -16,16 +16,16 @@ Astro SSG frontend for a medium-business e-commerce. Dark theme, CMYK accent pal
 | CSS | LightningCSS | `minify: false`, `errorRecovery: true` |
 | Unit tests | vitest 4.x | `src/**/*.test.ts` |
 | E2E tests | Playwright | `e2e/` directory, Chromium only |
-| Package manager | npm | Node >= 22.12.0 |
+| Package manager | pnpm | Node >= 22.12.0 |
 
 ## Commands
 
 ```bash
-npm run dev       # Astro dev server (localhost:4321)
-npm run build     # Static build → dist/
-npm run preview   # Preview production build
-npm test          # vitest run (unit tests)
-npx playwright test   # E2E tests (auto-starts dev server)
+pnpm dev          # Astro dev server (localhost:4321)
+pnpm build        # Static build → dist/
+pnpm preview      # Preview production build
+pnpm test         # vitest run (unit tests)
+pnpm exec playwright test   # E2E tests (auto-starts dev server)
 ```
 
 ## Folder Structure
@@ -182,14 +182,14 @@ e2e/                          # Playwright E2E tests
 ### Unit Tests (vitest)
 
 - **Location**: `src/**/*.test.ts` and `src/__tests__/*.test.ts`
-- **Run**: `npm test`
+- **Run**: `pnpm test`
 - **TDD**: RED → GREEN → TRIANGULATE → REFACTOR
 - **Globals**: Enabled (`globals: true` in vitest.config.ts)
 
 ### E2E Tests (Playwright)
 
 - **Location**: `e2e/*.spec.ts`
-- **Run**: `npx playwright test`
+- **Run**: `pnpm exec playwright test`
 - **Browser**: Chromium only
 - **Config**: `playwright.config.ts` — auto-starts dev server on port 4321
 - **CI**: JUnit reporter to `test-results/e2e.xml`, 2 retries
