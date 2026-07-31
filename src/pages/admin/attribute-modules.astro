@@ -31,115 +31,113 @@ const COMPONENT_OPTIONS = [
 ---
 
 <AdminLayout title="Módulos de Atributos — Admin">
-  <div class="admin-layout">
-    <AdminSidebar active="attributes" />
-    <main class="admin-main">
-      <div class="admin-header">
-        <h1 class="headline-lg-mobile">Módulos de Atributos</h1>
-        <p class="body-md admin-subtitle">Definir opciones de personalización: color, talle, material, etc.</p>
-      </div>
+  <AdminSidebar active="attributes" />
+  <main class="admin-main">
+    <div class="admin-header">
+      <h1 class="headline-lg-mobile">Módulos de Atributos</h1>
+      <p class="body-md admin-subtitle">Definir opciones de personalización: color, talle, material, etc.</p>
+    </div>
 
-      <!-- Stats bar -->
-      <div class="stats-bar" id="stats-bar">
-        <span class="stat-item label-sm" id="stat-total">0 módulos</span>
-        <span class="stat-divider">·</span>
-        <span class="stat-item label-sm" id="stat-values">0 valores</span>
-      </div>
+    <!-- Stats bar -->
+    <div class="stats-bar" id="stats-bar">
+      <span class="stat-item label-sm" id="stat-total">0 módulos</span>
+      <span class="stat-divider">·</span>
+      <span class="stat-item label-sm" id="stat-values">0 valores</span>
+    </div>
 
-      <!-- Toolbar -->
-      <div class="content-header">
-        <div class="search-box">
-          <input type="text" class="form-input body-md" id="search-input" placeholder="Buscar módulos..." />
+    <!-- Toolbar -->
+    <div class="content-header">
+      <div class="search-box">
+        <input type="text" class="form-input body-md" id="search-input" placeholder="Buscar módulos..." />
+      </div>
+      <Button variant="primary" id="add-module">+ Nuevo Módulo</Button>
+    </div>
+
+    <!-- Modules Table -->
+    <DataTable columns={moduleColumns}>
+      <tr id="modules-loading"><td colspan="7" class="empty-cell">Cargando módulos...</td></tr>
+    </DataTable>
+
+    <!-- Module Modal -->
+    <div class="modal-overlay" id="module-modal" style="display: none;">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="headline-lg-mobile" id="module-modal-title">Nuevo Módulo</h3>
+          <button class="modal-close" id="module-modal-close">✕</button>
         </div>
-        <Button variant="primary" id="add-module">+ Nuevo Módulo</Button>
-      </div>
-
-      <!-- Modules Table -->
-      <DataTable columns={moduleColumns}>
-        <tr id="modules-loading"><td colspan="7" class="empty-cell">Cargando módulos...</td></tr>
-      </DataTable>
-
-      <!-- Module Modal -->
-      <div class="modal-overlay" id="module-modal" style="display: none;">
-        <div class="modal">
-          <div class="modal-header">
-            <h3 class="headline-lg-mobile" id="module-modal-title">Nuevo Módulo</h3>
-            <button class="modal-close" id="module-modal-close">✕</button>
+        <form class="modal-form" id="module-form">
+          <input type="hidden" id="module-id" />
+          <div class="form-group">
+            <label class="label-sm">Nombre *</label>
+            <input type="text" name="name" class="form-input body-md" required placeholder="Ej: Color" />
           </div>
-          <form class="modal-form" id="module-form">
-            <input type="hidden" id="module-id" />
-            <div class="form-group">
-              <label class="label-sm">Nombre *</label>
-              <input type="text" name="name" class="form-input body-md" required placeholder="Ej: Color" />
-            </div>
-            <div class="form-group">
-              <label class="label-sm">Slug *</label>
-              <input type="text" name="slug" class="form-input body-md" required placeholder="Ej: color_hex" />
-              <span class="form-hint">Identificador URL-friendly</span>
-            </div>
-            <div class="form-group">
-              <label class="label-sm">Componente Frontend *</label>
-              <select name="frontend_component" class="form-select body-md" required>
-                <option value="">Seleccionar...</option>
-                {COMPONENT_OPTIONS.map((opt) => (
-                  <option value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="label-sm">Orden</label>
-              <input type="number" name="sort_order" class="form-input body-md" value="0" min="0" />
-            </div>
-            <div class="form-actions">
-              <Button variant="secondary" type="button" id="module-modal-cancel">Cancelar</Button>
-              <Button variant="primary" type="submit">Guardar</Button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Value Modal -->
-      <div class="modal-overlay" id="value-modal" style="display: none;">
-        <div class="modal">
-          <div class="modal-header">
-            <h3 class="headline-lg-mobile" id="value-modal-title">Nuevo Valor</h3>
-            <button class="modal-close" id="value-modal-close">✕</button>
+          <div class="form-group">
+            <label class="label-sm">Slug *</label>
+            <input type="text" name="slug" class="form-input body-md" required placeholder="Ej: color_hex" />
+            <span class="form-hint">Identificador URL-friendly</span>
           </div>
-          <form class="modal-form" id="value-form">
-            <input type="hidden" id="value-id" />
-            <input type="hidden" id="value-module-id" />
-            <div class="form-group">
-              <label class="label-sm">Label *</label>
-              <input type="text" name="label" class="form-input body-md" required placeholder="Ej: Rojo" />
-            </div>
-            <div class="form-group">
-              <label class="label-sm">Valor (raw) *</label>
-              <input type="text" name="raw_value" class="form-input body-md" required placeholder="Ej: #FF0000" />
-            </div>
-            <div class="form-group">
-              <label class="label-sm">Color HEX</label>
-              <div class="color-input-row">
-                <input type="color" name="hex_color_picker" class="color-picker" value="#FF0000" />
-                <input type="text" name="hex_color" class="form-input body-md" placeholder="#FF0000" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="label-sm">Imagen URL</label>
-              <input type="text" name="image_url" class="form-input body-md" placeholder="https://..." />
-            </div>
-            <div class="form-group">
-              <label class="label-sm">Orden</label>
-              <input type="number" name="sort_order" class="form-input body-md" value="0" min="0" />
-            </div>
-            <div class="form-actions">
-              <Button variant="secondary" type="button" id="value-modal-cancel">Cancelar</Button>
-              <Button variant="primary" type="submit">Guardar</Button>
-            </div>
-          </form>
-        </div>
+          <div class="form-group">
+            <label class="label-sm">Componente Frontend *</label>
+            <select name="frontend_component" class="form-select body-md" required>
+              <option value="">Seleccionar...</option>
+              {COMPONENT_OPTIONS.map((opt) => (
+                <option value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="label-sm">Orden</label>
+            <input type="number" name="sort_order" class="form-input body-md" value="0" min="0" />
+          </div>
+          <div class="form-actions">
+            <Button variant="secondary" type="button" id="module-modal-cancel">Cancelar</Button>
+            <Button variant="primary" type="submit">Guardar</Button>
+          </div>
+        </form>
       </div>
-    </main>
-  </div>
+    </div>
+
+    <!-- Value Modal -->
+    <div class="modal-overlay" id="value-modal" style="display: none;">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="headline-lg-mobile" id="value-modal-title">Nuevo Valor</h3>
+          <button class="modal-close" id="value-modal-close">✕</button>
+        </div>
+        <form class="modal-form" id="value-form">
+          <input type="hidden" id="value-id" />
+          <input type="hidden" id="value-module-id" />
+          <div class="form-group">
+            <label class="label-sm">Label *</label>
+            <input type="text" name="label" class="form-input body-md" required placeholder="Ej: Rojo" />
+          </div>
+          <div class="form-group">
+            <label class="label-sm">Valor (raw) *</label>
+            <input type="text" name="raw_value" class="form-input body-md" required placeholder="Ej: #FF0000" />
+          </div>
+          <div class="form-group">
+            <label class="label-sm">Color HEX</label>
+            <div class="color-input-row">
+              <input type="color" name="hex_color_picker" class="color-picker" value="#FF0000" />
+              <input type="text" name="hex_color" class="form-input body-md" placeholder="#FF0000" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="label-sm">Imagen URL</label>
+            <input type="text" name="image_url" class="form-input body-md" placeholder="https://..." />
+          </div>
+          <div class="form-group">
+            <label class="label-sm">Orden</label>
+            <input type="number" name="sort_order" class="form-input body-md" value="0" min="0" />
+          </div>
+          <div class="form-actions">
+            <Button variant="secondary" type="button" id="value-modal-cancel">Cancelar</Button>
+            <Button variant="primary" type="submit">Guardar</Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
 </AdminLayout>
 
 <script>

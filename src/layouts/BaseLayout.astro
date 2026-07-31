@@ -29,24 +29,6 @@ const {
   <head>
     <script is:inline>
       (function() {
-        var originalFetch = window.fetch;
-        window.fetch = function() {
-          var url = arguments[0];
-          var urlStr = typeof url === 'string' ? url : (url instanceof Request ? url.url : '');
-          if (urlStr.indexOf('/api/auth/') !== -1) {
-            return originalFetch.apply(this, arguments);
-          }
-          return originalFetch.apply(this, arguments).then(function(response) {
-            if (response.status === 401) {
-              window.location.href = '/login';
-            }
-            return response;
-          });
-        };
-      })();
-    </script>
-    <script is:inline>
-      (function() {
         var saved = localStorage.getItem('theme') || 'auto';
         var isDark = saved === 'dark' || (saved === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.style.backgroundColor = isDark ? '#000000' : '#ffffff';

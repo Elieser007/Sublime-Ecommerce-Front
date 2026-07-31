@@ -20,110 +20,108 @@ const columns = [
 ---
 
 <AdminLayout title="Usuarios — Admin">
-  <div class="admin-layout">
-    <AdminSidebar active="users" />
-    <main class="admin-main">
-      <div class="admin-header">
-        <h1 class="headline-lg-mobile">Usuarios</h1>
-        <p class="body-md admin-subtitle">Administra usuarios y sus sucursales</p>
-      </div>
-
-      <div class="content-header">
-        <div class="toolbar">
-          <input type="text" id="search" class="form-input body-md" placeholder="Buscar nombre o email..." />
-          <select id="role-filter" class="form-select body-md">
-            <option value="">Todos los roles</option>
-            <option value="admin">Admin</option>
-            <option value="client">Cliente</option>
-          </select>
-          <select id="limit" class="form-select body-md">
-            <option value="10">10</option>
-            <option value="25" selected>25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-        <Button variant="primary" id="add-user">+ Nuevo</Button>
-      </div>
-
-      <DataTable columns={columns}>
-        <tr><td colspan="7" class="empty-cell">Cargando...</td></tr>
-      </DataTable>
-
-      <div class="pagination-bar">
-        <span class="body-md" id="showing">Mostrando 0 de 0</span>
-        <div class="page-nav">
-          <Button variant="secondary" id="prev" disabled>Anterior</Button>
-          <span class="body-md" id="page-info">Página 1 de 1</span>
-          <Button variant="secondary" id="next" disabled>Siguiente</Button>
-        </div>
-      </div>
-    </main>
-  </div>
-
-  <div class="modal-overlay" id="modal-overlay" style="display: none;">
-    <div class="modal">
-      <div class="modal-header">
-        <h3 class="headline-lg-mobile" id="modal-title">Nuevo Usuario</h3>
-        <button class="modal-close" id="modal-close">✕</button>
-      </div>
-      <form class="modal-form" id="modal-form">
-        <input type="hidden" id="modal-id" />
-        <input type="hidden" name="avatarUrl" id="avatar-url-input" />
-
-        <div class="form-group">
-          <label class="label-sm">Avatar</label>
-          <div class="avatar-upload-area" id="avatar-upload-area">
-            <div class="avatar-preview" id="avatar-preview">
-              <div class="avatar-empty" id="avatar-empty">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
-                <p class="body-md">Subir avatar</p>
-                <p class="label-sm">PNG, JPG o WebP (max 2MB)</p>
-              </div>
-              <img src="" alt="" class="avatar-image" id="avatar-image" style="display: none;" />
-            </div>
-            <button type="button" class="avatar-remove-btn" id="avatar-remove" style="display: none;" title="Eliminar avatar">✕</button>
-          </div>
-          <input type="file" name="avatar-file" id="avatar-input" accept="image/png,image/jpeg,image/webp" class="upload-input" />
-          <div class="upload-status" id="avatar-upload-status" style="display: none;">
-            <p class="label-sm">Procesando imagen...</p>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="label-sm">Nombre *</label>
-          <input type="text" name="name" class="form-input body-md" required />
-        </div>
-        <div class="form-group">
-          <label class="label-sm">Email *</label>
-          <input type="email" name="email" class="form-input body-md" required />
-        </div>
-        <div class="form-group" id="password-group">
-          <label class="label-sm">Contraseña *</label>
-          <input type="password" name="password" class="form-input body-md" />
-        </div>
-        <div class="form-group">
-          <label class="label-sm">Rol *</label>
-          <select name="role" class="form-select body-md" required>
-            <option value="admin">Administrador</option>
-            <option value="client">Cliente</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="label-sm">Sucursales</label>
-          <select name="branchIds" id="branch-ids" class="form-select body-md" multiple size="4"></select>
-        </div>
-        <div class="form-error" id="form-error"></div>
-        <div class="form-actions">
-          <Button variant="secondary" id="modal-cancel">Cancelar</Button>
-          <Button variant="primary" type="submit">Guardar</Button>
-        </div>
-      </form>
+  <AdminSidebar active="users" />
+  <main class="admin-main">
+    <div class="admin-header">
+      <h1 class="headline-lg-mobile">Usuarios</h1>
+      <p class="body-md admin-subtitle">Administra usuarios y sus sucursales</p>
     </div>
+
+    <div class="content-header">
+      <div class="toolbar">
+        <input type="text" id="search" class="form-input body-md" placeholder="Buscar nombre o email..." />
+        <select id="role-filter" class="form-select body-md">
+          <option value="">Todos los roles</option>
+          <option value="admin">Admin</option>
+          <option value="client">Cliente</option>
+        </select>
+        <select id="limit" class="form-select body-md">
+          <option value="10">10</option>
+          <option value="25" selected>25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+      <Button variant="primary" id="add-user">+ Nuevo</Button>
+    </div>
+
+    <DataTable columns={columns}>
+      <tr><td colspan="7" class="empty-cell">Cargando...</td></tr>
+    </DataTable>
+
+    <div class="pagination-bar">
+      <span class="body-md" id="showing">Mostrando 0 de 0</span>
+      <div class="page-nav">
+        <Button variant="secondary" id="prev" disabled>Anterior</Button>
+        <span class="body-md" id="page-info">Página 1 de 1</span>
+        <Button variant="secondary" id="next" disabled>Siguiente</Button>
+      </div>
+    </div>
+  </main>
+
+<div class="modal-overlay" id="modal-overlay" style="display: none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="headline-lg-mobile" id="modal-title">Nuevo Usuario</h3>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <form class="modal-form" id="modal-form">
+      <input type="hidden" id="modal-id" />
+      <input type="hidden" name="avatarUrl" id="avatar-url-input" />
+
+      <div class="form-group">
+        <label class="label-sm">Avatar</label>
+        <div class="avatar-upload-area" id="avatar-upload-area">
+          <div class="avatar-preview" id="avatar-preview">
+            <div class="avatar-empty" id="avatar-empty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              <p class="body-md">Subir avatar</p>
+              <p class="label-sm">PNG, JPG o WebP (max 2MB)</p>
+            </div>
+            <img src="" alt="" class="avatar-image" id="avatar-image" style="display: none;" />
+          </div>
+          <button type="button" class="avatar-remove-btn" id="avatar-remove" style="display: none;" title="Eliminar avatar">✕</button>
+        </div>
+        <input type="file" name="avatar-file" id="avatar-input" accept="image/png,image/jpeg,image/webp" class="upload-input" />
+        <div class="upload-status" id="avatar-upload-status" style="display: none;">
+          <p class="label-sm">Procesando imagen...</p>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="label-sm">Nombre *</label>
+        <input type="text" name="name" class="form-input body-md" required />
+      </div>
+      <div class="form-group">
+        <label class="label-sm">Email *</label>
+        <input type="email" name="email" class="form-input body-md" required />
+      </div>
+      <div class="form-group" id="password-group">
+        <label class="label-sm">Contraseña *</label>
+        <input type="password" name="password" class="form-input body-md" />
+      </div>
+      <div class="form-group">
+        <label class="label-sm">Rol *</label>
+        <select name="role" class="form-select body-md" required>
+          <option value="admin">Administrador</option>
+          <option value="client">Cliente</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="label-sm">Sucursales</label>
+        <select name="branchIds" id="branch-ids" class="form-select body-md" multiple size="4"></select>
+      </div>
+      <div class="form-error" id="form-error"></div>
+      <div class="form-actions">
+        <Button variant="secondary" id="modal-cancel">Cancelar</Button>
+        <Button variant="primary" type="submit">Guardar</Button>
+      </div>
+    </form>
   </div>
+</div>
 </AdminLayout>
 
 <script>

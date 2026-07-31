@@ -21,20 +21,18 @@ const products = [
 ---
 
 <AdminLayout title="Admin — Sublime E-commerce">
-  <div class="admin-layout">
-    <AdminSidebar active="productos" />
+  <AdminSidebar active="productos" />
 
-    <main class="admin-main">
-      <div class="admin-header">
-        <h1 class="headline-lg-mobile">Productos</h1>
-        <div class="admin-header-actions">
-          <Button href="/admin/nuevo" variant="primary">+ Nuevo Producto</Button>
-        </div>
+  <main class="admin-main">
+    <div class="admin-header">
+      <h1 class="headline-lg-mobile">Productos</h1>
+      <div class="admin-header-actions">
+        <Button href="/admin/nuevo" variant="primary">+ Nuevo Producto</Button>
       </div>
+    </div>
 
-      <AdminTable products={products} />
-    </main>
-  </div>
+    <AdminTable products={products} />
+  </main>
 </AdminLayout>
 
 

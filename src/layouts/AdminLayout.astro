@@ -17,10 +17,17 @@ const { title } = Astro.props;
 ---
 
 <BaseLayout title={title}>
-  <slot />
+  <div class="admin-layout">
+    <slot />
+  </div>
 </BaseLayout>
 
 <script>
   import { requireAuth } from '../lib/auth-guard';
-  document.addEventListener('astro:page-load', () => { requireAuth(); });
+  document.addEventListener('astro:page-load', async () => {
+    const ok = await requireAuth();
+    if (ok) {
+      document.querySelector('.admin-layout')?.classList.add('auth-ok');
+    }
+  });
 </script>

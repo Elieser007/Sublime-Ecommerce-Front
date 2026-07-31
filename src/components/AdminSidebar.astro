@@ -163,7 +163,6 @@ import Button from './Button.astro';
 
   async function initSidebar() {
     try {
-      // Fetch user data
       const meRes = await fetch(`${API_URL}/api/me`, { credentials: 'include' });
       if (!meRes.ok) {
         window.location.href = '/login';
@@ -172,28 +171,25 @@ import Button from './Button.astro';
       const { user } = await meRes.json();
       const isAdmin = user.role === 'admin';
 
-      // Update user info
       document.getElementById('user-initial').textContent = user.name?.charAt(0) || 'U';
       document.getElementById('user-name').textContent = user.name || 'Usuario';
       document.getElementById('user-role').textContent = isAdmin ? 'Administrador' : 'Cliente';
 
-      // Show admin-only groups
       if (isAdmin) {
         document.querySelectorAll('.admin-only').forEach(el => {
           (el as HTMLElement).style.display = '';
         });
       }
 
-      // Fetch branches for admin
       if (isAdmin) {
         const branchRes = await fetch(`${API_URL}/api/branches`, { credentials: 'include' });
         if (branchRes.ok) {
           const { branches } = await branchRes.json();
-          
+
           if (branches && branches.length > 0) {
             const selector = document.getElementById('branch-selector');
             const select = document.getElementById('branch-select') as HTMLSelectElement;
-            
+
             if (selector && select) {
               select.innerHTML = '';
               branches.forEach((branch: any) => {
@@ -215,45 +211,6 @@ import Button from './Button.astro';
     }
   }
 
-  // Branch switching
-  document.getElementById('branch-select')?.addEventListener('change', async (e) => {
-    const branchId = (e.target as HTMLSelectElement).value;
-    if (!branchId) return;
-    
-    try {
-      const res = await fetch(`${API_URL}/api/branches/switch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ branchId }),
-      });
-      
-      if (res.ok) {
-        window.location.reload();
-      } else {
-        alert('Error al cambiar de sucursal');
-      }
-    } catch {
-      alert('Error de conexión');
-    }
-  });
-
-  // Logout
-  document.getElementById('logout-btn')?.addEventListener('click', async () => {
-    try {
-      const { signOut } = await import('/src/lib/auth-client.ts');
-      await signOut({
-        fetchOptions: {
-          onSuccess: () => { window.location.href = '/login'; },
-          onError: () => { window.location.href = '/login'; },
-        },
-      });
-    } catch {
-      window.location.href = '/login';
-    }
-  });
-
-  // Set active link based on prop
   function setActiveLink() {
     const activeSection = document.querySelector('.admin-sidebar')?.getAttribute('data-active');
     if (activeSection) {
@@ -265,7 +222,6 @@ import Button from './Button.astro';
     }
   }
 
-  // Deploy config check — show deploy group only if config exists
   async function checkDeployConfig() {
     try {
       const res = await fetch(`${API_URL}/api/deploy/config`, { credentials: 'include' });
@@ -273,152 +229,179 @@ import Button from './Button.astro';
         document.getElementById('deploy-group')?.setAttribute('style', '');
       }
     } catch {
-      // Backend unreachable — leave hidden
     }
   }
 
-  // Deploy modal logic
-  const $deployBtn = document.getElementById('deploy-btn');
-  const $deployModal = document.getElementById('deploy-modal') as HTMLDialogElement;
-  const $deployCancel = document.getElementById('deploy-cancel');
-  const $deployConfirm = document.getElementById('deploy-confirm');
-  const $deployStatus = document.getElementById('deploy-status');
+  document.addEventListener('astro:page-load', () => {
+    document.getElementById('branch-select')?.addEventListener('change', async (e) => {
+      const branchId = (e.target as HTMLSelectElement).value;
+      if (!branchId) return;
 
-  $deployBtn?.addEventListener('click', () => {
-    if (!$deployModal) return;
-    $deployStatus.textContent = '';
-    $deployStatus.className = 'deploy-status';
-    $deployConfirm.disabled = false;
-    $deployConfirm.textContent = 'Deploy';
-    $deployModal.showModal();
-  });
+      try {
+        const res = await fetch(`${API_URL}/api/branches/switch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ branchId }),
+        });
 
-  $deployCancel?.addEventListener('click', () => {
-    $deployModal?.close();
-  });
-
-  $deployConfirm?.addEventListener('click', async () => {
-    if (!$deployConfirm || !$deployStatus) return;
-    $deployConfirm.disabled = true;
-    $deployConfirm.textContent = 'Desplegando...';
-    $deployStatus.textContent = 'Iniciando deploy...';
-    $deployStatus.className = 'deploy-status deploy-status--loading';
-
-    try {
-      const res = await fetch(`${API_URL}/api/deploy`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        $deployStatus.textContent = `✅ Deploy iniciado: ${data.url || 'Ver dashboard de Cloudflare'}`;
-        $deployStatus.className = 'deploy-status deploy-status--success';
-      } else {
-        $deployStatus.textContent = `❌ Error: ${data.message || data.error || 'Deploy failed'}`;
-        $deployStatus.className = 'deploy-status deploy-status--error';
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          alert('Error al cambiar de sucursal');
+        }
+      } catch {
+        alert('Error de conexión');
       }
-    } catch {
-      $deployStatus.textContent = '❌ Error de conexión al intentar deploy';
-      $deployStatus.className = 'deploy-status deploy-status--error';
-    } finally {
+    });
+
+    document.getElementById('logout-btn')?.addEventListener('click', async () => {
+      try {
+        const { signOut } = await import('/src/lib/auth-client.ts');
+        await signOut({
+          fetchOptions: {
+            onSuccess: () => { window.location.href = '/login'; },
+            onError: () => { window.location.href = '/login'; },
+          },
+        });
+      } catch {
+        window.location.href = '/login';
+      }
+    });
+
+    const $deployBtn = document.getElementById('deploy-btn');
+    const $deployModal = document.getElementById('deploy-modal') as HTMLDialogElement;
+    const $deployCancel = document.getElementById('deploy-cancel');
+    const $deployConfirm = document.getElementById('deploy-confirm');
+    const $deployStatus = document.getElementById('deploy-status');
+
+    $deployBtn?.addEventListener('click', () => {
+      if (!$deployModal) return;
+      $deployStatus.textContent = '';
+      $deployStatus.className = 'deploy-status';
       $deployConfirm.disabled = false;
       $deployConfirm.textContent = 'Deploy';
+      $deployModal.showModal();
+    });
+
+    $deployCancel?.addEventListener('click', () => {
+      $deployModal?.close();
+    });
+
+    $deployConfirm?.addEventListener('click', async () => {
+      if (!$deployConfirm || !$deployStatus) return;
+      $deployConfirm.disabled = true;
+      $deployConfirm.textContent = 'Desplegando...';
+      $deployStatus.textContent = 'Iniciando deploy...';
+      $deployStatus.className = 'deploy-status deploy-status--loading';
+
+      try {
+        const res = await fetch(`${API_URL}/api/deploy`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          $deployStatus.textContent = `✅ Deploy iniciado: ${data.url || 'Ver dashboard de Cloudflare'}`;
+          $deployStatus.className = 'deploy-status deploy-status--success';
+        } else {
+          $deployStatus.textContent = `❌ Error: ${data.message || data.error || 'Deploy failed'}`;
+          $deployStatus.className = 'deploy-status deploy-status--error';
+        }
+      } catch {
+        $deployStatus.textContent = '❌ Error de conexión al intentar deploy';
+        $deployStatus.className = 'deploy-status deploy-status--error';
+      } finally {
+        $deployConfirm.disabled = false;
+        $deployConfirm.textContent = 'Deploy';
+      }
+    });
+
+    checkDeployConfig();
+    initSidebar();
+    setActiveLink();
+
+    const $sidebar = document.getElementById('admin-sidebar');
+    const $toggle = document.getElementById('sidebar-toggle');
+    const $overlay = document.getElementById('sidebar-overlay');
+
+    function syncAriaHidden() {
+      if (window.innerWidth <= 767) {
+        $sidebar?.setAttribute('aria-hidden', 'true');
+      } else {
+        $sidebar?.removeAttribute('aria-hidden');
+      }
     }
-  });
+    syncAriaHidden();
+    window.addEventListener('resize', syncAriaHidden);
 
-  // Check deploy config after admin is confirmed
-  checkDeployConfig();
+    function openSidebar() {
+      $sidebar?.classList.add('is-open');
+      $overlay?.classList.add('is-visible');
+      $sidebar?.setAttribute('aria-hidden', 'false');
+      $toggle?.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+      const firstFocusable = $sidebar?.querySelector<HTMLElement>(
+        'a[href], button:not([disabled]), select, input, [tabindex]:not([tabindex="-1"])'
+      );
+      firstFocusable?.focus();
+    }
 
-  initSidebar();
-  setActiveLink();
-
-  // ─── Sidebar Drawer Toggle ────────────────────────────────
-  const $sidebar = document.getElementById('admin-sidebar');
-  const $toggle = document.getElementById('sidebar-toggle');
-  const $overlay = document.getElementById('sidebar-overlay');
-
-  // Set initial aria-hidden based on viewport (mobile = hidden, desktop = visible)
-  function syncAriaHidden() {
-    if (window.innerWidth <= 767) {
+    function closeSidebar() {
+      $sidebar?.classList.remove('is-open');
+      $overlay?.classList.remove('is-visible');
       $sidebar?.setAttribute('aria-hidden', 'true');
-    } else {
-      $sidebar?.removeAttribute('aria-hidden');
-    }
-  }
-  syncAriaHidden();
-  window.addEventListener('resize', syncAriaHidden);
-
-  function openSidebar() {
-    $sidebar?.classList.add('is-open');
-    $overlay?.classList.add('is-visible');
-    $sidebar?.setAttribute('aria-hidden', 'false');
-    $toggle?.setAttribute('aria-expanded', 'true');
-    document.body.style.overflow = 'hidden';
-    // Focus first focusable element in drawer
-    const firstFocusable = $sidebar?.querySelector<HTMLElement>(
-      'a[href], button:not([disabled]), select, input, [tabindex]:not([tabindex="-1"])'
-    );
-    firstFocusable?.focus();
-  }
-
-  function closeSidebar() {
-    $sidebar?.classList.remove('is-open');
-    $overlay?.classList.remove('is-visible');
-    $sidebar?.setAttribute('aria-hidden', 'true');
-    $toggle?.setAttribute('aria-expanded', 'false');
-    document.body.style.overflow = '';
-    // Return focus to hamburger button (only if visible on mobile)
-    if ($toggle && window.getComputedStyle($toggle).display !== 'none') {
-      $toggle.focus();
-    }
-  }
-
-  function toggleSidebar() {
-    const isOpen = $sidebar?.classList.contains('is-open');
-    if (isOpen) closeSidebar(); else openSidebar();
-  }
-
-  $toggle?.addEventListener('click', toggleSidebar);
-  $overlay?.addEventListener('click', closeSidebar);
-
-  // ESC key closes drawer
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && $sidebar?.classList.contains('is-open')) {
-      closeSidebar();
-    }
-  });
-
-  // Focus trap: keep Tab/Shift+Tab inside drawer when open
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Tab' || !$sidebar?.classList.contains('is-open')) return;
-
-    const focusables = $sidebar?.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), select, input, [tabindex]:not([tabindex="-1"])'
-    );
-    if (!focusables || focusables.length === 0) return;
-
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-
-    if (e.shiftKey) {
-      if (document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else {
-      if (document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
+      $toggle?.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+      if ($toggle && window.getComputedStyle($toggle).display !== 'none') {
+        $toggle.focus();
       }
     }
-  });
 
-  // Close drawer when a nav link is clicked (exclude deploy button)
-  $sidebar?.querySelectorAll('.sidebar-link').forEach((link) => {
-    if (link.id !== 'deploy-btn') {
-      link.addEventListener('click', closeSidebar);
+    function toggleSidebar() {
+      const isOpen = $sidebar?.classList.contains('is-open');
+      if (isOpen) closeSidebar(); else openSidebar();
     }
+
+    $toggle?.addEventListener('click', toggleSidebar);
+    $overlay?.addEventListener('click', closeSidebar);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && $sidebar?.classList.contains('is-open')) {
+        closeSidebar();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab' || !$sidebar?.classList.contains('is-open')) return;
+
+      const focusables = $sidebar?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), select, input, [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusables || focusables.length === 0) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    });
+
+    $sidebar?.querySelectorAll('.sidebar-link').forEach((link) => {
+      if (link.id !== 'deploy-btn') {
+        link.addEventListener('click', closeSidebar);
+      }
+    });
   });
 </script>
 

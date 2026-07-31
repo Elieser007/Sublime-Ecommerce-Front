@@ -12,9 +12,8 @@ import AdminSidebar from '../components/AdminSidebar.astro';
 ---
 
 <AdminLayout title="Dashboard — Sublime E-commerce">
-  <div class="dashboard-layout">
     <AdminSidebar active="dashboard" />
-    <main class="dashboard-main">
+    <main class="admin-main">
       <section class="dashboard-page">
       <!-- Loading state -->
       <div class="dashboard-loading" id="dashboard-loading">
@@ -100,27 +99,9 @@ import AdminSidebar from '../components/AdminSidebar.astro';
       </div>
       </section>
     </main>
-  </div>
 </AdminLayout>
 
 <style>
-  .dashboard-layout {
-    display: grid;
-    grid-template-columns: 1fr;
-    min-height: calc(100vh - 72px);
-  }
-
-  @media (min-width: 768px) {
-    .dashboard-layout {
-      grid-template-columns: 260px 1fr;
-    }
-  }
-
-  .dashboard-main {
-    padding: var(--space-2xl);
-    overflow-y: auto;
-  }
-
   .dashboard-page {
     padding: 0;
   }
