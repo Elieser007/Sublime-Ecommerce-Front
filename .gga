@@ -45,7 +45,9 @@ RULES_FILE="AGENTS.md"
 
 # Strict mode: fail if AI response is ambiguous
 # Default: true
-STRICT_MODE="true"
+# Set to false so the opencode provider's non-exact STATUS line format
+# doesn't block legitimate commits. Explicit STATUS: FAILED reviews still fail.
+STRICT_MODE="false"
 
 # Timeout in seconds for AI provider response
 # Default: 300 (5 minutes)
