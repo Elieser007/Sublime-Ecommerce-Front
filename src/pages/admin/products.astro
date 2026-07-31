@@ -216,6 +216,12 @@ const columns = [
   import { getImageById, getImageCount } from '../../lib/gallery-utils';
   import { deleteImage, associateImage } from '../../lib/image-utils';
   import { loadProductList, uploadGalleryImages } from '../../lib/admin-products';
+  import { wrapModal } from '../../lib/modalHelper';
+
+  const productModal = wrapModal('modal-overlay');
+  const deleteModal = wrapModal('delete-overlay');
+  const pricingModal = wrapModal('price-overlay');
+  const statusModal = wrapModal('status-overlay');
 
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   const fmt = (c: number) => `₲ ${(c || 0).toLocaleString('es-PY')}`;
@@ -265,12 +271,12 @@ const columns = [
 
   function openDeleteModal(deleteInfo: PendingDelete) {
     pendingDelete = deleteInfo;
-    $('delete-overlay')!.style.display = '';
+    deleteModal.open();
   }
 
   function closeDeleteModal() {
     pendingDelete = null;
-    $('delete-overlay')!.style.display = 'none';
+    deleteModal.close();
   }
 
   async function confirmDelete() {
@@ -678,7 +684,7 @@ const columns = [
 
       loadProductImages(product.id);
     }
-    $('modal-overlay')!.style.display = '';
+    productModal.open();
   }
 
   async function loadProductImages(productId: string) {
@@ -717,7 +723,7 @@ const columns = [
   }
 
   function closeModal() {
-    $('modal-overlay')!.style.display = 'none';
+    productModal.close();
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -729,7 +735,7 @@ const columns = [
     $('price-product-info')!.innerHTML = product ? `<strong>${product.name}</strong> — Precio base: ${fmt(product.base_price)}` : '';
 
     await loadPrices(productId);
-    $('price-overlay')!.style.display = '';
+    pricingModal.open();
   }
 
   async function loadPrices(productId: string) {
@@ -750,7 +756,7 @@ const columns = [
     }
   }
 
-  function closePricingModal() { $('price-overlay')!.style.display = 'none'; pricingProductId = null; }
+  function closePricingModal() { pricingModal.close(); pricingProductId = null; }
 
   // ═══════════════════════════════════════════════════════════
   // EVENT LISTENERS
@@ -772,7 +778,7 @@ const columns = [
     const deactivateBtn = $('status-confirm-deactivate') as HTMLElement;
     if (activateBtn) activateBtn.style.display = activate ? '' : 'none';
     if (deactivateBtn) deactivateBtn.style.display = activate ? 'none' : '';
-    $('status-overlay')!.style.display = '';
+    statusModal.open();
   };
 
   async function executeStatusToggle() {
@@ -794,7 +800,7 @@ const columns = [
         credentials: 'include',
         body: JSON.stringify({ isActive: activate }),
       });
-      $('status-overlay')!.style.display = 'none';
+      statusModal.close();
       pendingStatusToggle = null;
       if (res.ok) {
         loadProducts();
@@ -803,7 +809,7 @@ const columns = [
         alert(err.error || `Error al ${activate ? 'reactivar' : 'desactivar'} el producto`);
       }
     } catch {
-      $('status-overlay')!.style.display = 'none';
+      statusModal.close();
       pendingStatusToggle = null;
       alert(`Error de conexión al ${activate ? 'reactivar' : 'desactivar'} el producto`);
     } finally {
@@ -1025,9 +1031,9 @@ const columns = [
 
     $('status-confirm-activate')?.addEventListener('click', executeStatusToggle);
     $('status-confirm-deactivate')?.addEventListener('click', executeStatusToggle);
-    $('status-cancel')?.addEventListener('click', () => { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; });
-    $('status-cancel-x')?.addEventListener('click', () => { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; });
-    $('status-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) { $('status-overlay')!.style.display = 'none'; pendingStatusToggle = null; } });
+    $('status-cancel')?.addEventListener('click', () => { statusModal.close(); pendingStatusToggle = null; });
+    $('status-cancel-x')?.addEventListener('click', () => { statusModal.close(); pendingStatusToggle = null; });
+    $('status-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) { statusModal.close(); pendingStatusToggle = null; } });
 
     init();
   });

@@ -537,6 +537,12 @@ const { productId, productName } = Astro.props;
 </style>
 
 <script>
+  import { wrapModal } from '../../lib/modalHelper';
+
+  const attrModal = wrapModal('attr-overlay');
+  const depModal = wrapModal('dep-overlay');
+  const valuePickerModal = wrapModal('value-picker-overlay');
+
   const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_API_URL) || 'http://localhost:8787';
 
   // State
@@ -750,7 +756,7 @@ const { productId, productName } = Astro.props;
     currentPickerModuleId = moduleId;
     $('value-picker-title')!.textContent = `Valores de ${moduleName}`;
     $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">Cargando valores...</p>';
-    $('value-picker-overlay')!.style.display = '';
+    valuePickerModal.open();
 
     const allValues = await loadModuleValues(moduleId);
     const currentAttr = productAttributes.find((a: any) => a.module_id === moduleId);
@@ -835,19 +841,19 @@ const { productId, productName } = Astro.props;
   };
 
   function closeValuePicker() {
-    $('value-picker-overlay')!.style.display = 'none';
+    valuePickerModal.close();
     currentPickerModuleId = null;
   }
 
   // ─── DEPENDENCY FORM ────────────────────────────────────
   function openDependencyForm() {
-    $('dep-overlay')!.style.display = '';
+    depModal.open();
     populateParentModuleSelect();
     populateChildModuleSelect();
   }
 
   function closeDependencyForm() {
-    $('dep-overlay')!.style.display = 'none';
+    depModal.close();
     ($('dependency-form') as HTMLFormElement)?.reset();
     $('dep-form-error')!.textContent = '';
     ($('parent-value-select') as HTMLSelectElement).disabled = true;
@@ -981,13 +987,13 @@ const { productId, productName } = Astro.props;
 
   // ─── MODAL CONTROLS ─────────────────────────────────────
   function openModal() {
-    $('attr-overlay')!.style.display = '';
+    attrModal.open();
     loadProductAttributes();
     loadDependencies();
   }
 
   function closeModal() {
-    $('attr-overlay')!.style.display = 'none';
+    attrModal.close();
   }
 
   $('attr-modal-close')?.addEventListener('click', closeModal);
@@ -1019,16 +1025,7 @@ const { productId, productName } = Astro.props;
     }
   });
 
-  // Keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      if ($('value-picker-overlay')?.style.display !== 'none') {
-        closeValuePicker();
-      } else if ($('dep-overlay')?.style.display !== 'none') {
-        closeDependencyForm();
-      } else if ($('attr-overlay')?.style.display !== 'none') {
-        closeModal();
-      }
-    }
-  });
+  // Keyboard shortcuts — handled by global modalStackHandler.js
+  // The global Escape handler closes the topmost modal in the stack,
+  // which matches the priority chain: value picker > dep form > main modal
 </script>

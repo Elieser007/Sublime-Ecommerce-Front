@@ -95,6 +95,9 @@ const columns = [
 </AdminLayout>
 
 <script>
+  import { wrapModal } from '../../lib/modalHelper';
+  const branchModal = wrapModal('modal-overlay');
+
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   let items: any[] = [];
   let currentPage = 1;
@@ -171,10 +174,10 @@ const columns = [
       form.phone.value = branch.phone || '';
       $('slug-display')!.textContent = branch.slug || '';
     }
-    $('modal-overlay')!.style.display = '';
+    branchModal.open();
   }
 
-  function closeModal() { $('modal-overlay')!.style.display = 'none'; }
+  function closeModal() { branchModal.close(); }
 
   (window as any).editBranch = (id: string) => { const branch = items.find((b: any) => b.id === id); if (branch) openModal(true, branch); };
   (window as any).deleteBranch = async (id: string) => {

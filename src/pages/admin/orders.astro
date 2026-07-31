@@ -104,6 +104,9 @@ const columns = [
 </AdminLayout>
 
 <script>
+  import { wrapModal } from '../../lib/modalHelper';
+  const orderModal = wrapModal('modal-overlay');
+
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   const STATUS_LABELS: Record<string, string> = { pending: 'Pendiente', confirmed: 'Confirmado', preparing: 'Preparando', shipped: 'Enviado', delivered: 'Entregado', cancelled: 'Cancelado' };
   const ALLOWED_TRANSITIONS: Record<string, string[]> = { pending: ['confirmed', 'cancelled'], confirmed: ['preparing', 'cancelled'], preparing: ['shipped', 'cancelled'], shipped: ['delivered'], delivered: [], cancelled: [] };
@@ -204,12 +207,12 @@ const columns = [
       const allowed = ALLOWED_TRANSITIONS[order.status] || [];
       statusSelect.innerHTML = `<option value="${order.status}" selected>${STATUS_LABELS[order.status]} (actual)</option>` + allowed.map((s: string) => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('');
       $('modal-title')!.textContent = `Pedido ${shortId(order.id)}`;
-      $('modal-overlay')!.style.display = '';
+      orderModal.open();
       $('form-error')!.textContent = '';
     } catch (err) { console.error(err); }
   }
 
-  function closeModal() { $('modal-overlay')!.style.display = 'none'; currentOrderId = null; }
+  function closeModal() { orderModal.close(); currentOrderId = null; }
 
   (window as any).viewOrder = viewOrder;
 

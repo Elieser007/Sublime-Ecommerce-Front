@@ -176,6 +176,8 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 <script>
   import { escapeHtml } from '../../lib/escape-html';
   import { uploadImage, associateImage, deleteImage, fetchEntityImages } from '../../lib/image-utils';
+  import { wrapModal } from '../../lib/modalHelper';
+  const promoModal = wrapModal('modal-overlay');
   import {
     createEmptyPromoImageState,
     hasPromoImage,
@@ -548,10 +550,10 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       }
     }
 
-    $('modal-overlay')!.style.display = '';
+    promoModal.open();
   }
 
-  function closeModal() { $('modal-overlay')!.style.display = 'none'; }
+  function closeModal() { promoModal.close(); }
 
   (window as any).editPromo = (id: string) => {
     const promo = promotions.find((p: any) => p.id === id);

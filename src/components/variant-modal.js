@@ -25,6 +25,7 @@ import { escapeHtml } from '../lib/escape-html';
 import { formatPrice } from '../lib/format';
 import { isSelectionComplete } from '../lib/variant-logic';
 import { getBestVolumeBadge, getTierPrice, formatTierLabel } from '../lib/price-utils';
+import * as modalStack from '../lib/modalStack.js';
 
 const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_API_URL) || 'http://localhost:8787';
 
@@ -50,6 +51,8 @@ class VariantModal extends HTMLElement {
     this._loading = false;
     this._error = null;
     this._selectorEl = null;
+    this._stackId = null;
+    this._closingViaHistory = false;
 
     this._boundHandleKeyDown = this._handleKeyDown.bind(this);
   }
@@ -60,7 +63,19 @@ class VariantModal extends HTMLElement {
   }
 
   disconnectedCallback() {
-    if (this._isOpen) this._cleanup();
+    if (this._isOpen) {
+      this._cleanup();
+
+      // Restore body overflow if the element is removed while open
+      // (e.g., Astro ClientRouter page swap)
+      document.body.style.overflow = '';
+
+      // Clean up stack entry to prevent ghost closeFn on detached element
+      if (this._stackId) {
+        modalStack.remove(this._stackId);
+        this._stackId = null;
+      }
+    }
   }
 
   attributeChangedCallback(name, _old, newVal) {
@@ -88,6 +103,13 @@ class VariantModal extends HTMLElement {
     this._renderContent();
     document.body.style.overflow = 'hidden';
     this._fetchVariants();
+
+    // Push to modal stack for back-button support
+    this._closingViaHistory = false;
+    this._stackId = modalStack.push(() => {
+      this._closingViaHistory = true;
+      this.close();
+    });
   }
 
   close() {
@@ -101,6 +123,21 @@ class VariantModal extends HTMLElement {
     }
 
     document.body.style.overflow = '';
+
+    // Handle modal stack: if closing via history (back button), stack already removed it.
+    // If closing manually, remove from stack and undo the history entry.
+    if (this._stackId) {
+      if (!this._closingViaHistory) {
+        // Manual close — remove from stack and push history.back() to undo open()'s pushState
+        modalStack.remove(this._stackId);
+        modalStack.beginCloseGuard();
+        try { history.back(); } catch { /* History API unavailable */ }
+        setTimeout(() => modalStack.endCloseGuard(), 150);
+      }
+      this._stackId = null;
+    }
+    this._closingViaHistory = false;
+
     this.dispatchEvent(new CustomEvent('modal-closed', {
       bubbles: true,
       composed: true,
