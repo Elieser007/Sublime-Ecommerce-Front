@@ -189,7 +189,8 @@ const subcategoryColumns = [
   async function reloadByType(type: string) {
     if (type === 'section') {
       await loadSections();
-      renderCategories();
+      renderCategories();    // uses cached categories + fresh sections
+      renderSubcategories(); // uses cached subcategories + fresh categories
     } else if (type === 'category') {
       await loadCategories();
       renderSubcategories();

@@ -54,9 +54,8 @@ export function wrapModal(overlayId, options = {}) {
       modalStack.remove(stackId);
       stackId = null;
       modalStack.clearHistoryAnnotation();
+      if (options.onClose) options.onClose();
     }
-
-    if (options.onClose) options.onClose();
   }
 
   function isOpen() {

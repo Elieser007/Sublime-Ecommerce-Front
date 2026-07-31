@@ -40,6 +40,7 @@ if (typeof window !== 'undefined') {
   // Clear stale stack entries on Astro client-side navigation
   document.addEventListener('astro:page-load', () => {
     modalStack.clear();
+    modalStack.clearHistoryAnnotation();
     init();
   });
 }
