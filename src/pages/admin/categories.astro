@@ -114,7 +114,12 @@ const subcategoryColumns = [
           <input type="hidden" id="modal-type" />
           <div class="form-group">
             <label class="label-sm">Nombre *</label>
-            <input type="text" name="name" class="form-input body-md" required />
+            <input type="text" name="name" id="modal-name" class="form-input body-md" required />
+          </div>
+          <div class="form-group">
+            <label class="label-sm">Slug</label>
+            <input type="text" name="slug" id="modal-slug" class="form-input body-md" placeholder="auto-generado" />
+            <p class="label-sm" style="margin-top: 4px; opacity: 0.6;">Si lo dejas vacío se genera solo del nombre. Solo minúsculas, números y guiones.</p>
           </div>
           <div class="form-group" id="parent-group" style="display: none;">
             <label class="label-sm" id="parent-label">Sección</label>
@@ -149,6 +154,13 @@ const subcategoryColumns = [
   let sections: any[] = [];
   let categories: any[] = [];
   let subcategories: any[] = [];
+
+  function generateSlug(name: string): string {
+    return name.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  }
 
   async function loadSections() {
     const res = await fetch(`${API_URL}/api/admin/sections`, { credentials: 'include' });
@@ -299,8 +311,8 @@ const subcategoryColumns = [
       parentSelect.innerHTML = '<option value="">Seleccionar...</option>' + parentOptions.join('');
       if (data?.category_id) parentSelect.value = data.category_id;
     } else { parentGroup.style.display = 'none'; }
-    if (data) { const form = document.getElementById('modal-form') as HTMLFormElement; form.name.value = data.name || ''; form.description.value = data.description || ''; form.sortOrder.value = data.sort_order || 0; }
-    else { (document.getElementById('modal-form') as HTMLFormElement).reset(); }
+    if (data) { const form = document.getElementById('modal-form') as HTMLFormElement; form.name.value = data.name || ''; form.description.value = data.description || ''; form.sortOrder.value = data.sort_order || 0; const slugInput = document.getElementById('modal-slug') as HTMLInputElement; slugInput.value = data.slug || ''; slugInput.dataset.manual = data.slug ? 'true' : ''; }
+    else { (document.getElementById('modal-form') as HTMLFormElement).reset(); const slugInput = document.getElementById('modal-slug') as HTMLInputElement; slugInput.value = ''; slugInput.dataset.manual = ''; }
     catModal.open();
   }
 
@@ -362,6 +374,8 @@ const subcategoryColumns = [
       const id = (document.getElementById('modal-id') as HTMLInputElement).value;
       const isEdit = !!id;
       const body: any = { name: form.name.value, description: form.description.value || null, sortOrder: parseInt(form.sortOrder.value) || 0 };
+      const slug = form.slug?.value?.trim();
+      if (slug) body.slug = slug;
       if (type === 'category') body.sectionId = form.parentId.value;
       if (type === 'subcategory') body.categoryId = form.parentId.value;
       const endpoint = isEdit ? `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}/${id}` : `${API_URL}/api/${type === 'section' ? 'sections' : type === 'category' ? 'categories' : 'subcategories'}`;
@@ -369,6 +383,15 @@ const subcategoryColumns = [
       if (res.ok) { closeModal(); loadAll(); }
       else { const error = await res.json(); alert(error.error || 'Error al guardar'); }
     });
+
+    const slugInput = document.getElementById('modal-slug') as HTMLInputElement;
+    const nameInput = document.getElementById('modal-name') as HTMLInputElement;
+    nameInput?.addEventListener('input', (e) => {
+      if (!slugInput.dataset.manual || slugInput.dataset.manual !== 'true') {
+        slugInput.value = generateSlug((e.target as HTMLInputElement).value);
+      }
+    });
+    slugInput?.addEventListener('input', (e) => { (e.target as HTMLInputElement).dataset.manual = 'true'; });
 
     loadAll();
   });
