@@ -44,7 +44,7 @@ import Button from './Button.astro';
     <!-- Grupo: Principal -->
     <div class="nav-group">
       <span class="nav-group-title label-sm">Principal</span>
-      <a href="/dashboard" class="sidebar-link active" data-section="dashboard">
+      <a href="/dashboard" class="sidebar-link" data-section="dashboard">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="3" width="7" height="7"/>
           <rect x="14" y="3" width="7" height="7"/>
@@ -214,13 +214,19 @@ import Button from './Button.astro';
 
   function setActiveLink() {
     const activeSection = document.querySelector('.admin-sidebar')?.getAttribute('data-active');
-    if (activeSection) {
-      document.querySelectorAll('.sidebar-link').forEach((link) => {
-        if ((link as HTMLElement).dataset.section === activeSection) {
-          link.classList.add('active');
-        }
-      });
-    }
+    // Clear any previously highlighted link first (removes the stale
+    // hardcoded active state and leftover highlights after navigation).
+    document.querySelectorAll('.sidebar-link').forEach((link) => {
+      link.classList.remove('active');
+    });
+    if (!activeSection) return;
+    // /admin/nuevo maps to the products section (no dedicated nav link).
+    const section = activeSection === 'nuevo' ? 'products' : activeSection;
+    document.querySelectorAll('.sidebar-link').forEach((link) => {
+      if ((link as HTMLElement).dataset.section === section) {
+        link.classList.add('active');
+      }
+    });
   }
 
   async function checkDeployConfig() {
