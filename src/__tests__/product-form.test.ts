@@ -22,7 +22,8 @@ describe("validateProductForm", () => {
   const validData: ProductFormData = {
     name: "Test Product",
     price: 50000,
-    category: "T-Shirts",
+    sectionId: "s1",
+    categoryId: "c1",
   };
 
   it("returns null for valid data", () => {
@@ -54,8 +55,13 @@ describe("validateProductForm", () => {
     expect(validateProductForm(data)).toBeNull();
   });
 
-  it("returns error when category is empty", () => {
-    const data = { ...validData, category: "" };
+  it("returns error when sectionId is empty", () => {
+    const data = { ...validData, sectionId: "" };
+    expect(validateProductForm(data)).toBe("La sección es requerida");
+  });
+
+  it("returns error when categoryId is empty", () => {
+    const data = { ...validData, categoryId: "" };
     expect(validateProductForm(data)).toBe("La categoría es requerida");
   });
 });
@@ -67,13 +73,18 @@ describe("buildProductPayload", () => {
     const data: ProductFormData = {
       name: "Test Product",
       price: 50000,
-      category: "T-Shirts",
+      sectionId: "s1",
+      categoryId: "c1",
+      subcategoryId: "sub1",
       description: "A nice shirt",
     };
 
     const payload = buildProductPayload(data);
     expect(payload.name).toBe("Test Product");
     expect(payload.basePrice).toBe(50000);
+    expect(payload.sectionId).toBe("s1");
+    expect(payload.categoryId).toBe("c1");
+    expect(payload.subcategoryId).toBe("sub1");
     expect(payload.description).toBe("A nice shirt");
   });
 
@@ -81,7 +92,8 @@ describe("buildProductPayload", () => {
     const data: ProductFormData = {
       name: "  Test Product  ",
       price: 50000,
-      category: "T-Shirts",
+      sectionId: "s1",
+      categoryId: "c1",
     };
 
     const payload = buildProductPayload(data);
@@ -92,12 +104,25 @@ describe("buildProductPayload", () => {
     const data: ProductFormData = {
       name: "Test Product",
       price: 50000,
-      category: "T-Shirts",
+      sectionId: "s1",
+      categoryId: "c1",
       description: "",
     };
 
     const payload = buildProductPayload(data);
     expect(payload.description).toBeUndefined();
+  });
+
+  it("omits subcategoryId when not provided", () => {
+    const data: ProductFormData = {
+      name: "Test Product",
+      price: 50000,
+      sectionId: "s1",
+      categoryId: "c1",
+    };
+
+    const payload = buildProductPayload(data);
+    expect(payload.subcategoryId).toBeUndefined();
   });
 });
 
@@ -134,7 +159,8 @@ describe("createProduct", () => {
     const data: ProductFormData = {
       name: "Test",
       price: 50000,
-      category: "T-Shirts",
+      sectionId: "s1",
+      categoryId: "c1",
     };
 
     // The function accepts apiUrl — we test validation logic above

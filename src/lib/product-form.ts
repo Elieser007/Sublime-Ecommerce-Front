@@ -19,7 +19,9 @@ import { getApiUrl } from './api-url';
 export interface ProductFormData {
   name: string;
   price: number | null;
-  category: string;
+  sectionId: string;
+  categoryId: string;
+  subcategoryId?: string;
   description?: string;
   imageUrl?: string;
   alt?: string;
@@ -59,7 +61,11 @@ export function validateProductForm(data: ProductFormData): string | null {
     return "El precio es requerido y debe ser positivo";
   }
 
-  if (!data.category || data.category.trim().length === 0) {
+  if (!data.sectionId || data.sectionId.trim().length === 0) {
+    return "La sección es requerida";
+  }
+
+  if (!data.categoryId || data.categoryId.trim().length === 0) {
     return "La categoría es requerida";
   }
 
@@ -68,13 +74,18 @@ export function validateProductForm(data: ProductFormData): string | null {
 
 /**
  * Build the product creation payload from form data.
+ * The backend POST /api/products requires sectionId and categoryId.
  */
 export function buildProductPayload(data: ProductFormData) {
-  return {
+  const payload: Record<string, unknown> = {
     name: data.name.trim(),
     basePrice: data.price,
-    description: data.description?.trim() || undefined,
+    sectionId: data.sectionId,
+    categoryId: data.categoryId,
   };
+  if (data.description?.trim()) payload.description = data.description.trim();
+  if (data.subcategoryId?.trim()) payload.subcategoryId = data.subcategoryId.trim();
+  return payload;
 }
 
 // Re-export buildImagePayload for backward compatibility
@@ -92,6 +103,7 @@ export async function createProduct(
   const res = await fetch(`${apiUrl || getApiUrl()}/api/products`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
 
@@ -119,10 +131,10 @@ export async function associateImage(
   try {
     const result = await genericAssociateImage('products', productId, url, apiUrl, alt);
     return { success: true, image: result };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return {
       success: false,
-      error: err.message || 'Error associating image',
+      error: err instanceof Error ? err.message : 'Error associating image',
     };
   }
 }
@@ -141,10 +153,10 @@ export async function replaceImage(
   try {
     const result = await genericReplaceImage('products', productId, imageId, url, apiUrl, alt);
     return { success: true, image: result };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return {
       success: false,
-      error: err.message || 'Error replacing image',
+      error: err instanceof Error ? err.message : 'Error replacing image',
     };
   }
 }
@@ -156,14 +168,14 @@ export async function replaceImage(
 export async function fetchProductImages(
   productId: string,
   apiUrl?: string
-): Promise<{ success: boolean; images?: Array<{ id: string; url: string; alt: string | null; is_primary: number }>; error?: string }> {
+): Promise<{ success: boolean; images?: Array<{ id: string; url: string; alt: string | null; is_primary: boolean }>; error?: string }> {
   try {
     const images = await genericFetchEntityImages('products', productId, apiUrl);
     return { success: true, images };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return {
       success: false,
-      error: err.message || 'Error fetching images',
+      error: err instanceof Error ? err.message : 'Error fetching images',
     };
   }
 }
@@ -179,10 +191,10 @@ export async function uploadImage(
   try {
     const result = await genericUploadImage(file, apiUrl);
     return { success: true, url: result.url };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return {
       success: false,
-      error: err.message || 'Error uploading image',
+      error: err instanceof Error ? err.message : 'Error uploading image',
     };
   }
 }
@@ -201,11 +213,11 @@ export async function createProductWithImage(
   // Step 1: Create product
   const productResult = await createProduct(data, apiUrl);
 
-  if (!productResult.success) {
-    return { success: false, error: productResult.error };
+  if (!productResult.success || !productResult.product) {
+    return { success: false, error: productResult.error || 'Error al crear el producto' };
   }
 
-  const productId = productResult.product!.id;
+  const productId = productResult.product.id;
 
   // Step 2: Associate image if URL provided
   if (data.imageUrl) {

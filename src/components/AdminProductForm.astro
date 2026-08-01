@@ -45,32 +45,45 @@ const title = mode === 'create' ? 'Nuevo Producto' : 'Editar Producto';
 
       <Input
         name="price"
-        label="Precio (Gs.)"
+        label="Precio Base (Gs.)"
         type="number"
         placeholder="Ej: 120000"
         value={product?.price?.toString() || ''}
         required
       />
+    </div>
 
-      <Input
-        name="category"
-        label="Categoría"
-        placeholder="Ej: Ropa, Arte, Accesorios"
-        value={product?.category || ''}
-        required
-      />
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="label-sm" for="section-select">Sección *</label>
+        <select name="sectionId" id="section-select" class="form-select body-md" required>
+          <option value="">Seleccionar...</option>
+        </select>
+      </div>
 
-      <Input
-        name="description"
-        label="Descripción"
-        placeholder="Descripción del producto..."
-        value={product?.description || ''}
-      />
+      <div class="form-group">
+        <label class="label-sm" for="category-select">Categoría *</label>
+        <select name="categoryId" id="category-select" class="form-select body-md" required>
+          <option value="">Seleccionar sección primero</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="label-sm" for="subcategory-select">Subcategoría</label>
+        <select name="subcategoryId" id="subcategory-select" class="form-select body-md">
+          <option value="">Seleccionar categoría primero</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="label-sm" for="description">Descripción</label>
+        <textarea name="description" id="description" class="form-textarea body-md" rows="3" placeholder="Descripción del producto...">{product?.description || ''}</textarea>
+      </div>
     </div>
 
     <!-- Actions -->
     <div class="form-actions">
-      <Button variant="ghost" href="/admin">Cancelar</Button>
+      <Button variant="ghost" href="/admin/products">Cancelar</Button>
       <Button variant="primary" type="submit">
         {mode === 'create' ? 'Crear Producto' : 'Guardar Cambios'}
       </Button>
@@ -117,7 +130,56 @@ const title = mode === 'create' ? 'Nuevo Producto' : 'Editar Producto';
 
 <script>
   // Form submission handler — uses product-form.ts for API calls
+  import { getApiUrl } from '../lib/api-url';
+  import { escapeHtml } from '../lib/escape-html';
+
+  const API_URL = getApiUrl();
+  const $ = (id: string) => document.getElementById(id);
   const form = document.getElementById('product-form');
+
+  // ─── Cascade: Section → Category → Subcategory ─────────────
+  let sections: any[] = [];
+  let categories: any[] = [];
+  let subcategories: any[] = [];
+
+  function populateSelect(id: string, data: any[], placeholder: string, valueKey = 'id', labelKey = 'name') {
+    const el = $(id) as HTMLSelectElement;
+    if (!el) return;
+    el.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>` + data.map((d: any) => `<option value="${escapeHtml(d[valueKey])}">${escapeHtml(d[labelKey])}</option>`).join('');
+  }
+
+  async function loadDependencies() {
+    try {
+      const [sec, cats, subs] = await Promise.all([
+        fetch(`${API_URL}/api/sections`, { credentials: 'include' }).then(r => r.ok ? r.json() : { sections: [] }),
+        fetch(`${API_URL}/api/categories`, { credentials: 'include' }).then(r => r.ok ? r.json() : { categories: [] }),
+        fetch(`${API_URL}/api/subcategories`, { credentials: 'include' }).then(r => r.ok ? r.json() : { subcategories: [] }),
+      ]);
+      sections = sec.sections || [];
+      categories = cats.categories || [];
+      subcategories = subs.subcategories || [];
+      populateSelect('section-select', sections, 'Seleccionar...');
+    } catch {
+      // Cascade stays empty; the form submit validates required ids.
+    }
+  }
+
+  function onSectionChange() {
+    const sectionId = ($('section-select') as HTMLSelectElement).value;
+    const filtered = sectionId ? categories.filter((c: any) => c.section_id === sectionId) : [];
+    populateSelect('category-select', filtered, 'Seleccionar...');
+    populateSelect('subcategory-select', [], 'Seleccionar categoría primero');
+  }
+
+  function onCategoryChange() {
+    const categoryId = ($('category-select') as HTMLSelectElement).value;
+    const filtered = categoryId ? subcategories.filter((s: any) => s.category_id === categoryId) : [];
+    populateSelect('subcategory-select', filtered, 'Seleccionar...');
+  }
+
+  $('section-select')?.addEventListener('change', onSectionChange);
+  $('category-select')?.addEventListener('change', onCategoryChange);
+
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -136,7 +198,9 @@ const title = mode === 'create' ? 'Nuevo Producto' : 'Editar Producto';
       const productData = {
         name: data.name as string,
         price: data.price ? Number(data.price) : null,
-        category: data.category as string,
+        sectionId: data.sectionId as string,
+        categoryId: data.categoryId as string,
+        subcategoryId: (data.subcategoryId as string) || undefined,
         description: data.description as string,
       };
 
@@ -175,10 +239,12 @@ const title = mode === 'create' ? 'Nuevo Producto' : 'Editar Producto';
       (window as any).__processedImage = null;
       (window as any).__processedImageName = null;
 
-      // Redirect to admin
-      window.location.href = '/admin';
+      // Redirect to admin products list
+      window.location.href = '/admin/products';
     } catch (err: any) {
       alert(err.message || 'Error al guardar el producto');
     }
   });
+
+  loadDependencies();
 </script>
