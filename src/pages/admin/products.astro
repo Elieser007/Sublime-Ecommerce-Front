@@ -217,6 +217,7 @@ const columns = [
   import { loadProductList, uploadGalleryImages } from '../../lib/admin-products';
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
+  import { escapeHtml } from '../../lib/escape-html';
 
   const productModal = wrapModal('modal-overlay');
   const deleteModal = wrapModal('delete-overlay');
@@ -530,7 +531,7 @@ const columns = [
   function populateSelect(id: string, data: any[], placeholder: string, valueKey = 'id', labelKey = 'name') {
     const el = $(id) as HTMLSelectElement;
     if (!el) return;
-    el.innerHTML = `<option value="">${placeholder}</option>` + data.map((d: any) => `<option value="${d[valueKey]}">${d[labelKey]}</option>`).join('');
+    el.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>` + data.map((d: any) => `<option value="${escapeHtml(d[valueKey])}">${escapeHtml(d[labelKey])}</option>`).join('');
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -560,7 +561,7 @@ const columns = [
     const sectionId = ($('section-select') as HTMLSelectElement).value;
     const filtered = sectionId ? categories.filter((c: any) => c.section_id === sectionId) : [];
     const catSelect = $('category-select') as HTMLSelectElement;
-    catSelect.innerHTML = '<option value="">Seleccionar...</option>' + filtered.map((c: any) => `<option value="${c.id}">${c.name}</option>`).join('');
+    catSelect.innerHTML = '<option value="">Seleccionar...</option>' + filtered.map((c: any) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
     const subSelect = $('subcategory-select') as HTMLSelectElement;
     subSelect.innerHTML = '<option value="">Seleccionar categoría primero</option>';
   }
@@ -569,7 +570,7 @@ const columns = [
     const categoryId = ($('category-select') as HTMLSelectElement).value;
     const filtered = categoryId ? subcategories.filter((s: any) => s.category_id === categoryId) : [];
     const subSelect = $('subcategory-select') as HTMLSelectElement;
-    subSelect.innerHTML = '<option value="">Seleccionar...</option>' + filtered.map((s: any) => `<option value="${s.id}">${s.name}</option>`).join('');
+    subSelect.innerHTML = '<option value="">Seleccionar...</option>' + filtered.map((s: any) => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join('');
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -592,7 +593,11 @@ const columns = [
       totalItems = result.total;
       totalPages = result.totalPages;
       render();
-    } catch { if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Error</td></tr>'; }
+    } catch (err: any) {
+      if (err?.status === 401) { window.location.href = '/login'; return; }
+      if (err?.status === 403) { if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Sin autorización</td></tr>'; return; }
+      if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Error</td></tr>';
+    }
   }
 
   function render() {
@@ -604,21 +609,21 @@ const columns = [
         const isActive = !!p.is_active;
         const rowClass = isActive ? '' : 'row--inactive';
         const statusAction = isActive
-          ? `<button class="ta-btn ta-btn--delete" onclick="confirmToggleStatus('${p.id}', '${p.name.replace(/'/g, "\\'")}', false)" title="Desactivar">🗑️</button>`
-          : `<button class="ta-btn ta-btn--warning" onclick="confirmToggleStatus('${p.id}', '${p.name.replace(/'/g, "\\'")}', true)" title="Reactivar">🔄</button>`;
+          ? `<button class="ta-btn ta-btn--delete" onclick="confirmToggleStatus('${escapeHtml(p.id)}', false)" title="Desactivar">🗑️</button>`
+          : `<button class="ta-btn ta-btn--warning" onclick="confirmToggleStatus('${escapeHtml(p.id)}', true)" title="Reactivar">🔄</button>`;
         return `<tr class="${rowClass}">
-          <td data-label="Nombre"><strong>${p.name}</strong></td>
-          <td data-label="Slug"><code class="slug-display">${p.slug || '—'}</code></td>
-          <td data-label="Sección"><span class="tag tag--section">${p.section_name || '—'}</span></td>
-          <td data-label="Categoría">${p.category_name || '—'}</td>
-          <td data-label="Subcategoría">${p.subcategory_name || '—'}</td>
+          <td data-label="Nombre"><strong>${escapeHtml(p.name)}</strong></td>
+          <td data-label="Slug"><code class="slug-display">${escapeHtml(p.slug) || '—'}</code></td>
+          <td data-label="Sección"><span class="tag tag--section">${escapeHtml(p.section_name) || '—'}</span></td>
+          <td data-label="Categoría">${escapeHtml(p.category_name) || '—'}</td>
+          <td data-label="Subcategoría">${escapeHtml(p.subcategory_name) || '—'}</td>
           <td data-label="Precio Base">${fmt(p.base_price)}</td>
           <td data-label="Atributos"><span class="attr-badge">${p.attribute_count || 0} módulos</span></td>
           <td data-label="Estado"><span class="badge ${isActive ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${isActive ? 'Activo' : 'Inactivo'}</span></td>
           <td data-label="Acciones"><div class="cell-actions">
-            <button class="ta-btn ta-btn--attr" onclick="openAttributeManager('${p.id}', '${p.name.replace(/'/g, "\\'")}')" title="Atributos">🏷️</button>
-            <button class="ta-btn" onclick="editProduct('${p.id}')" title="Editar">✏️</button>
-            <button class="ta-btn ta-btn--price" onclick="openPricing('${p.id}')" title="Precios">💰</button>
+            <button class="ta-btn ta-btn--attr" onclick="openAttributeManager('${escapeHtml(p.id)}')" title="Atributos">🏷️</button>
+            <button class="ta-btn" onclick="editProduct('${escapeHtml(p.id)}')" title="Editar">✏️</button>
+            <button class="ta-btn ta-btn--price" onclick="openPricing('${escapeHtml(p.id)}')" title="Precios">💰</button>
             ${statusAction}
           </div></td>
         </tr>`;
@@ -734,7 +739,7 @@ const columns = [
   async function openPricing(productId: string) {
     pricingProductId = productId;
     const product = items.find((p: any) => p.id === productId);
-    $('price-product-info')!.innerHTML = product ? `<strong>${product.name}</strong> — Precio base: ${fmt(product.base_price)}` : '';
+    $('price-product-info')!.innerHTML = product ? `<strong>${escapeHtml(product.name)}</strong> — Precio base: ${fmt(product.base_price)}` : '';
 
     // Clear any previous error before a fresh open.
     const el = $('price-error');
@@ -774,7 +779,10 @@ const columns = [
   // ═══════════════════════════════════════════════════════════
   let pendingStatusToggle: { id: string; name: string; activate: boolean } | null = null;
 
-  (window as any).confirmToggleStatus = (id: string, name: string, activate: boolean) => {
+  (window as any).confirmToggleStatus = (id: string, activate: boolean) => {
+    const product = items.find((p: any) => p.id === id);
+    if (!product) return;
+    const name = product.name;
     pendingStatusToggle = { id, name, activate };
     $('status-modal-title')!.textContent = activate ? '🔄 Reactivar producto' : '⚠️ Desactivar producto';
     $('status-modal-message')!.textContent = activate
@@ -831,13 +839,14 @@ const columns = [
   // ═══════════════════════════════════════════════════════════
   let attributeManagerProductId: string | null = null;
 
-  (window as any).openAttributeManager = (id: string, name: string) => {
+  (window as any).openAttributeManager = (id: string) => {
+    const product = items.find((p: any) => p.id === id);
     attributeManagerProductId = id;
     const overlay = document.getElementById('attr-overlay');
     if (overlay) {
       overlay.dataset.productId = id;
       const title = overlay.querySelector('h3');
-      if (title) title.textContent = `Atributos — ${name}`;
+      if (title) title.textContent = `Atributos — ${product?.name || ''}`;
       overlay.style.display = '';
       window.dispatchEvent(new CustomEvent('open-attributes', { detail: { productId: id } }));
     }

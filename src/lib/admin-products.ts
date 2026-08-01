@@ -31,6 +31,20 @@ export interface GalleryUploadResult {
   reason?: any;
 }
 
+/**
+ * Error thrown when the product list endpoint returns an auth-related
+ * status (401/403) so callers can redirect to /login or surface a
+ * permission message instead of silently showing an empty table.
+ */
+export class ProductListHttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ProductListHttpError";
+    this.status = status;
+  }
+}
+
 // ─── loadProductList ────────────────────────────────────────
 
 /**
@@ -38,6 +52,10 @@ export interface GalleryUploadResult {
  *
  * The response already includes `attribute_count` per product
  * (backend Phase 2). No N+1 preloading needed.
+ *
+ * Auth handling mirrors branches/users/orders: 401 throws (caller redirects
+ * to /login), 403 throws with the status so callers can show a permission
+ * error, and any other non-OK response returns an empty result.
  */
 export async function loadProductList(
   apiUrl: string,
@@ -58,6 +76,12 @@ export async function loadProductList(
     });
 
     if (!res.ok) {
+      if (res.status === 401) {
+        throw new ProductListHttpError(401, "Unauthorized");
+      }
+      if (res.status === 403) {
+        throw new ProductListHttpError(403, "Forbidden");
+      }
       return { items: [], total: 0, totalPages: 1 };
     }
 
@@ -67,7 +91,8 @@ export async function loadProductList(
       total: data.total || 0,
       totalPages: data.pages || 1,
     };
-  } catch {
+  } catch (err) {
+    if (err instanceof ProductListHttpError) throw err;
     return { items: [], total: 0, totalPages: 1 };
   }
 }

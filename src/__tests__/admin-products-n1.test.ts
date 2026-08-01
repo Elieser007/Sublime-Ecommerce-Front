@@ -112,16 +112,22 @@ describe("loadProductList", () => {
     expect(result.totalPages).toBe(1);
   });
 
-  it("returns empty result on 401 (redirect scenario)", async () => {
+  it("throws on 401 so the caller can redirect to /login", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({ ok: false, status: 401 })
     );
 
-    const result = await loadProductList(API_URL, {});
+    await expect(loadProductList(API_URL, {})).rejects.toThrowError(/401|Unauthorized/);
+  });
 
-    expect(result.items).toEqual([]);
-    expect(result.total).toBe(0);
+  it("throws on 403 so the caller can surface a permission error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 403 })
+    );
+
+    await expect(loadProductList(API_URL, {})).rejects.toThrowError(/403|Forbidden/);
   });
 
   it("uses credentials: include for auth", async () => {
