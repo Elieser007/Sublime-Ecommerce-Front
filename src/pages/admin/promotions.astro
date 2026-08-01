@@ -2,7 +2,7 @@
 /**
  * Admin Promotions — Promotion Management
  * 
- * Left: Section list with display_type selector
+ * Left: Section list with grid_cols/grid_rows controls
  * Right: Promotions for selected section + live preview
  */
 import AdminLayout from '../../layouts/AdminLayout.astro';
@@ -42,13 +42,16 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
             <code class="slug-badge" id="section-slug">-</code>
           </div>
           <div class="manager-actions">
-            <select class="form-select body-md" id="display-type-select">
-              <option value="tiles">Tiles — Grid de cuadros</option>
-              <option value="carousel">Carousel — Slideshow</option>
-              <option value="hero">Hero — Banner full-width</option>
-              <option value="split">Split — Imagen + texto</option>
-              <option value="banner">Banner — Franja de texto</option>
-              <option value="ribbon">Ribbon — Cinta horizontal</option>
+            <select class="form-select body-md" id="grid-cols-select" aria-label="Columnas del grid">
+              <option value="1">1 columna</option>
+              <option value="2">2 columnas</option>
+              <option value="3">3 columnas</option>
+              <option value="4">4 columnas</option>
+            </select>
+            <select class="form-select body-md" id="grid-rows-select" aria-label="Filas del grid">
+              <option value="1">1 fila</option>
+              <option value="2">2 filas</option>
+              <option value="3">3 filas</option>
             </select>
             <Button variant="primary" id="add-promo-btn">+ Nuevo Anuncio</Button>
           </div>
@@ -139,8 +142,8 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 
       <div class="form-row" id="tile-options">
         <div class="form-group">
-          <label class="label-sm">Columnas (tile)</label>
-          <select name="tileCols" class="form-select body-md">
+          <label class="label-sm">Ancho (tile)</label>
+          <select name="width" class="form-select body-md">
             <option value="1">1</option>
             <option value="2">2</option>
             <option value="3">3</option>
@@ -148,16 +151,20 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
           </select>
         </div>
         <div class="form-group">
-          <label class="label-sm">Filas (tile)</label>
-          <select name="tileRows" class="form-select body-md">
+          <label class="label-sm">Alto (tile)</label>
+          <select name="height" class="form-select body-md">
             <option value="1">1</option>
             <option value="2">2</option>
             <option value="3">3</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="label-sm">Posición</label>
-          <input type="number" name="position" class="form-input body-md" value="0" min="0" />
+          <label class="label-sm">Posición X</label>
+          <input type="number" name="posX" class="form-input body-md" value="0" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="label-sm">Posición Y</label>
+          <input type="number" name="posY" class="form-input body-md" value="0" min="0" />
         </div>
       </div>
 
@@ -193,7 +200,6 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
   let sections: any[] = [];
   let selectedSection: any = null;
   let promotions: any[] = [];
-  let currentDisplayType = 'tiles';
   let promoImageState: PromoImageState = createEmptyPromoImageState();
 
   // ─── LOAD SECTIONS ──────────────────────────────────────
@@ -236,7 +242,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
             <strong class="body-md">${escapeHtml(s.name)}</strong>
             <code class="slug-badge">${escapeHtml(s.slug)}</code>
           </div>
-          <span class="badge badge--active">${escapeHtml(s.display_type)}</span>
+          <span class="badge badge--active">${escapeHtml(s.grid_cols)}×${escapeHtml(s.grid_rows)}</span>
         </div>
         <p class="section-card-slug body-sm">${escapeHtml(explainSlug(s.slug))}</p>
       </div>
@@ -250,26 +256,16 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     });
   }
 
-  const typeInfo: Record<string, string> = {
-    tiles: "El tipo Tiles muestra tus anuncios en un grid de cuadros. Cada anuncio puede ocupar diferente cantidad de espacio (1x1, 2x2, etc).",
-    carousel: "El tipo Carousel muestra un anuncio a la vez como un slideshow que cambia automaticamente.",
-    hero: "El tipo Hero es un banner grande que ocupa todo el ancho con imagen de fondo y texto centrado.",
-    split: "El tipo Split muestra imagen a un lado y texto al otro, alternando la direccion.",
-    banner: "El tipo Banner es una franja con texto centrado y borde decorativo. Sin imagenes.",
-    ribbon: "El tipo Ribbon es una cinta horizontal con varios anuncios lado a lado.",
-  };
-
   async function selectSection(sectionId: string) {
     selectedSection = sections.find((s: any) => s.id === sectionId);
     if (!selectedSection) return;
 
-    currentDisplayType = selectedSection.display_type;
-
     $('section-name')!.textContent = selectedSection.name;
     $('section-slug')!.textContent = selectedSection.slug;
-    ($('display-type-select') as HTMLSelectElement).value = currentDisplayType;
+    ($('grid-cols-select') as HTMLSelectElement).value = String(selectedSection.grid_cols || 4);
+    ($('grid-rows-select') as HTMLSelectElement).value = String(selectedSection.grid_rows || 1);
     $('promo-manager')!.style.display = '';
-    $('tile-options')!.style.display = currentDisplayType === 'tiles' ? '' : 'none';
+    $('tile-options')!.style.display = '';
 
     renderSections();
     await loadPromotions();
@@ -304,9 +300,9 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
         </div>
         <div class="promo-card-info">
           <strong class="body-md">${escapeHtml(p.title || '(sin título)')}</strong>
-          <span class="body-sm">${escapeHtml(p.description || '')}</span>
+          <span class="body-sm">${escapeHtml(p.subtitle || '')}</span>
           <code class="slug-badge">${escapeHtml(p.link)}</code>
-          ${currentDisplayType === 'tiles' ? `<span class="body-sm">${escapeHtml(p.tileCols)}×${escapeHtml(p.tileRows)} · pos ${escapeHtml(p.position)}</span>` : ''}
+          <span class="body-sm">${escapeHtml(p.tileCols)}×${escapeHtml(p.tileRows)} · pos (${escapeHtml(p.position)})</span>
         </div>
         <div class="promo-card-actions">
           <button class="ta-btn" onclick="editPromo('${escapeHtml(p.id)}')" title="Editar">✏️</button>
@@ -317,43 +313,6 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
   }
 
   // ─── LIVE PREVIEW ───────────────────────────────────────
-  function initPreviewCarousel(container: Element) {
-    const slides = container.querySelectorAll('.carousel-slide');
-    const dots = container.querySelectorAll('.carousel-dot');
-    const prevBtn = container.querySelector('.carousel-arrow--left');
-    const nextBtn = container.querySelector('.carousel-arrow--right');
-    let current = 0;
-    let timer: ReturnType<typeof setInterval>;
-
-    function goTo(index: number) {
-      slides[current].classList.remove('active');
-      dots[current].classList.remove('active');
-      current = index;
-      slides[current].classList.add('active');
-      dots[current].classList.add('active');
-    }
-
-    function next() { goTo((current + 1) % slides.length); }
-    function prev() { goTo((current - 1 + slides.length) % slides.length); }
-    function startAuto() { timer = setInterval(next, 5000); }
-    function stopAuto() { clearInterval(timer); }
-
-    prevBtn?.addEventListener('click', () => { stopAuto(); prev(); startAuto(); });
-    nextBtn?.addEventListener('click', () => { stopAuto(); next(); startAuto(); });
-    dots.forEach((dot) => {
-      dot.addEventListener('click', () => {
-        stopAuto();
-        goTo(parseInt((dot as HTMLElement).dataset.slide || '0'));
-        startAuto();
-      });
-    });
-
-    container.addEventListener('mouseenter', stopAuto);
-    container.addEventListener('mouseleave', startAuto);
-
-    if (slides.length > 1) startAuto();
-  }
-
   function renderPreview() {
     const container = $('live-preview-container');
     if (!container || !selectedSection) return;
@@ -362,65 +321,17 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       return;
     }
     container.innerHTML = '';
-    let html = '';
-    switch (currentDisplayType) {
-      case 'hero': {
-        const p = promotions[0];
-        html = `<div class="hero-promo"><div class="hero-bg" style="background-image:url('${escapeHtml(p.imageUrl)}')"></div><div class="hero-overlay"></div><div class="hero-content">${p.title ? `<h2 class="hero-title">${escapeHtml(p.title)}</h2>` : ''}${p.description ? `<p class="hero-desc">${escapeHtml(p.description)}</p>` : ''}<a href="${escapeHtml(p.link)}" class="hero-btn">Ver más</a></div></div>`;
-        break;
-      }
-      case 'carousel':
-        html = '<div class="carousel-promo" data-carousel-id="preview"><div class="carousel-track">';
-        promotions.forEach((pt: any, i: number) => {
-          html += `<div class="carousel-slide ${i === 0 ? 'active' : ''}" data-index="${i}"><div class="slide-bg" style="background-image:url('${escapeHtml(pt.imageUrl)}')"></div><div class="slide-overlay"></div><div class="slide-content">${pt.title ? `<h3 class="slide-title">${escapeHtml(pt.title)}</h3>` : ''}${pt.description ? `<p class="slide-desc">${escapeHtml(pt.description)}</p>` : ''}</div><a href="${escapeHtml(pt.link)}" class="slide-link" aria-label="${escapeHtml(pt.title || 'Promocion')}"></a></div>`;
-        });
-        html += '</div>';
-        if (promotions.length > 1) {
-          html += '<div class="carousel-dots">';
-          promotions.forEach((_: any, i: number) => {
-            html += `<button class="carousel-dot ${i === 0 ? 'active' : ''}" data-slide="${i}" aria-label="Slide ${i + 1}"></button>`;
-          });
-          html += '</div>';
-          html += '<button class="carousel-arrow carousel-arrow--left" aria-label="Anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>';
-          html += '<button class="carousel-arrow carousel-arrow--right" aria-label="Siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>';
-        }
-        html += '</div>';
-        break;
-      case 'tiles':
-        html = '<div class="tiles-promo" style="grid-template-columns:repeat(4,1fr);grid-auto-rows:160px;">';
-        promotions.forEach((pt: any) => {
-          const col = (pt.position % 4) + 1;
-          const row = Math.floor(pt.position / 4) + 1;
-          html += `<div class="tile" style="grid-column:${col}/span ${pt.tileCols};grid-row:${row}/span ${pt.tileRows};"><div class="tile-bg" style="background-image:url('${escapeHtml(pt.imageUrl)}')"></div><div class="tile-overlay"></div><div class="tile-content">${pt.title ? `<h3 class="tile-title">${escapeHtml(pt.title)}</h3>` : ''}${pt.description ? `<p class="tile-desc">${escapeHtml(pt.description)}</p>` : ''}</div><a href="${escapeHtml(pt.link)}" class="tile-link" aria-label="${escapeHtml(pt.title || 'Promocion')}"></a></div>`;
-        });
-        html += '</div>';
-        break;
-      case 'split':
-        html = '<div class="split-promo">';
-        promotions.forEach((pt: any, i: number) => {
-          const rev = i % 2 === 1 ? ' split-item--reverse' : '';
-          html += `<a href="${escapeHtml(pt.link)}" class="split-item${rev}"><div class="split-img"><img src="${escapeHtml(pt.imageUrl)}" alt="${escapeHtml(pt.title || '')}" /></div><div class="split-text">${pt.title ? `<h3 class="split-title">${escapeHtml(pt.title)}</h3>` : ''}${pt.description ? `<p class="split-desc">${escapeHtml(pt.description)}</p>` : ''}<span class="split-link">Ver más →</span></div></a>`;
-        });
-        html += '</div>';
-        break;
-      case 'banner':
-        html = '<div class="banner-promo">';
-        promotions.forEach((pt: any) => {
-          html += `<a href="${escapeHtml(pt.link)}" class="banner-item">${pt.title ? `<span class="banner-title">${escapeHtml(pt.title)}</span>` : ''}${pt.description ? `<span class="banner-desc">${escapeHtml(pt.description)}</span>` : ''}</a>`;
-        });
-        html += '</div>';
-        break;
-      case 'ribbon':
-        html = '<div class="ribbon-promo">';
-        promotions.forEach((pt: any) => {
-          html += `<a href="${escapeHtml(pt.link)}" class="ribbon-item"><div class="ribbon-bg" style="background-image:url('${escapeHtml(pt.imageUrl)}')"></div><div class="ribbon-overlay"></div><div class="ribbon-content">${pt.title ? `<span class="ribbon-title">${escapeHtml(pt.title)}</span>` : ''}${pt.description ? `<span class="ribbon-desc">${escapeHtml(pt.description)}</span>` : ''}</div></a>`;
-        });
-        html += '</div>';
-        break;
-    }
+    // The backend only supports the tiles layout (grid_cols/grid_rows).
+    const gridCols = Number(selectedSection.grid_cols) || 4;
+    let html = '<div class="tiles-promo" style="grid-template-columns:repeat(' + gridCols + ',1fr);grid-auto-rows:160px;">';
+    promotions.forEach((pt: any) => {
+      const col = (pt.position % gridCols) + 1;
+      const row = Math.floor(pt.position / gridCols) + 1;
+      const span = pt.tileCols || 1;
+      html += `<div class="tile" style="grid-column:${col}/span ${span};grid-row:${row}/span ${pt.tileRows || 1};"><div class="tile-bg" style="background-image:url('${escapeHtml(pt.imageUrl)}')"></div><div class="tile-overlay"></div><div class="tile-content">${pt.title ? `<h3 class="tile-title">${escapeHtml(pt.title)}</h3>` : ''}${pt.subtitle ? `<p class="tile-desc">${escapeHtml(pt.subtitle)}</p>` : ''}</div><a href="${escapeHtml(pt.link)}" class="tile-link" aria-label="${escapeHtml(pt.title || 'Promocion')}"></a></div>`;
+    });
+    html += '</div>';
     container.innerHTML = html;
-    const carousel = container.querySelector(".carousel-promo");
-    if (carousel) initPreviewCarousel(carousel);
   }
 
   // ─── IMAGE UPLOAD HANDLERS ──────────────────────────────
@@ -466,58 +377,8 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     }
   }
 
-  promoUploadArea?.addEventListener('click', (e) => {
-    if ((e.target as HTMLElement).closest('.promo-remove-btn')) return;
-    promoInput.click();
-  });
-
-  promoInput?.addEventListener('change', () => {
-    const file = promoInput.files?.[0];
-    if (file) handlePromoFile(file);
-  });
-
-  promoRemove?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    promoImageState = clearPromoImage(promoImageState);
-    if (promoImageUrlInput) promoImageUrlInput.value = '';
-    renderPromoImage();
-  });
-
-  // Drag & drop
-  promoUploadArea?.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    promoUploadArea.classList.add('promo-upload-area--dragover');
-  });
-  promoUploadArea?.addEventListener('dragleave', () => {
-    promoUploadArea.classList.remove('promo-upload-area--dragover');
-  });
-  promoUploadArea?.addEventListener('drop', (e) => {
-    e.preventDefault();
-    promoUploadArea.classList.remove('promo-upload-area--dragover');
-    const file = e.dataTransfer?.files?.[0];
-    if (file && file.type.startsWith('image/')) handlePromoFile(file);
-  });
-
-  // ─── DISPLAY TYPE CHANGE ────────────────────────────────
-  $('display-type-select')?.addEventListener('change', async (e) => {
-    const newType = (e.target as HTMLSelectElement).value;
-    if (!selectedSection) return;
-
-    const res = await fetch(`${API_URL}/api/promotion-sections/${selectedSection.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ displayType: newType }),
-    });
-
-    if (res.ok) {
-      currentDisplayType = newType;
-      selectedSection.display_type = newType;
-      $('tile-options')!.style.display = newType === 'tiles' ? '' : 'none';
-      renderSections();
-      renderPreview();
-    }
-  });
+  // Upload listeners and grid/display handlers are registered inside
+  // astro:page-load below to avoid duplicate bindings.
 
   // ─── MODAL ──────────────────────────────────────────────
   function openModal(isEdit: boolean, promo?: any) {
@@ -526,7 +387,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     $('form-error')!.textContent = '';
     $('modal-title')!.textContent = isEdit ? 'Editar Anuncio' : 'Nuevo Anuncio';
     ($('promo-id') as HTMLInputElement).value = promo?.id || '';
-    $('tile-options')!.style.display = currentDisplayType === 'tiles' ? '' : 'none';
+    $('tile-options')!.style.display = '';
 
     // Reset image state
     promoImageState = createEmptyPromoImageState();
@@ -535,11 +396,12 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 
     if (promo) {
       form.title.value = promo.title || '';
-      form.description.value = promo.description || '';
+      form.description.value = promo.subtitle || '';
       form.link.value = promo.link || '';
-      form.tileCols.value = promo.tileCols || 1;
-      form.tileRows.value = promo.tileRows || 1;
-      form.position.value = promo.position || 0;
+      form.width.value = promo.tileCols || 1;
+      form.height.value = promo.tileRows || 1;
+      form.posX.value = promo.position || 0;
+      form.posY.value = promo.posY || 0;
 
       // Load existing image
       if (promo.imageUrl) {
@@ -597,25 +459,27 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       if (file && file.type.startsWith('image/')) handlePromoFile(file);
     });
 
-    $('display-type-select')?.addEventListener('change', async (e) => {
-      const newType = (e.target as HTMLSelectElement).value;
+    const saveSectionGrid = async () => {
       if (!selectedSection) return;
-
+      const gridCols = parseInt(($('grid-cols-select') as HTMLSelectElement).value) || 4;
+      const gridRows = parseInt(($('grid-rows-select') as HTMLSelectElement).value) || 1;
       const res = await fetch(`${API_URL}/api/promotion-sections/${selectedSection.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ displayType: newType }),
+        body: JSON.stringify({ gridCols, gridRows }),
       });
 
       if (res.ok) {
-        currentDisplayType = newType;
-        selectedSection.display_type = newType;
-        $('tile-options')!.style.display = newType === 'tiles' ? '' : 'none';
+        selectedSection.grid_cols = gridCols;
+        selectedSection.grid_rows = gridRows;
         renderSections();
         renderPreview();
       }
-    });
+    };
+
+    $('grid-cols-select')?.addEventListener('change', saveSectionGrid);
+    $('grid-rows-select')?.addEventListener('change', saveSectionGrid);
 
     $('promo-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -651,11 +515,12 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
           sectionId: selectedSection.id,
           imageUrl,
           title: form.title.value || null,
-          description: form.description.value || null,
+          subtitle: form.description.value || null,
           link: form.link.value,
-          tileCols: parseInt(form.tileCols.value) || 1,
-          tileRows: parseInt(form.tileRows.value) || 1,
-          position: parseInt(form.position.value) || 0,
+          posX: parseInt(form.posX.value) || 0,
+          posY: parseInt(form.posY.value) || 0,
+          width: parseInt(form.width.value) || 1,
+          height: parseInt(form.height.value) || 1,
         };
 
         const res = await fetch(isEdit ? `${API_URL}/api/promotions/${id}` : `${API_URL}/api/promotions`, {
