@@ -104,6 +104,7 @@ const columns = [
 <script>
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
+  import { escapeHtml } from '../../lib/escape-html';
   const orderModal = wrapModal('modal-overlay');
 
   const API_URL = getApiUrl();
@@ -120,18 +121,19 @@ const columns = [
   let currentBranch = '';
   let branches: any[] = [];
   let currentOrderId: string | null = null;
+  let currentOrderStatus: string = '';
 
   const $ = (id: string) => document.getElementById(id);
   const formatPrice = (cents: number) => `₲ ${(cents || 0).toLocaleString('es-PY')}`;
   const shortId = (id: string) => (id || '').slice(0, 8);
-  const statusBadge = (status: string) => `<span class="badge badge--${status}"><span class="badge-dot"></span>${STATUS_LABELS[status] || status}</span>`;
+  const statusBadge = (status: string) => `<span class="badge badge--${escapeHtml(status)}"><span class="badge-dot"></span>${escapeHtml(STATUS_LABELS[status] || status)}</span>`;
 
   async function loadBranches() {
     const res = await fetch(`${API_URL}/api/branches`, { credentials: 'include' });
     if (!res.ok) return;
     const data = await res.json();
     branches = data.branches || [];
-    ($('branch-filter') as HTMLSelectElement).innerHTML = '<option value="">Todas las sucursales</option>' + branches.map((b: any) => `<option value="${b.id}">${b.name}</option>`).join('');
+    ($('branch-filter') as HTMLSelectElement).innerHTML = '<option value="">Todas las sucursales</option>' + branches.map((b: any) => `<option value="${escapeHtml(b.id)}">${escapeHtml(b.name)}</option>`).join('');
   }
 
   async function loadOrders() {
@@ -164,14 +166,14 @@ const columns = [
       tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">No hay pedidos</td></tr>';
     } else {
       tbody.innerHTML = items.map((o: any) => `<tr>
-        <td data-label="ID"><code class="id-badge">${shortId(o.id)}</code></td>
-        <td data-label="Cliente"><strong>${o.customer_name}</strong></td>
-        <td data-label="Teléfono">${o.customer_phone}</td>
-        <td data-label="Sucursal">${o.branch_name || '—'}</td>
+        <td data-label="ID"><code class="id-badge">${escapeHtml(shortId(o.id))}</code></td>
+        <td data-label="Cliente"><strong>${escapeHtml(o.customer_name)}</strong></td>
+        <td data-label="Teléfono">${escapeHtml(o.customer_phone)}</td>
+        <td data-label="Sucursal">${escapeHtml(o.branch_name) || '—'}</td>
         <td data-label="Total">${formatPrice(o.total)}</td>
         <td data-label="Estado">${statusBadge(o.status)}</td>
         <td data-label="Creado">${new Date(o.created_at * 1000).toLocaleDateString('es-PY')}</td>
-        <td data-label="Acciones"><div class="cell-actions"><button class="ta-btn" onclick="viewOrder('${o.id}')" title="Ver">👁️</button></div></td>
+        <td data-label="Acciones"><div class="cell-actions"><button class="ta-btn" onclick="viewOrder('${escapeHtml(o.id)}')" title="Ver">👁️</button></div></td>
       </tr>`).join('');
     }
     updatePagination();
@@ -200,11 +202,12 @@ const columns = [
       $('detail-created')!.textContent = new Date(order.created_at * 1000).toLocaleString('es-PY');
       $('detail-notes')!.textContent = order.notes || 'Sin notas';
       ($('detail-items') as HTMLTableSectionElement).innerHTML = (order.items || []).map((item: any) => `<tr>
-        <td>${item.product_name || '—'}</td><td>${item.variant_name || '—'}</td><td>${item.quantity}</td><td>${formatPrice(item.unit_price)}</td><td>${formatPrice(item.total_price)}</td>
+        <td>${escapeHtml(item.product_name) || '—'}</td><td>${escapeHtml(item.variant_name) || '—'}</td><td>${item.quantity}</td><td>${formatPrice(item.unit_price)}</td><td>${formatPrice(item.total_price)}</td>
       </tr>`).join('');
       const statusSelect = $('status-select') as HTMLSelectElement;
       const allowed = ALLOWED_TRANSITIONS[order.status] || [];
-      statusSelect.innerHTML = `<option value="${order.status}" selected>${STATUS_LABELS[order.status]} (actual)</option>` + allowed.map((s: string) => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('');
+      currentOrderStatus = order.status;
+      statusSelect.innerHTML = `<option value="${escapeHtml(order.status)}" selected>${escapeHtml(STATUS_LABELS[order.status])} (actual)</option>` + allowed.map((s: string) => `<option value="${escapeHtml(s)}">${escapeHtml(STATUS_LABELS[s])}</option>`).join('');
       $('modal-title')!.textContent = `Pedido ${shortId(order.id)}`;
       orderModal.open();
       $('form-error')!.textContent = '';
@@ -233,8 +236,20 @@ const columns = [
       if (!currentOrderId) return;
       const status = ($('status-select') as HTMLSelectElement).value;
       const notes = ($('notes-input') as HTMLInputElement).value;
+
+      // The backend rejects status == current status (state machine) and also
+      // rejects a missing status (VALID_STATUSES.includes(undefined) is false),
+      // so a note-only save is impossible. Guard the no-op submit instead of
+      // sending a request that always 400s.
+      if (status === currentOrderStatus) {
+        $('form-error')!.textContent = 'Seleccioná un estado distinto para guardar.';
+        return;
+      }
+
+      const body: Record<string, string> = { status };
+      if (notes.trim()) body.notes = notes.trim();
       const res = await fetch(`${API_URL}/api/orders/${currentOrderId}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ status, notes }),
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
       });
       if (!res.ok) { const err = await res.json(); $('form-error')!.textContent = err.error || 'Error'; return; }
       closeModal(); loadOrders();
