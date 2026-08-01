@@ -113,6 +113,7 @@ const columns = [
       <div class="form-group">
         <label class="label-sm">Sucursales</label>
         <select name="branchIds" id="branch-ids" class="form-select body-md" multiple size="4"></select>
+        <p class="form-hint" id="branch-ids-hint" style="display: none;">Las sucursales solo se asignan al crear el usuario. Para cambios, editá desde el panel de sucursales.</p>
       </div>
       <div class="form-error" id="form-error"></div>
       <div class="form-actions">
@@ -128,6 +129,7 @@ const columns = [
   import { uploadImageBlob } from '../../lib/image-utils';
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
+  import { escapeHtml } from '../../lib/escape-html';
   const userModal = wrapModal('modal-overlay');
   import {
     createEmptyAvatarState,
@@ -159,7 +161,7 @@ const columns = [
     const data = await res.json();
     branches = data.branches || [];
     const select = $('branch-ids') as HTMLSelectElement;
-    select.innerHTML = branches.map((b: any) => `<option value="${b.id}">${b.name}</option>`).join('');
+    select.innerHTML = branches.map((b: any) => `<option value="${escapeHtml(b.id)}">${escapeHtml(b.name)}</option>`).join('');
   }
 
   async function loadUsers() {
@@ -193,18 +195,18 @@ const columns = [
       tbody.innerHTML = items.map((u: any) => {
         const isSelf = u.id === currentUserId;
         const avatarHtml = u.image
-          ? `<img src="${u.image}" alt="${u.name}" class="user-avatar" />`
-          : `<div class="user-avatar user-avatar--placeholder">${u.name?.charAt(0)?.toUpperCase() || '?'}</div>`;
+          ? `<img src="${escapeHtml(u.image)}" alt="${escapeHtml(u.name)}" class="user-avatar" />`
+          : `<div class="user-avatar user-avatar--placeholder">${escapeHtml(u.name?.charAt(0)?.toUpperCase() || '?')}</div>`;
         return `<tr>
           <td data-label="Avatar">${avatarHtml}</td>
-          <td data-label="Nombre"><strong>${u.name}</strong></td>
-          <td data-label="Email">${u.email}</td>
+          <td data-label="Nombre"><strong>${escapeHtml(u.name)}</strong></td>
+          <td data-label="Email">${escapeHtml(u.email)}</td>
           <td data-label="Rol"><span class="badge ${u.role === 'admin' ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${u.role === 'admin' ? 'Admin' : 'Cliente'}</span></td>
-          <td data-label="Sucursal">${u.branch_names || '—'}</td>
+          <td data-label="Sucursal">${escapeHtml(u.branch_names) || '—'}</td>
           <td data-label="Creado">${new Date(u.created_at * 1000).toLocaleDateString('es-PY')}</td>
           <td data-label="Acciones"><div class="cell-actions">
-            <button class="ta-btn" onclick="editUser('${u.id}')" title="Editar">✏️</button>
-            ${isSelf ? '<span class="self-tag">Tú</span>' : `<button class="ta-btn ta-btn--delete" onclick="deleteUser('${u.id}')" title="Eliminar">🗑️</button>`}
+            <button class="ta-btn" onclick="editUser('${escapeHtml(u.id)}')" title="Editar">✏️</button>
+            ${isSelf ? '<span class="self-tag">Tú</span>' : `<button class="ta-btn ta-btn--delete" onclick="deleteUser('${escapeHtml(u.id)}')" title="Eliminar">🗑️</button>`}
           </div></td>
         </tr>`;
       }).join('');
@@ -305,6 +307,15 @@ const columns = [
     ($('modal-id') as HTMLInputElement).value = user?.id || '';
     ($('password-group') as HTMLElement).style.display = isEdit ? 'none' : 'block';
 
+    // Branch assignments are only applied on create: the backend PUT
+    // /api/users/:id ignores branchIds (only name/email/role/image are
+    // updated). Disable the control on edit instead of silently discarding
+    // the selection.
+    const branchSelect = $('branch-ids') as HTMLSelectElement;
+    const branchHint = $('branch-ids-hint') as HTMLElement;
+    if (branchSelect) branchSelect.disabled = isEdit;
+    if (branchHint) branchHint.style.display = isEdit ? 'block' : 'none';
+
     // Reset avatar state
     avatarState = createEmptyAvatarState();
     if (avatarUrlInput) avatarUrlInput.value = '';
@@ -381,7 +392,9 @@ const columns = [
           avatarUrl: avatarUrl || null,
         };
         if (!isEdit) body.password = form.password.value;
-        body.branchIds = Array.from((form.branchIds as unknown as HTMLSelectElement).selectedOptions).map((o) => o.value);
+        if (!isEdit) {
+          body.branchIds = Array.from((form.branchIds as unknown as HTMLSelectElement).selectedOptions).map((o) => o.value);
+        }
 
         const res = await fetch(isEdit ? `${API_URL}/api/users/${id}` : `${API_URL}/api/users`, {
           method: isEdit ? 'PUT' : 'POST',
@@ -420,6 +433,7 @@ const columns = [
 
 <style>
   /* ─── Users-specific styles ───────────────────────────────── */
+  .form-hint { color: #626870; font-size: 12px; margin-top: 2px; }
   .self-tag {
     font-family: 'Space Mono', monospace;
     font-size: 10px;
