@@ -181,6 +181,7 @@ const columns = [
         <input type="number" id="price-value" class="form-input body-md" placeholder="Precio (Gs.)" min="0" />
         <Button variant="primary" id="add-price-btn">+ Agregar</Button>
       </div>
+      <div class="form-error" id="price-error" role="alert" hidden></div>
       <table class="prices-table">
         <thead><tr><th class="label-sm">Desde Cant.</th><th class="label-sm">Precio</th><th class="label-sm">Acciones</th></tr></thead>
         <tbody id="prices-tbody"></tbody>
@@ -738,6 +739,10 @@ const columns = [
     const product = items.find((p: any) => p.id === productId);
     $('price-product-info')!.innerHTML = product ? `<strong>${product.name}</strong> — Precio base: ${fmt(product.base_price)}` : '';
 
+    // Clear any previous error before a fresh open.
+    const el = $('price-error');
+    if (el) { el.textContent = ''; el.hidden = true; }
+
     await loadPrices(productId);
     pricingModal.open();
   }
@@ -1055,10 +1060,16 @@ const columns = [
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({ minQuantity, price }),
       });
+      const el = $('price-error');
       if (res.ok) {
+        if (el) { el.textContent = ''; el.hidden = true; }
         ($('price-min-qty') as HTMLInputElement).value = '1';
         ($('price-value') as HTMLInputElement).value = '';
         loadPrices(pricingProductId);
+      } else {
+        let msg = 'Error al guardar el precio';
+        try { const b = await res.json(); if (b?.error) msg = b.error; } catch {}
+        if (el) { el.textContent = msg; el.hidden = false; }
       }
     });
 
