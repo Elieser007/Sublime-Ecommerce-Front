@@ -1,54 +1,24 @@
 ---
 /**
- * Admin Dashboard — Sublime E-commerce
- * 
- * Product list with edit/delete actions.
- * Uses AdminSidebar + AdminTable components.
+ * /admin — Redirect to the real product management page.
+ *
+ * Zero-JS meta refresh (SSG-friendly, no flash of placeholder content).
+ * The auth guard on /admin/products handles the unauthenticated case,
+ * redirecting to /login as required.
  */
-
-import AdminLayout from '../../layouts/AdminLayout.astro';
-import AdminSidebar from '../../components/AdminSidebar.astro';
-import AdminTable from '../../components/AdminTable.astro';
-import Button from '../../components/Button.astro';
-
-// Placeholder products
-const products = [
-  { id: '1', name: 'Camiseta Sublime Básica', price: 120000, category: 'Ropa', image: '/placeholder-product.svg' },
-  { id: '2', name: 'Estampa CMYK Edición Limitada', price: 250000, category: 'Arte', image: '/placeholder-product.svg' },
-  { id: '3', name: 'Tote Bag Sublime', price: 85000, category: 'Accesorios', image: '/placeholder-product.svg' },
-  { id: '4', name: 'Poster High Contrast', price: 95000, category: 'Arte', image: '/placeholder-product.svg' },
-];
 ---
 
-<AdminLayout title="Admin — Sublime E-commerce">
-  <AdminSidebar active="productos" />
-
-  <main class="admin-main">
-    <div class="admin-header">
-      <h1 class="headline-lg-mobile">Productos</h1>
-      <div class="admin-header-actions">
-        <Button href="/admin/nuevo" variant="primary">+ Nuevo Producto</Button>
-      </div>
-    </div>
-
-    <AdminTable products={products} />
-  </main>
-</AdminLayout>
-
-
-
-<style>
-  /* ─── Index-specific styles ────────────────────────────────── */
-  .admin-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-md);
-  }
-  .admin-header-actions {
-    display: flex;
-    gap: var(--space-md);
-    flex-wrap: wrap;
-  }
-</style>
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirigiendo a Productos… — Sublime</title>
+    <meta http-equiv="refresh" content="0; url=/admin/products" />
+  </head>
+  <body>
+    <main>
+      <p>Redirigiendo a <a href="/admin/products">/admin/products</a>…</p>
+    </main>
+  </body>
+</html>
