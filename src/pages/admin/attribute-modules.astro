@@ -142,6 +142,7 @@ const COMPONENT_OPTIONS = [
 
 <script>
   import { getApiUrl } from '../../lib/api-url';
+  import { escapeHtml } from '../../lib/escape-html';
   const API_URL = getApiUrl();
   let modules: any[] = [];
   let expandedModuleId: string | null = null;
@@ -209,26 +210,26 @@ const COMPONENT_OPTIONS = [
       const statusLabel = m.is_active ? 'Activo' : 'Inactivo';
 
       return `
-        <tr class="module-row ${isExpanded ? 'expanded' : ''}" data-module-id="${m.id}">
+        <tr class="module-row ${isExpanded ? 'expanded' : ''}" data-module-id="${escapeHtml(m.id)}">
           <td data-label="Nombre">
-            <button class="expand-btn" onclick="toggleExpand('${m.id}')" title="Ver valores">
+            <button class="expand-btn" onclick="toggleExpand('${escapeHtml(m.id)}')" title="Ver valores">
               <span class="expand-icon">${isExpanded ? '▼' : '▶'}</span>
-              <strong>${m.name}</strong>
+              <strong>${escapeHtml(m.name)}</strong>
             </button>
           </td>
-          <td data-label="Slug"><code class="slug-badge">${m.slug}</code></td>
-          <td data-label="Componente"><span class="component-badge">${componentLabel}</span></td>
+          <td data-label="Slug"><code class="slug-badge">${escapeHtml(m.slug)}</code></td>
+          <td data-label="Componente"><span class="component-badge">${escapeHtml(componentLabel)}</span></td>
           <td data-label="Valores" class="center">${m.value_count ?? 0}</td>
           <td data-label="Orden" class="center">${m.sort_order}</td>
-          <td data-label="Estado"><span class="badge badge--${statusClass}"><span class="badge-dot"></span>${statusLabel}</span></td>
+          <td data-label="Estado"><span class="badge badge--${escapeHtml(statusClass)}"><span class="badge-dot"></span>${escapeHtml(statusLabel)}</span></td>
           <td data-label="Acciones">
             <div class="cell-actions">
-              <button class="ta-btn" onclick="editModule('${m.id}')" title="Editar">✏️</button>
-              <button class="ta-btn ta-btn--delete" onclick="deleteModule('${m.id}')" title="Eliminar">🗑️</button>
+              <button class="ta-btn" onclick="editModule('${escapeHtml(m.id)}')" title="Editar">✏️</button>
+              <button class="ta-btn ta-btn--delete" onclick="deleteModule('${escapeHtml(m.id)}')" title="Eliminar">🗑️</button>
             </div>
           </td>
         </tr>
-        ${isExpanded ? `<tr class="values-row"><td colspan="7"><div class="values-panel" id="values-${m.id}"><div class="values-loading">Cargando valores...</div></div></td></tr>` : ''}
+        ${isExpanded ? `<tr class="values-row"><td colspan="7"><div class="values-panel" id="values-${escapeHtml(m.id)}"><div class="values-loading">Cargando valores...</div></div></td></tr>` : ''}
       `;
     }).join('');
 
@@ -252,7 +253,7 @@ const COMPONENT_OPTIONS = [
       panel.innerHTML = `
         <div class="values-header">
           <span class="values-title body-md">Valores</span>
-          <button class="btn btn--primary btn--sm" onclick="openValueModal('${moduleId}')">
+          <button class="btn btn--primary btn--sm" onclick="openValueModal('${escapeHtml(moduleId)}')">
             <span class="btn-icon">+</span> Agregar Valor
           </button>
         </div>
@@ -264,21 +265,21 @@ const COMPONENT_OPTIONS = [
     panel.innerHTML = `
       <div class="values-header">
         <span class="values-title body-md">Valores (${values.length})</span>
-        <button class="btn btn--primary btn--sm" onclick="openValueModal('${moduleId}')">
+        <button class="btn btn--primary btn--sm" onclick="openValueModal('${escapeHtml(moduleId)}')">
           <span class="btn-icon">+</span> Agregar Valor
         </button>
       </div>
       <div class="values-grid">
         ${values.map((v: any) => `
-          <div class="value-card" data-value-id="${v.id}">
+          <div class="value-card" data-value-id="${escapeHtml(v.id)}">
             <div class="value-info">
-              ${v.hex_color ? `<span class="color-dot" style="background-color: ${v.hex_color}"></span>` : ''}
-              <span class="value-label">${v.label}</span>
-              <code class="value-raw">${v.raw_value}</code>
+              ${v.hex_color ? `<span class="color-dot" style="background-color: ${escapeHtml(v.hex_color)}"></span>` : ''}
+              <span class="value-label">${escapeHtml(v.label)}</span>
+              <code class="value-raw">${escapeHtml(v.raw_value)}</code>
             </div>
             <div class="value-actions">
-              <button class="ta-btn" onclick="editValue('${moduleId}', '${v.id}')" title="Editar">✏️</button>
-              <button class="ta-btn ta-btn--delete" onclick="deleteValue('${v.id}')" title="Eliminar">🗑️</button>
+              <button class="ta-btn" onclick="editValue('${escapeHtml(moduleId)}', '${escapeHtml(v.id)}')" title="Editar">✏️</button>
+              <button class="ta-btn ta-btn--delete" onclick="deleteValue('${escapeHtml(v.id)}')" title="Eliminar">🗑️</button>
             </div>
           </div>
         `).join('')}

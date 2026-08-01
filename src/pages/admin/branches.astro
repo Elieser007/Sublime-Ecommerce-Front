@@ -95,6 +95,7 @@ const columns = [
 <script>
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
+  import { escapeHtml } from '../../lib/escape-html';
   const branchModal = wrapModal('modal-overlay');
 
   const API_URL = getApiUrl();
@@ -137,14 +138,14 @@ const columns = [
       tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">No hay sucursales</td></tr>';
     } else {
       tbody.innerHTML = items.map((b: any) => `<tr>
-        <td data-label="Nombre"><strong>${b.name}</strong></td>
-        <td data-label="Slug"><code class="slug-badge">${b.slug}</code></td>
-        <td data-label="Dirección">${b.address || '—'}</td>
-        <td data-label="Teléfono">${b.phone || '—'}</td>
+        <td data-label="Nombre"><strong>${escapeHtml(b.name)}</strong></td>
+        <td data-label="Slug"><code class="slug-badge">${escapeHtml(b.slug)}</code></td>
+        <td data-label="Dirección">${escapeHtml(b.address) || '—'}</td>
+        <td data-label="Teléfono">${escapeHtml(b.phone) || '—'}</td>
         <td data-label="Estado"><span class="badge ${b.is_active ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${b.is_active ? 'Activo' : 'Inactivo'}</span></td>
         <td data-label="Acciones"><div class="cell-actions">
-          <button class="ta-btn" onclick="editBranch('${b.id}')" title="Editar">✏️</button>
-          <button class="ta-btn ta-btn--delete" onclick="deleteBranch('${b.id}')" title="Desactivar">🗑️</button>
+          <button class="ta-btn" onclick="editBranch('${escapeHtml(b.id)}')" title="Editar">✏️</button>
+          <button class="ta-btn ta-btn--delete" onclick="deleteBranch('${escapeHtml(b.id)}')" title="Desactivar">🗑️</button>
         </div></td>
       </tr>`).join('');
     }
