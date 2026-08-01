@@ -141,7 +141,8 @@ const COMPONENT_OPTIONS = [
 </AdminLayout>
 
 <script>
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  import { getApiUrl } from '../../lib/api-url';
+  const API_URL = getApiUrl();
   let modules: any[] = [];
   let expandedModuleId: string | null = null;
   let moduleValues: Record<string, any[]> = {};

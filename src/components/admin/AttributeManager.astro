@@ -538,12 +538,13 @@ const { productId, productName } = Astro.props;
 
 <script>
   import { wrapModal } from '../../lib/modalHelper';
+  import { getApiUrl } from '../../lib/api-url';
 
   const attrModal = wrapModal('attr-overlay');
   const depModal = wrapModal('dep-overlay');
   const valuePickerModal = wrapModal('value-picker-overlay');
 
-  const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_API_URL) || 'http://localhost:8787';
+  const API_URL = getApiUrl();
 
   // State
   let productId = '';

@@ -236,7 +236,8 @@ const { productId } = Astro.props;
 </style>
 
 <script>
-  const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_API_URL) || 'http://localhost:8787';
+  import { getApiUrl } from '../../lib/api-url';
+  const API_URL = getApiUrl();
 
   let allModules: any[] = [];
   let dependencies: any[] = [];

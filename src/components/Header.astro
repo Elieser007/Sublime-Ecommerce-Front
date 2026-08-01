@@ -192,6 +192,7 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 
 <script>
   import { updateCartBadge } from '../lib/cart.js';
+  import { getApiUrl } from '../lib/api-url';
 
   window.addEventListener("storage", updateCartBadge);
   window.addEventListener("cart-updated", updateCartBadge);
@@ -233,7 +234,7 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
     });
 
     // Session check — update user icon
-    const API_URL = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
+    const API_URL = getApiUrl();
 
     async function checkSession() {
       try {

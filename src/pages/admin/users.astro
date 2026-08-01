@@ -125,8 +125,9 @@ const columns = [
 </AdminLayout>
 
 <script>
-  import { uploadImage } from '../../lib/image-utils';
+  import { uploadImageBlob } from '../../lib/image-utils';
   import { wrapModal } from '../../lib/modalHelper';
+  import { getApiUrl } from '../../lib/api-url';
   const userModal = wrapModal('modal-overlay');
   import {
     createEmptyAvatarState,
@@ -138,7 +139,7 @@ const columns = [
     type AvatarState,
   } from '../../lib/user-avatar';
 
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const API_URL = getApiUrl();
   let items: any[] = [];
   let currentPage = 1;
   let limit = 25;
@@ -363,8 +364,7 @@ const columns = [
       try {
         let avatarUrl = avatarUrlInput.value;
         if (avatarState.isNew && avatarState.blob) {
-          const file = new File([avatarState.blob], 'avatar.webp', { type: 'image/webp' });
-          const uploadResult = await uploadImage(file, API_URL);
+          const uploadResult = await uploadImageBlob(avatarState.blob, 'avatar.webp', API_URL);
           if (!uploadResult.url) {
             $('form-error')!.textContent = uploadResult.error || 'Error al subir avatar';
             submitBtn.disabled = false;

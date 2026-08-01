@@ -215,8 +215,9 @@ import Button from '../components/Button.astro';
 </style>
 
 <script>
+  import { getApiUrl } from '../lib/api-url';
   // Better Auth client import (browser-side)
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const API_URL = getApiUrl();
 
   function showError(msg: string) {
     const errorEl = document.getElementById('auth-error');

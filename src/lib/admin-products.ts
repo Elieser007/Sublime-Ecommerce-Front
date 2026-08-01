@@ -5,6 +5,7 @@
  * Extracted from products.astro <script> to enable TDD.
  */
 
+import { uploadAndAssociate } from './image-utils';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -76,53 +77,27 @@ export async function loadProductList(
 /**
  * Upload gallery images concurrently using Promise.allSettled.
  *
- * Each image is uploaded to R2 via POST /api/upload, then
- * associated with the product via POST /api/products/:id/images.
- * Partial failures are handled gracefully — successful uploads
- * still get associated with the product.
+ * Each image goes through the single upload path in image-utils.ts
+ * (uploadAndAssociate → uploadImageBlob → POST /api/upload), then is
+ * associated with the product. Partial failures are handled gracefully —
+ * successful uploads still get associated with the product.
  */
 export async function uploadGalleryImages(
   files: File[],
   productId: string,
-  apiUrl: string,
+  apiUrl?: string,
   startSortOrder = 0
 ): Promise<GalleryUploadResult[]> {
   if (files.length === 0) return [];
 
   const uploadPromises = files.map(async (file, index) => {
-    const formData = new FormData();
-    const fileName = file.name.replace(/\.[^.]+$/, ".webp") || "gallery.webp";
-    formData.append("image", new File([file], fileName, { type: "image/webp" }));
-
-    const uploadRes = await fetch(`${apiUrl}/api/upload`, {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-    });
-
-    if (!uploadRes.ok) {
-      const err = await uploadRes.json().catch(() => ({}));
-      throw new Error(err.error || "Error uploading image");
-    }
-
-    const uploadData = await uploadRes.json();
-
-    // Offset by startSortOrder so new images append after existing ones.
     const sortOrder = startSortOrder + index;
 
-    const associateRes = await fetch(`${apiUrl}/api/products/${productId}/images`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ url: uploadData.url, alt: "", is_primary: 0, sort_order: sortOrder }),
+    return uploadAndAssociate('products', productId, file, file.name, apiUrl, {
+      alt: '',
+      is_primary: 0,
+      sort_order: sortOrder,
     });
-
-    if (!associateRes.ok) {
-      const err = await associateRes.json().catch(() => ({}));
-      throw new Error(err.error || "Error associating image");
-    }
-
-    return uploadData;
   });
 
   return Promise.allSettled(uploadPromises);

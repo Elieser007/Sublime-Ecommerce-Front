@@ -14,6 +14,7 @@ import {
   fetchEntityImages as genericFetchEntityImages,
   buildImagePayload,
 } from './image-utils';
+import { getApiUrl } from './api-url';
 
 export interface ProductFormData {
   name: string;
@@ -84,11 +85,11 @@ export { buildImagePayload };
  */
 export async function createProduct(
   data: ProductFormData,
-  apiUrl: string = ""
+  apiUrl?: string
 ): Promise<ProductApiResponse> {
   const payload = buildProductPayload(data);
 
-  const res = await fetch(`${apiUrl}/api/products`, {
+  const res = await fetch(`${apiUrl || getApiUrl()}/api/products`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -113,7 +114,7 @@ export async function associateImage(
   productId: string,
   url: string,
   alt?: string,
-  apiUrl: string = ""
+  apiUrl?: string
 ): Promise<ImageApiResponse> {
   try {
     const result = await genericAssociateImage('products', productId, url, apiUrl, alt);
@@ -135,7 +136,7 @@ export async function replaceImage(
   imageId: string,
   url: string,
   alt?: string,
-  apiUrl: string = ""
+  apiUrl?: string
 ): Promise<ImageApiResponse> {
   try {
     const result = await genericReplaceImage('products', productId, imageId, url, apiUrl, alt);
@@ -154,7 +155,7 @@ export async function replaceImage(
  */
 export async function fetchProductImages(
   productId: string,
-  apiUrl: string = ""
+  apiUrl?: string
 ): Promise<{ success: boolean; images?: Array<{ id: string; url: string; alt: string | null; is_primary: number }>; error?: string }> {
   try {
     const images = await genericFetchEntityImages('products', productId, apiUrl);
@@ -173,7 +174,7 @@ export async function fetchProductImages(
  */
 export async function uploadImage(
   file: File,
-  apiUrl: string = ""
+  apiUrl?: string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     const result = await genericUploadImage(file, apiUrl);
@@ -195,7 +196,7 @@ export async function uploadImage(
  */
 export async function createProductWithImage(
   data: ProductFormData,
-  apiUrl: string = ""
+  apiUrl?: string
 ): Promise<{ success: boolean; productId?: string; error?: string }> {
   // Step 1: Create product
   const productResult = await createProduct(data, apiUrl);

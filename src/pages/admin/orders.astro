@@ -103,9 +103,10 @@ const columns = [
 
 <script>
   import { wrapModal } from '../../lib/modalHelper';
+  import { getApiUrl } from '../../lib/api-url';
   const orderModal = wrapModal('modal-overlay');
 
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const API_URL = getApiUrl();
   const STATUS_LABELS: Record<string, string> = { pending: 'Pendiente', confirmed: 'Confirmado', preparing: 'Preparando', shipped: 'Enviado', delivered: 'Entregado', cancelled: 'Cancelado' };
   const ALLOWED_TRANSITIONS: Record<string, string[]> = { pending: ['confirmed', 'cancelled'], confirmed: ['preparing', 'cancelled'], preparing: ['shipped', 'cancelled'], shipped: ['delivered'], delivered: [], cancelled: [] };
 

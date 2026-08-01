@@ -148,9 +148,10 @@ const subcategoryColumns = [
 <script>
   import { wrapModal } from '../../lib/modalHelper';
   import { escapeHtml } from '../../lib/escape-html';
+  import { getApiUrl } from '../../lib/api-url';
   const catModal = wrapModal('modal-overlay');
 
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const API_URL = getApiUrl();
   let sections: any[] = [];
   let categories: any[] = [];
   let subcategories: any[] = [];

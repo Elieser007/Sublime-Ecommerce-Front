@@ -159,7 +159,8 @@ import Button from './Button.astro';
 </dialog>
 
 <script>
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  import { getApiUrl } from '../lib/api-url';
+  const API_URL = getApiUrl();
 
   async function initSidebar() {
     try {

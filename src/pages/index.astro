@@ -13,13 +13,14 @@
  */
 
 import { formatPrice, getProductImageUrl } from '../lib/public-api';
+import { getApiUrl } from '../lib/api-url';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PromotionWall from '../components/PromotionWall.astro';
 import Button from '../components/Button.astro';
 import CategoryTree from '../components/CategoryTree.astro';
 import FilterPanel from '../components/FilterPanel.astro';
 
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+const API_URL = getApiUrl();
 
 // Fetch products, category tree, and promotions at build time (SSG)
 let products: any[] = [];

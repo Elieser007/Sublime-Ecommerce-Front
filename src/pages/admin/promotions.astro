@@ -173,8 +173,9 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 
 <script>
   import { escapeHtml } from '../../lib/escape-html';
-  import { uploadImage, associateImage, deleteImage, fetchEntityImages } from '../../lib/image-utils';
+  import { uploadImageBlob, associateImage, deleteImage, fetchEntityImages } from '../../lib/image-utils';
   import { wrapModal } from '../../lib/modalHelper';
+  import { getApiUrl } from '../../lib/api-url';
   const promoModal = wrapModal('modal-overlay');
   import {
     createEmptyPromoImageState,
@@ -186,7 +187,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     type PromoImageState,
   } from '../../lib/promo-upload';
 
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const API_URL = getApiUrl();
   const $ = (id: string) => document.getElementById(id);
 
   let sections: any[] = [];
@@ -629,9 +630,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       try {
         let imageUrl = promoImageUrlInput.value;
         if (promoImageState.isNew && promoImageState.blob) {
-          const fileName = 'promo.webp';
-          const file = new File([promoImageState.blob], fileName, { type: 'image/webp' });
-          const uploadResult = await uploadImage(file, API_URL);
+          const uploadResult = await uploadImageBlob(promoImageState.blob, 'promo.webp', API_URL);
           if (!uploadResult.url) {
             $('form-error')!.textContent = uploadResult.error || 'Error al subir imagen';
             submitBtn.disabled = false;

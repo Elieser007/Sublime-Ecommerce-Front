@@ -248,7 +248,8 @@ import AdminSidebar from '../components/AdminSidebar.astro';
 </style>
 
 <script>
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  import { getApiUrl } from '../lib/api-url';
+  const API_URL = getApiUrl();
 
   async function loadDashboard() {
     const loading = document.getElementById('dashboard-loading');

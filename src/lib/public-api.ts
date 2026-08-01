@@ -6,8 +6,9 @@
  */
 
 import type { GalleryImage } from "./image-types";
+import { getApiUrl } from "./api-url";
 
-const API_URL = (typeof import.meta !== "undefined" && import.meta.env?.PUBLIC_API_URL) || "http://localhost:8787";
+const API_URL = getApiUrl();
 
 // ─── TYPES ────────────────────────────────────────────────
 

@@ -213,16 +213,17 @@ const columns = [
 <script>
   import { removeImage } from '../../lib/admin-gallery';
   import { getImageById, getImageCount } from '../../lib/gallery-utils';
-  import { deleteImage, associateImage } from '../../lib/image-utils';
+  import { deleteImage, associateImage, uploadImageBlob, deleteUploadedFile } from '../../lib/image-utils';
   import { loadProductList, uploadGalleryImages } from '../../lib/admin-products';
   import { wrapModal } from '../../lib/modalHelper';
+  import { getApiUrl } from '../../lib/api-url';
 
   const productModal = wrapModal('modal-overlay');
   const deleteModal = wrapModal('delete-overlay');
   const pricingModal = wrapModal('price-overlay');
   const statusModal = wrapModal('status-overlay');
 
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const API_URL = getApiUrl();
   const fmt = (c: number) => `₲ ${(c || 0).toLocaleString('es-PY')}`;
 
   let items: any[] = [];
@@ -291,9 +292,7 @@ const columns = [
       // Delete from R2 if URL exists
       const filename = info.imageUrl ? extractFilename(info.imageUrl) : null;
       if (filename) {
-        await fetch(`${API_URL}/api/upload/${filename}`, {
-          method: 'DELETE', credentials: 'include',
-        });
+        await deleteUploadedFile(filename, API_URL);
       }
       // Clear UI state
       primaryImage = { blob: null, url: null, imageId: null, isNew: false };
@@ -310,9 +309,7 @@ const columns = [
         }
         const filename = img?.url ? extractFilename(img.url) : null;
         if (filename) {
-          await fetch(`${API_URL}/api/upload/${filename}`, {
-            method: 'DELETE', credentials: 'include',
-          });
+          await deleteUploadedFile(filename, API_URL);
         }
         // Use admin-gallery module to remove and reindex
         gallery.images = removeImage(gallery.images, img!.id);
@@ -942,26 +939,15 @@ const columns = [
       try {
         let primaryUrl: string | null = primaryImage.url;
         if (primaryImage.isNew && primaryImage.blob) {
-          const formData = new FormData();
-          const fileName = 'primary.webp';
-          formData.append('image', new File([primaryImage.blob], fileName, { type: 'image/webp' }));
-
-          const uploadRes = await fetch(`${API_URL}/api/upload`, {
-            method: 'POST',
-            body: formData,
-            credentials: 'include',
-          });
-
-          if (!uploadRes.ok) {
-            const err = await uploadRes.json().catch(() => ({}));
-            $('form-error')!.textContent = err.error || 'Error al subir la imagen principal';
+          try {
+            const uploadData = await uploadImageBlob(primaryImage.blob, 'primary.webp', API_URL);
+            primaryUrl = uploadData.url;
+          } catch (err: any) {
+            $('form-error')!.textContent = err.message || 'Error al subir la imagen principal';
             submitBtn.disabled = false;
             submitBtn.textContent = 'Guardar';
             return;
           }
-
-          const uploadData = await uploadRes.json();
-          primaryUrl = uploadData.url;
         }
 
         const body: any = {

@@ -26,8 +26,9 @@ import { formatPrice } from '../lib/format';
 import { isSelectionComplete } from '../lib/variant-logic';
 import { getBestVolumeBadge, getTierPrice, formatTierLabel } from '../lib/price-utils';
 import * as modalStack from '../lib/modalStack.js';
+import { getApiUrl } from '../lib/api-url';
 
-const API_URL = (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_API_URL) || 'http://localhost:8787';
+const API_URL = getApiUrl();
 
 class VariantModal extends HTMLElement {
   static get observedAttributes() {

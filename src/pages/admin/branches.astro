@@ -94,9 +94,10 @@ const columns = [
 
 <script>
   import { wrapModal } from '../../lib/modalHelper';
+  import { getApiUrl } from '../../lib/api-url';
   const branchModal = wrapModal('modal-overlay');
 
-  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const API_URL = getApiUrl();
   let items: any[] = [];
   let currentPage = 1;
   let limit = 25;

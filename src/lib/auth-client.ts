@@ -6,9 +6,10 @@
  */
 
 import { createAuthClient } from "better-auth/client";
+import { getApiUrl } from './api-url';
 
 // API URL from environment or default to local Hono dev server
-const baseURL = import.meta.env.PUBLIC_API_URL || "http://localhost:8787";
+const baseURL = getApiUrl();
 
 export const authClient = createAuthClient({
   baseURL,

@@ -7,11 +7,12 @@
  */
 
 import { formatPrice, getProductImageUrl } from '../lib/public-api';
+import { getApiUrl } from '../lib/api-url';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Chip from '../components/Chip.astro';
 import Button from '../components/Button.astro';
 
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+const API_URL = getApiUrl();
 
 // Fetch featured products at build time
 let featuredProducts: any[] = [];

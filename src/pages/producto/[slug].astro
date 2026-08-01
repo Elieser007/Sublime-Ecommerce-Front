@@ -10,15 +10,16 @@
 
 import { getProductImageUrl } from '../../lib/public-api';
 import { formatPrice } from '../../lib/public-api';
+import { getApiUrl } from '../../lib/api-url';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import VolumePriceSelector from '../../components/VolumePriceSelector.astro';
 import ProductGallery from '../../components/ProductGallery.astro';
 import Button from '../../components/Button.astro';
 
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+const API_URL = getApiUrl();
 
 export async function getStaticPaths() {
-  const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const apiUrl = getApiUrl();
 
   try {
     const controller = new AbortController();
@@ -146,8 +147,9 @@ const basePriceFormatted = formatPrice(product.base_price);
   import { buildCartMessage } from '../../lib/whatsapp';
   import { computeFinalPrice, isSelectionComplete } from '../../lib/variant-logic';
   import { addToCartWithOptions, updateCartBadge } from '../../lib/cart.js';
+  import { getApiUrl } from '../../lib/api-url';
 
-  const API_URL = (typeof import.meta !== "undefined" && import.meta.env?.PUBLIC_API_URL) || "http://localhost:8787";
+  const API_URL = getApiUrl();
 
   const $volumeSection = document.getElementById('volume-price-section');
   const $variantSection = document.getElementById('variant-section');
