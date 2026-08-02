@@ -141,6 +141,41 @@ describe("buildCartMessage", () => {
     expect(message).toContain("Sin Atributos");
     expect(message).toContain("10.000");
   });
+
+  it("shows the tier line for a modal-added item without any quantity change (D4)", () => {
+    const tiers = [
+      { id: "t1", branch_id: "b1", branch_name: "B", min_quantity: 1, price: 20000 },
+      { id: "t2", branch_id: "b1", branch_name: "B", min_quantity: 24, price: 17000 },
+    ];
+    const cart = [
+      {
+        id: "1", name: "Producto Modal", price: 20000, image: "", quantity: 24,
+        price_tiers: tiers, selected_tier_id: "t2", selected_tier_price: 17000, selected_tier_min_qty: 24,
+      },
+    ];
+    const message = buildCartMessage(cart);
+    expect(message).toContain("Precio por volumen");
+    expect(message).toContain("24+ unds");
+    expect(message).not.toContain("\u26A0\uFE0F");
+  });
+
+  it("totals qty x per-unit tier price plus surcharges without double-counting (D4)", () => {
+    const tiers = [
+      { id: "t1", branch_id: "b1", branch_name: "B", min_quantity: 1, price: 20000 },
+      { id: "t2", branch_id: "b1", branch_name: "B", min_quantity: 24, price: 17000 },
+    ];
+    const cart = [
+      {
+        id: "1", name: "Producto Modal", price: 20000, image: "", quantity: 24,
+        price_tiers: tiers, selected_tier_id: "t2", selected_tier_price: 17000, selected_tier_min_qty: 24,
+        selected_attributes: { "mod-size": { value_id: "v-s", label: "S", raw_value: "S", price_modifier: 1000 } },
+      },
+    ];
+    const message = buildCartMessage(cart);
+    // unit = 17000 + 1000 = 18000; subtotal = 24 x 18000 = 432.000
+    expect(message).toContain("24xGs. 18.000 = *Gs. 432.000*");
+    expect(message).toContain("*Total: Gs. 432.000*");
+  });
 });
 
 describe("generateWhatsAppUrl", () => {

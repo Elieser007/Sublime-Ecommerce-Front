@@ -108,7 +108,7 @@ export function getEffectivePrice(item: CartItem): number {
 
   // If tiers exist and quantity qualifies, compute the tier price + surcharges
   if (item.price_tiers && item.price_tiers.length > 0) {
-    const tierPrice = getTierPrice(item.price_tiers, item.quantity);
+    const tierPrice = getTierPrice(item.price_tiers, item.quantity, item.price);
     if (tierPrice > 0) {
       const sorted = [...item.price_tiers].sort((a, b) => a.min_quantity - b.min_quantity);
       const noTierMatches = sorted.every((t) => t.min_quantity > item.quantity);

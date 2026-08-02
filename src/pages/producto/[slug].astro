@@ -290,9 +290,6 @@ const basePriceFormatted = formatPrice(product.base_price);
     $addCart?.addEventListener('click', () => {
       if (!currentProduct) return;
 
-      const baseForTier = selectedTier ? selectedTier.price : currentProduct.base_price;
-      const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
-      const unitPrice = Math.max(0, baseForTier + modifierSum);
       const tierMinQty = selectedTier?.min_quantity || 1;
 
       const selectedAttributes: Record<string, { value_id: string; label: string; raw_value: string; price_modifier: number; type_name?: string }> = {};
@@ -321,7 +318,7 @@ const basePriceFormatted = formatPrice(product.base_price);
       addToCartWithOptions({
         id: currentProduct.id,
         name: currentProduct.name,
-        price: unitPrice,
+        price: currentProduct.base_price,
         image: getProductImageUrl(
           currentProduct.images && currentProduct.images.length > 0
             ? currentProduct.images[0]?.url
@@ -330,7 +327,7 @@ const basePriceFormatted = formatPrice(product.base_price);
         quantity: selectedQty,
         price_tiers: currentProduct.price_tiers || [],
         selected_tier_id: selectedTier?.id,
-        selected_tier_price: unitPrice,
+        selected_tier_price: selectedTier?.price,
         selected_tier_min_qty: tierMinQty,
         ...(hasAttributes ? { selected_attributes: selectedAttributes } : {}),
       });

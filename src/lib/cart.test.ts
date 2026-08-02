@@ -190,6 +190,47 @@ describe('cart-utils', () => {
       const item = { id: '1', name: 'A', price: 100, image: 'x', quantity: 1 } as any;
       expect(getEffectivePrice(item)).toBe(100);
     });
+
+    it('adds surcharges exactly once on top of a pure tier price (D4)', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 20000 },
+        { id: 't2', branch_id: 'b1', branch_name: 'B', min_quantity: 24, price: 17000 },
+      ];
+      const item = {
+        id: '1', name: 'A', price: 20000, image: 'x', quantity: 24, price_tiers: tiers,
+        selected_tier_id: 't2', selected_tier_price: 17000, selected_tier_min_qty: 24,
+        selected_attributes: { 'mod-size': { value_id: 'v-s', label: 'S', raw_value: 'S', price_modifier: 1000 } },
+      } as any;
+      expect(getEffectivePrice(item)).toBe(18000);
+    });
+
+    it('does not double-count surcharges when item.price already includes them (D4)', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 20000 },
+        { id: 't2', branch_id: 'b1', branch_name: 'B', min_quantity: 24, price: 17000 },
+      ];
+      // OLD add paths stored item.price = tier + surcharges; effective must stay tier + surcharges once
+      const item = {
+        id: '1', name: 'A', price: 18000, image: 'x', quantity: 24, price_tiers: tiers,
+        selected_tier_id: 't2', selected_tier_price: 17000, selected_tier_min_qty: 24,
+        selected_attributes: { 'mod-size': { value_id: 'v-s', label: 'S', raw_value: 'S', price_modifier: 1000 } },
+      } as any;
+      expect(getEffectivePrice(item)).toBe(18000);
+      expect(getEffectivePrice(item)).not.toBe(19000);
+    });
+
+    it('stores pure base price and pure tier price (D4 add contract)', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 20000 },
+        { id: 't2', branch_id: 'b1', branch_name: 'B', min_quantity: 24, price: 17000 },
+      ];
+      const result = addToCartWithOptions({
+        id: '1', name: 'A', price: 20000, image: 'a.webp', quantity: 24, price_tiers: tiers,
+        selected_tier_id: 't2', selected_tier_price: 17000, selected_tier_min_qty: 24,
+      });
+      expect(result[0].price).toBe(20000);
+      expect(result[0].selected_tier_price).toBe(17000);
+    });
   });
 
   describe('reevalTier', () => {
@@ -484,6 +525,24 @@ describe('cart', () => {
       const result = updateCartQuantity('1', 15);
       expect(result[0].selected_tier_id).toBe('t2');
       expect(result[0].selected_tier_price).toBe(80);
+    });
+
+    it('falls back to base price (not stale tier) when qty reduced below tier minimum (D4)', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 20000 },
+        { id: 't2', branch_id: 'b1', branch_name: 'B', min_quantity: 24, price: 17000 },
+      ];
+      addToCartWithOptions({
+        id: '1', name: 'A', price: 20000, image: 'a.webp', quantity: 24, price_tiers: tiers,
+        selected_tier_id: 't2', selected_tier_price: 17000, selected_tier_min_qty: 24,
+      });
+      const result = updateCartQuantity('1', 1);
+      expect(result[0].selected_tier_price).toBe(20000);
+      const item = result[0];
+      expect(getEffectivePrice({
+        ...item,
+        selected_attributes: { 'mod-size': { value_id: 'v-s', label: 'S', raw_value: 'S', price_modifier: 1000 } },
+      } as any)).toBe(21000);
     });
   });
 

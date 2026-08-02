@@ -24,7 +24,7 @@ import { addToCartWithOptions, updateCartBadge } from '../lib/cart.js';
 import { escapeHtml } from '../lib/escape-html';
 import { formatPrice } from '../lib/format';
 import { isSelectionComplete } from '../lib/variant-logic';
-import { getBestVolumeBadge, getTierPrice, formatTierLabel } from '../lib/price-utils';
+import { getBestVolumeBadge, getTierPrice, getTierForQuantity, formatTierLabel } from '../lib/price-utils';
 import * as modalStack from '../lib/modalStack.js';
 import { getApiUrl } from '../lib/api-url';
 
@@ -397,7 +397,7 @@ class VariantModal extends HTMLElement {
 
     let basePrice = this._basePrice;
     if (this._priceTiers?.length > 0) {
-      basePrice = getTierPrice(this._priceTiers, this._quantity);
+      basePrice = getTierPrice(this._priceTiers, this._quantity, this._basePrice);
     }
 
     this._finalPrice = Math.max(0, basePrice + modifiers.reduce((a, b) => a + b, 0));
@@ -486,13 +486,18 @@ class VariantModal extends HTMLElement {
       }
     }
 
+    const tier = getTierForQuantity(this._priceTiers, this._quantity);
+
     addToCartWithOptions({
       id: this._productId,
       name: this._productName,
-      price: this._finalPrice,
+      price: this._basePrice,
       image: this._productImage,
       quantity: this._quantity,
       price_tiers: this._priceTiers.length > 0 ? this._priceTiers : undefined,
+      selected_tier_id: tier?.id,
+      selected_tier_price: tier?.price,
+      selected_tier_min_qty: tier?.min_quantity,
       selected_attributes: Object.keys(selectedAttributes).length > 0 ? selectedAttributes : undefined,
     });
 
