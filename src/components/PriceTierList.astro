@@ -17,16 +17,18 @@ interface Props {
     price: number;
   }>;
   selectedQty?: number;
+  basePrice?: number;
 }
 
-const { priceTiers, selectedQty = 1 } = Astro.props;
+const { priceTiers, selectedQty = 1, basePrice: basePriceProp } = Astro.props;
 
 const tiers = priceTiers || [];
 const baseTier = tiers.find((t) => t.min_quantity === 1);
-const basePrice = baseTier?.price || 0;
+// Caller-provided base price wins; otherwise derive from min_quantity === 1 row (0 when absent)
+const basePrice = basePriceProp ?? baseTier?.price ?? 0;
 
 const sortedTiers = [...tiers].sort((a, b) => a.min_quantity - b.min_quantity);
-const currentTierPrice = getTierPrice(tiers, selectedQty);
+const currentTierPrice = getTierPrice(tiers, selectedQty, basePrice);
 const currentTier = sortedTiers.find((t) => t.price === currentTierPrice) || sortedTiers[0];
 ---
 

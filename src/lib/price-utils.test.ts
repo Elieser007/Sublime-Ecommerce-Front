@@ -49,6 +49,28 @@ describe("getBestVolumeBadge", () => {
     const best = getBestVolumeBadge(unsorted);
     expect(best!.id).toBe("c");
   });
+
+  it("returns lowest-priced tier for batch-shaped data without base row", () => {
+    const batchTiers = [
+      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 216000 },
+      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 408000 },
+    ];
+    const best = getBestVolumeBadge(batchTiers);
+    expect(best).not.toBeNull();
+    expect(best!.id).toBe("v1");
+    expect(best!.price).toBe(216000);
+  });
+
+  it("returns lowest-priced tier regardless of min_quantity order", () => {
+    const reversedPriceTiers = [
+      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 408000 },
+      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 216000 },
+    ];
+    const best = getBestVolumeBadge(reversedPriceTiers);
+    expect(best).not.toBeNull();
+    expect(best!.id).toBe("v2");
+    expect(best!.price).toBe(216000);
+  });
 });
 
 describe("getTierPrice", () => {
@@ -77,6 +99,31 @@ describe("getTierPrice", () => {
   it("works with only base tier", () => {
     expect(getTierPrice(mockTiersOnlyBase, 1)).toBe(100000);
     expect(getTierPrice(mockTiersOnlyBase, 100)).toBe(100000);
+  });
+
+  it("returns caller fallback when qty below all tiers and no base row", () => {
+    const noBaseTiers = [
+      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 18000 },
+      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 17000 },
+    ];
+    expect(getTierPrice(noBaseTiers, 1, 20000)).toBe(20000);
+    expect(getTierPrice(noBaseTiers, 5, 20000)).toBe(20000);
+  });
+
+  it("returns tier price when quantity qualifies and no base row present", () => {
+    const noBaseTiers = [
+      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 18000 },
+      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 17000 },
+    ];
+    expect(getTierPrice(noBaseTiers, 12)).toBe(18000);
+    expect(getTierPrice(noBaseTiers, 24)).toBe(17000);
+  });
+
+  it("defaults fallback to 0 when below all tiers and no fallback given", () => {
+    const noBaseTiers = [
+      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 18000 },
+    ];
+    expect(getTierPrice(noBaseTiers, 1)).toBe(0);
   });
 });
 
@@ -113,6 +160,15 @@ describe("getTierSavings", () => {
       { id: "t2", branch_id: "b1", branch_name: "P", min_quantity: 10, price: 90000 },
     ];
     expect(getTierSavings(zeroBase[1], zeroBase)).toBe(0);
+  });
+
+  it("returns 0 savings when no min_quantity===1 row exists", () => {
+    const noBaseTiers = [
+      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 18000 },
+      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 17000 },
+    ];
+    expect(getTierSavings(noBaseTiers[0], noBaseTiers)).toBe(0);
+    expect(getTierSavings(noBaseTiers[1], noBaseTiers)).toBe(0);
   });
 });
 
