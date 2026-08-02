@@ -7,6 +7,10 @@ dist/
 .astro/
 .wrangler/
 
+# Test output (Playwright)
+test-results/
+playwright-report/
+
 # Environment
 .env
 .env.local
