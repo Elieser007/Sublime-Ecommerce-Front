@@ -12,8 +12,8 @@ import { getTierPrice, formatTierOption, getTierForQuantity } from "../lib/price
 interface Props {
   priceTiers?: Array<{
     id: string;
-    branch_id: string;
-    branch_name: string;
+    branch_id?: string;
+    branch_name?: string;
     min_quantity: number;
     price: number;
   }>;

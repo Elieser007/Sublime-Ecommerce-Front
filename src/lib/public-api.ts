@@ -54,8 +54,8 @@ export interface ProductDetail extends PublicProduct {
 
 export interface PriceTier {
   id: string;
-  branch_id: string;
-  branch_name: string;
+  branch_id?: string;
+  branch_name?: string;
   min_quantity: number;
   price: number;
 }

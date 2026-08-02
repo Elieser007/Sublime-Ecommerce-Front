@@ -11,8 +11,8 @@ import { getBestVolumeBadge, formatTierLabel } from "../lib/price-utils";
 interface Props {
   priceTiers?: Array<{
     id: string;
-    branch_id: string;
-    branch_name: string;
+    branch_id?: string;
+    branch_name?: string;
     min_quantity: number;
     price: number;
   }>;

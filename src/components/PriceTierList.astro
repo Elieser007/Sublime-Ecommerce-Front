@@ -11,8 +11,8 @@ import { getTierPrice, getTierSavings, formatTierOption } from "../lib/price-uti
 interface Props {
   priceTiers?: Array<{
     id: string;
-    branch_id: string;
-    branch_name: string;
+    branch_id?: string;
+    branch_name?: string;
     min_quantity: number;
     price: number;
   }>;
