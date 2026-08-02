@@ -13,6 +13,7 @@ import { formatPrice } from '../../lib/public-api';
 import { getApiUrl } from '../../lib/api-url';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import VolumePriceSelector from '../../components/VolumePriceSelector.astro';
+import PriceTierList from '../../components/PriceTierList.astro';
 import ProductGallery from '../../components/ProductGallery.astro';
 import Button from '../../components/Button.astro';
 
@@ -102,7 +103,10 @@ const basePriceFormatted = formatPrice(product.base_price);
         <!-- Volume Price Selector + Tier List -->
         <div id="volume-price-section">
           {tiers.length > 0 && (
-            <VolumePriceSelector priceTiers={tiers} />
+            <>
+              <VolumePriceSelector priceTiers={tiers} basePrice={product.base_price} client:load />
+              <PriceTierList priceTiers={tiers} selectedQty={1} basePrice={product.base_price} client:load />
+            </>
           )}
         </div>
 
@@ -110,7 +114,7 @@ const basePriceFormatted = formatPrice(product.base_price);
         <div id="variant-section"></div>
         
         <!-- Quantity Stepper (shows when tier selected) -->
-        <div id="quantity-stepper-section" class="quantity-stepper-section" style="display: none;">
+        <div id="quantity-stepper-section" class="quantity-stepper-section" style={tiers.length > 0 ? "display: block;" : "display: none;"}>
           <label class="quantity-label label-sm">Cantidad</label>
           <number-input data-value="1" data-min="1" data-max="999" data-label="Cantidad"></number-input>
         </div>
@@ -151,7 +155,6 @@ const basePriceFormatted = formatPrice(product.base_price);
 
   const API_URL = getApiUrl();
 
-  const $volumeSection = document.getElementById('volume-price-section');
   const $variantSection = document.getElementById('variant-section');
   const $qtySection = document.getElementById('quantity-stepper-section');
   const $numberInput = $qtySection?.querySelector('number-input') as any;
@@ -241,50 +244,16 @@ const basePriceFormatted = formatPrice(product.base_price);
     }
   }
 
-  function renderVolumeSection(tiers: any[]) {
-    const sortedTiers = [...tiers].sort((a, b) => a.min_quantity - b.min_quantity);
-    selectedTier = getTierForQuantity(currentTiers, selectedQty);
-
-    $volumeSection.innerHTML = `
-      <volume-price-selector price-tiers="${encodeURIComponent(JSON.stringify(sortedTiers))}"></volume-price-selector>
-      <price-tier-list price-tiers="${encodeURIComponent(JSON.stringify(sortedTiers))}" selected-qty="${selectedQty}"></price-tier-list>
-    `;
-
-    $qtySection.style.display = 'block';
-    selectedQty = 1;
-    if ($numberInput) $numberInput.value = 1;
-
-    window.addEventListener('volume-tier-change', (e: CustomEvent) => {
-      const { tier, qty } = e.detail;
-      selectedTier = tier;
-      selectedQty = qty;
-      if ($numberInput) $numberInput.value = qty;
-      updatePriceDisplay();
-    });
-
-    $qtySection.addEventListener('number-input:change', ((e: CustomEvent) => {
-      selectedQty = e.detail.value;
-      updatePriceDisplay();
-    }) as EventListener);
-
-    updatePriceDisplay();
-  }
-
   function updatePriceDisplay() {
     if (currentTiers.length === 0) return;
 
-    const tierPrice = getTierPrice(currentTiers, selectedQty);
+    const tierPrice = getTierPrice(currentTiers, selectedQty, currentProduct.base_price);
     const applicableTier = getTierForQuantity(currentTiers, selectedQty);
 
     const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
     const displayPrice = Math.max(0, tierPrice + modifierSum);
 
     $price.textContent = `Gs. ${formatPrice(displayPrice)}`;
-
-    const tierList = $volumeSection.querySelector('price-tier-list');
-    if (tierList) {
-      tierList.setAttribute('selected-qty', selectedQty.toString());
-    }
 
     updateWhatsAppLink(applicableTier);
   }
@@ -379,7 +348,25 @@ const basePriceFormatted = formatPrice(product.base_price);
     }
 
     if (currentTiers.length > 0) {
-      renderVolumeSection(currentTiers);
+      $qtySection.style.display = 'block';
+      selectedQty = 1;
+      if ($numberInput) $numberInput.value = 1;
+      selectedTier = getTierForQuantity(currentTiers, selectedQty);
+
+      window.addEventListener('volume-tier-change', ((e: CustomEvent) => {
+        const { tier, qty } = e.detail;
+        selectedTier = tier;
+        selectedQty = qty;
+        if ($numberInput) $numberInput.value = qty;
+        updatePriceDisplay();
+      }) as EventListener);
+
+      $qtySection.addEventListener('number-input:change', ((e: CustomEvent) => {
+        selectedQty = e.detail.value;
+        updatePriceDisplay();
+      }) as EventListener);
+
+      updatePriceDisplay();
     }
   });
 </script>

@@ -8,6 +8,7 @@
  */
 
 import { getTierPrice, formatTierOption, getTierForQuantity } from "../lib/price-utils";
+import { formatPrice } from "../lib/format";
 
 interface Props {
   priceTiers?: Array<{
@@ -18,26 +19,16 @@ interface Props {
     price: number;
   }>;
   initialQty?: number;
+  basePrice?: number;
 }
 
-const { priceTiers, initialQty = 1 } = Astro.props;
+const { priceTiers, initialQty = 1, basePrice = 0 } = Astro.props;
 
 const tiers = priceTiers || [];
 const sortedTiers = [...tiers].sort((a, b) => a.min_quantity - b.min_quantity);
 
 const initialTier = getTierForQuantity(tiers, initialQty);
-const initialPrice = getTierPrice(tiers, initialQty);
-
-const tierOptions = sortedTiers.map((tier) => {
-  const isBase = tier.min_quantity === 1;
-  const label = isBase 
-    ? `1 und (base) — Gs. ${new Intl.NumberFormat("es-PY", { style: "decimal", maximumFractionDigits: 0 }).format(tier.price)}/u`
-    : formatTierOption(tier);
-  
-  return `<option value="${tier.id}" ${tier.id === initialTier?.id ? "selected" : ""} data-qty="${tier.min_quantity}" data-price="${tier.price}">
-    ${label}
-  </option>`;
-}).join("");
+const initialPrice = getTierPrice(tiers, initialQty, basePrice);
 
 const tierListId = `tier-list-${Math.random().toString(36).slice(2, 9)}`;
 ---
@@ -53,7 +44,22 @@ const tierListId = `tier-list-${Math.random().toString(36).slice(2, 9)}`;
     aria-describedby={tierListId + "-desc"}
     data-initial-qty={initialQty}
   >
-    {tierOptions}
+    {sortedTiers.map((tier) => {
+      const isBase = tier.min_quantity === 1;
+      const label = isBase
+        ? `1 und (base) — Gs. ${formatPrice(tier.price)}/u`
+        : formatTierOption(tier);
+      return (
+        <option
+          value={tier.id}
+          selected={tier.id === initialTier?.id}
+          data-qty={tier.min_quantity}
+          data-price={tier.price}
+        >
+          {label}
+        </option>
+      );
+    })}
   </select>
   
   <span id={tierListId + "-desc"} class="volume-selector-hint body-sm" aria-live="polite">
@@ -62,7 +68,7 @@ const tierListId = `tier-list-${Math.random().toString(36).slice(2, 9)}`;
   
   <div class="volume-selector-price-display">
     <span class="volume-price-label label-sm">Precio unitario:</span>
-    <span class="volume-price-value display-lg" data-price>{`Gs. ${new Intl.NumberFormat("es-PY", { style: "decimal", maximumFractionDigits: 0 }).format(initialPrice)}`}</span>
+    <span class="volume-price-value display-lg" data-price>{`Gs. ${formatPrice(initialPrice)}`}</span>
   </div>
 </div>
 
