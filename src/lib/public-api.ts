@@ -1,16 +1,7 @@
-/**
- * Public API Client — Storefront Data
- *
- * Typed fetch functions for the public (no auth) storefront endpoints.
- * All functions use the PUBLIC_API_URL environment variable.
- */
-
 import type { GalleryImage } from "./image-types";
 import { getApiUrl } from "./api-url";
 
 const API_URL = getApiUrl();
-
-// ─── TYPES ────────────────────────────────────────────────
 
 export interface PublicProduct {
   id: string;
@@ -30,10 +21,7 @@ export interface PublicProduct {
   has_variants?: boolean;
 }
 
-/**
- * @deprecated Use GalleryImage from './image-types' instead.
- * Kept as alias for backward compatibility.
- */
+/** @deprecated Use GalleryImage from './image-types' instead. */
 export type ProductImage = GalleryImage;
 
 export interface ProductVariant {
@@ -49,8 +37,6 @@ export interface ProductDetail extends PublicProduct {
   variants: ProductVariant[];
   price_tiers?: PriceTier[];
 }
-
-// ─── PRICE TIERS ────────────────────────────────────────────
 
 export interface PriceTier {
   id: string;
@@ -92,8 +78,6 @@ export interface PaginatedResponse<T> {
   limit: number;
 }
 
-// ─── HELPERS ──────────────────────────────────────────────
-
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { credentials: "include" });
   if (!res.ok) {
@@ -105,12 +89,6 @@ async function fetchJson<T>(url: string): Promise<T> {
   return res.json();
 }
 
-// ─── PRODUCTS ─────────────────────────────────────────────
-
-/**
- * Fetch paginated product listing.
- * @param params - URLSearchParams with page, limit, section_id, etc.
- */
 export async function fetchProducts(
   params?: URLSearchParams
 ): Promise<PaginatedResponse<PublicProduct>> {
@@ -121,9 +99,6 @@ export async function fetchProducts(
   return data;
 }
 
-/**
- * Fetch featured (latest 8) products.
- */
 export async function fetchFeaturedProducts(): Promise<PublicProduct[]> {
   const data = await fetchJson<{ products: PublicProduct[] }>(
     `${API_URL}/api/public/products/featured`
@@ -131,9 +106,6 @@ export async function fetchFeaturedProducts(): Promise<PublicProduct[]> {
   return data.products || [];
 }
 
-/**
- * Fetch a single product by ID with full details.
- */
 export async function fetchProductById(
   id: string
 ): Promise<ProductDetail> {
@@ -143,10 +115,6 @@ export async function fetchProductById(
   return data.product;
 }
 
-/**
- * Fetch a single product by slug with full details.
- * For SEO-friendly URLs.
- */
 export async function fetchProductBySlug(
   slug: string
 ): Promise<ProductDetail> {
@@ -156,11 +124,6 @@ export async function fetchProductBySlug(
   return data.product;
 }
 
-// ─── CATEGORIES ───────────────────────────────────────────
-
-/**
- * Fetch all active sections.
- */
 export async function fetchSections(): Promise<Section[]> {
   const data = await fetchJson<{ sections: Section[] }>(
     `${API_URL}/api/public/sections`
@@ -168,9 +131,6 @@ export async function fetchSections(): Promise<Section[]> {
   return data.sections || [];
 }
 
-/**
- * Fetch the full category tree (sections → categories → subcategories).
- */
 export async function fetchCategoryTree(): Promise<CategoryNode[]> {
   const data = await fetchJson<{ tree: CategoryNode[] }>(
     `${API_URL}/api/public/categories/tree`
@@ -178,13 +138,8 @@ export async function fetchCategoryTree(): Promise<CategoryNode[]> {
   return data.tree || [];
 }
 
-// ─── UTILITIES ────────────────────────────────────────────
-
 export { formatPrice } from "./format";
 
-/**
- * Get the image URL for a product, or a placeholder.
- */
 export function getProductImageUrl(
   imageUrl: string | null | undefined
 ): string {
