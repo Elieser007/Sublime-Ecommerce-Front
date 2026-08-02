@@ -21,7 +21,7 @@
  */
 
 import { addToCartWithOptions, updateCartBadge } from '../lib/cart.js';
-import { escapeHtml } from '../lib/escape-html';
+import { escapeHtml, sanitizeUrl } from '../lib/escape-html';
 import { formatPrice } from '../lib/format';
 import { isSelectionComplete } from '../lib/variant-logic';
 import { getBestVolumeBadge, getTierPrice, getTierForQuantity, formatTierLabel } from '../lib/price-utils';
@@ -220,14 +220,14 @@ class VariantModal extends HTMLElement {
     return `
       <div class="modal-header">
         <img class="modal-image"
-             src="${escapeHtml(this._productImage)}"
+             src="${escapeHtml(sanitizeUrl(this._productImage))}"
              alt="${escapeHtml(this._productName)}"
              width="80" height="80" />
         <div class="modal-info">
           <h2 id="variant-modal-title" class="modal-title">
             ${escapeHtml(this._productName)}
           </h2>
-          <p class="modal-price">Gs. ${escapeHtml(formatPrice(this._finalPrice || this._basePrice))}</p>
+          <p class="modal-price">Gs. ${escapeHtml(formatPrice(this._finalPrice ?? this._basePrice))}</p>
           ${this._renderTierInfo()}
         </div>
       </div>
@@ -247,7 +247,7 @@ class VariantModal extends HTMLElement {
             <button class="qty-btn qty-plus" aria-label="Aumentar cantidad">+</button>
           </div>
         </div>
-        <button class="confirm-btn" ${hasModules ? '' : ''}>
+        <button class="confirm-btn">
           Confirmar
         </button>
       </div>`;
@@ -349,7 +349,7 @@ class VariantModal extends HTMLElement {
         url += `?selected=${encodeURIComponent(JSON.stringify(selected))}`;
       }
 
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error(`Error ${res.status}`);
 
       const json = await res.json();
@@ -415,7 +415,7 @@ class VariantModal extends HTMLElement {
       if (Object.keys(selected).length > 0) {
         url += `?selected=${encodeURIComponent(JSON.stringify(selected))}`;
       }
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) return;
       const json = await res.json();
       const modules = json.data?.available_modules || json.available_modules || [];

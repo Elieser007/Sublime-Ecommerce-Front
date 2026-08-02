@@ -1,6 +1,16 @@
 import type { PriceTier } from './public-api';
 import { getTierForQuantity, getTierPrice } from './price-utils';
 
+export type CartAttributeValue = string | { value_id: string } | null | undefined;
+
+export type SelectedAttributes = Record<string, {
+  value_id: string;
+  label: string;
+  raw_value: string;
+  price_modifier?: number;
+  type_name?: string;
+}>;
+
 export interface CartItem {
   id: string;
   composite_key?: string;
@@ -12,7 +22,7 @@ export interface CartItem {
   selected_tier_id?: string;
   selected_tier_price?: number;
   selected_tier_min_qty?: number;
-  selected_attributes?: Record<string, { value_id: string; label: string; raw_value: string; price_modifier?: number; type_name?: string }>;
+  selected_attributes?: SelectedAttributes;
 }
 
 function escapeKeySegment(s: string): string {
@@ -62,7 +72,7 @@ function findUnescapedColon(s: string): number {
   return -1;
 }
 
-export function getCartKey(productId: string, attributes?: Record<string, any>): string {
+export function getCartKey(productId: string, attributes?: Record<string, CartAttributeValue>): string {
   if (!attributes || Object.keys(attributes).length === 0) return escapeKeySegment(productId);
   const parts = Object.keys(attributes)
     .sort()
@@ -133,7 +143,7 @@ export function reevalTier(item: CartItem): CartItem {
   };
 }
 
-export function isHashKey(compositeKey: string): boolean {
+export function isHashKey(compositeKey: string | undefined): boolean {
   if (!compositeKey) return false;
   if (compositeKey.includes(':')) return false;
   const lastDash = compositeKey.lastIndexOf('-');
@@ -144,7 +154,7 @@ export function isHashKey(compositeKey: string): boolean {
 
 export function migrateCart(cart: CartItem[]): CartItem[] {
   let changed = false;
-  const migrated = cart.map((item: any) => {
+  const migrated = cart.map((item) => {
     const needsMigration = !item.composite_key || isHashKey(item.composite_key);
     if (needsMigration) {
       changed = true;
