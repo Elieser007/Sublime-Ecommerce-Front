@@ -1,25 +1,3 @@
-/**
- * <variant-modal> Web Component
- *
- * Shadow DOM modal that wraps <variant-selector> for variant product selection.
- * Fetches variants from API, handles quantity, live price, focus trap, and cart integration.
- *
- * Attributes:
- *   product-id    (required) — product ID
- *   product-name  (required) — display name
- *   product-price (required) — base price (number)
- *   product-image (required) — image URL
- *   price-tiers   (optional) — JSON string of price tiers array
- *
- * Methods:
- *   open(trigger?) — open the modal (trigger = element to return focus to on close)
- *   close()        — close the modal
- *
- * Events dispatched (bubbles, composed):
- *   variant-added — detail: { productId, selectedAttributes, finalPrice }
- *   modal-closed  — detail: { productId }
- */
-
 import { addToCartWithOptions, updateCartBadge } from '../lib/cart.js';
 import { escapeHtml, sanitizeUrl } from '../lib/escape-html';
 import { formatPrice } from '../lib/format';
@@ -53,6 +31,7 @@ class VariantModal extends HTMLElement {
     this._error = null;
     this._selectorEl = null;
     this._stackId = null;
+    this._trapActive = false;
 
     this._boundHandleKeyDown = this._handleKeyDown.bind(this);
   }
@@ -66,11 +45,8 @@ class VariantModal extends HTMLElement {
     if (this._isOpen) {
       this._cleanup();
 
-      // Restore body overflow if the element is removed while open
-      // (e.g., Astro ClientRouter page swap)
       document.body.style.overflow = '';
 
-      // Clean up stack entry to prevent ghost closeFn on detached element
       if (this._stackId) {
         modalStack.remove(this._stackId);
         this._stackId = null;
@@ -84,8 +60,6 @@ class VariantModal extends HTMLElement {
       if (this._isOpen) this._renderContent();
     }
   }
-
-  // ─── Public API ──────────────────────────────────────────
 
   get isOpen() {
     return this._isOpen;
@@ -104,7 +78,6 @@ class VariantModal extends HTMLElement {
     document.body.style.overflow = 'hidden';
     this._fetchVariants();
 
-    // Push to modal stack for ESC-key support (no history entry is added)
     this._stackId = modalStack.push(() => {
       this.close();
     });
@@ -122,7 +95,6 @@ class VariantModal extends HTMLElement {
 
     document.body.style.overflow = '';
 
-    // Remove from stack and strip the history annotation set by open()
     if (this._stackId) {
       modalStack.remove(this._stackId);
       modalStack.clearHistoryAnnotation();
@@ -136,21 +108,18 @@ class VariantModal extends HTMLElement {
     }));
   }
 
-  // ─── Attribute Parsing ───────────────────────────────────
-
   _parseAttributes() {
     this._productId = this.getAttribute('product-id') || '';
     this._productName = this.getAttribute('product-name') || '';
-    this._basePrice = parseInt(this.getAttribute('product-price') || '0', 10);
-    this._productImage = this.getAttribute('product-image') || '/placeholder.webp';
+    const parsedPrice = Number(this.getAttribute('product-price'));
+    this._basePrice = Number.isFinite(parsedPrice) ? parsedPrice : 0;
+    this._productImage = this.getAttribute('product-image') || '/placeholder-product.svg';
     try {
       this._priceTiers = JSON.parse(this.getAttribute('price-tiers') || '[]');
     } catch {
       this._priceTiers = [];
     }
   }
-
-  // ─── Shell Rendering (always visible) ────────────────────
 
   _renderShell() {
     this._shadow.innerHTML = `
@@ -160,8 +129,6 @@ class VariantModal extends HTMLElement {
     this._attachOverlayEvents();
   }
 
-  // ─── Full Content Rendering ──────────────────────────────
-
   _renderContent() {
     const bodyHtml = this._loading
       ? this._renderLoading()
@@ -169,11 +136,15 @@ class VariantModal extends HTMLElement {
         ? this._renderError()
         : this._renderModalBody();
 
+    const dialogAttrs = this._loading || this._error
+      ? `aria-label="${this._loading ? 'Cargando variantes' : 'Error al cargar variantes'}"`
+      : 'aria-labelledby="variant-modal-title"';
+
     this._shadow.innerHTML = `
       <style>${this._getStyles()}</style>
       <div class="overlay" ${this._isOpen ? '' : 'aria-hidden="true"'}>
         <div class="modal" role="dialog" aria-modal="true"
-             aria-labelledby="variant-modal-title">
+             ${dialogAttrs}>
           <button class="close-btn" aria-label="Cerrar modal">&times;</button>
           ${bodyHtml}
         </div>
@@ -186,8 +157,6 @@ class VariantModal extends HTMLElement {
       this._activateFocusTrap();
     }
   }
-
-  // ─── Sub-Renderers ───────────────────────────────────────
 
   _renderLoading() {
     return `
@@ -253,8 +222,6 @@ class VariantModal extends HTMLElement {
       </div>`;
   }
 
-  // ─── Event Binding ───────────────────────────────────────
-
   _attachOverlayEvents() {
     const overlay = this._shadow.querySelector('.overlay');
     if (overlay) {
@@ -288,13 +255,14 @@ class VariantModal extends HTMLElement {
     }
   }
 
-  // ─── Focus Trap ──────────────────────────────────────────
-
   _activateFocusTrap() {
+    if (this._trapActive) return;
+    this._trapActive = true;
     document.addEventListener('keydown', this._boundHandleKeyDown);
   }
 
   _cleanup() {
+    this._trapActive = false;
     document.removeEventListener('keydown', this._boundHandleKeyDown);
   }
 
@@ -332,8 +300,6 @@ class VariantModal extends HTMLElement {
       }
     }
   }
-
-  // ─── Variant Fetching ────────────────────────────────────
 
   async _fetchVariants() {
     if (!this._productId) return;
@@ -377,8 +343,6 @@ class VariantModal extends HTMLElement {
     }
     return selected;
   }
-
-  // ─── Variant Change Handler ──────────────────────────────
 
   _onVariantChange(detail) {
     this._selectedAttributes[detail.moduleId] = detail.valueId;
@@ -424,11 +388,9 @@ class VariantModal extends HTMLElement {
         this._selectorEl.setAttribute('modules', JSON.stringify(modules));
       }
     } catch {
-      // Silently fail — keep current modules
+      return;
     }
   }
-
-  // ─── Quantity ────────────────────────────────────────────
 
   _adjustQuantity(delta) {
     const next = this._quantity + delta;
@@ -449,8 +411,6 @@ class VariantModal extends HTMLElement {
       badgeEl.textContent = formatTierLabel(bestTier);
     }
   }
-
-  // ─── Confirm / Add to Cart ───────────────────────────────
 
   _handleConfirm() {
     if (this._modules.length > 0) {
@@ -519,8 +479,6 @@ class VariantModal extends HTMLElement {
   _updateBadge() {
     updateCartBadge();
   }
-
-  // ─── Styles ──────────────────────────────────────────────
 
   _getStyles() {
     return `
@@ -601,8 +559,6 @@ class VariantModal extends HTMLElement {
         outline-offset: 2px;
       }
 
-      /* ── Header ─────────────────────────────────────── */
-
       .modal-header {
         display: flex;
         gap: var(--_space-md);
@@ -641,8 +597,6 @@ class VariantModal extends HTMLElement {
         margin: 0;
       }
 
-      /* ── Volume Badge ──────────────────────────── */
-
       .volume-badge {
         display: inline-flex;
         align-items: center;
@@ -656,8 +610,6 @@ class VariantModal extends HTMLElement {
         word-break: break-word;
       }
 
-      /* ── Body ───────────────────────────────────────── */
-
       .modal-body {
         padding: var(--_space-lg);
         overflow-y: auto;
@@ -670,8 +622,6 @@ class VariantModal extends HTMLElement {
         text-align: center;
         padding: var(--_space-lg) 0;
       }
-
-      /* ── Footer ─────────────────────────────────────── */
 
       .modal-footer {
         padding: var(--_space-md) var(--_space-lg);
@@ -768,8 +718,6 @@ class VariantModal extends HTMLElement {
         color: #000;
       }
 
-      /* ── Loading / Error ────────────────────────────── */
-
       .modal-loading, .modal-error {
         display: flex;
         flex-direction: column;
@@ -815,8 +763,6 @@ class VariantModal extends HTMLElement {
         outline-offset: 2px;
       }
 
-      /* ── Mobile: full-screen ────────────────────────── */
-
       @media (max-width: 767px) {
         .overlay {
           padding: 0;
@@ -828,6 +774,31 @@ class VariantModal extends HTMLElement {
           max-height: none;
           height: 100%;
           border: none;
+        }
+
+        .close-btn {
+          width: 44px;
+          height: 44px;
+        }
+
+        .qty-btn {
+          width: 44px;
+          height: 44px;
+        }
+
+        .qty-value {
+          min-width: 52px;
+          height: 44px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .spinner {
+          animation: none;
+        }
+
+        .overlay, .qty-btn, .confirm-btn, .retry-btn {
+          transition: none;
         }
       }
     `;

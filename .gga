@@ -45,9 +45,10 @@ RULES_FILE="AGENTS.md"
 
 # Strict mode: fail if AI response is ambiguous
 # Default: true
-# Set to false so the opencode provider's non-exact STATUS line format
-# doesn't block legitimate commits. Explicit STATUS: FAILED reviews still fail.
-STRICT_MODE="false"
+# Safe with the opencode provider: the gga-reviewer agent (opencode.json)
+# guarantees the exact 'STATUS: PASSED|FAILED' first-line contract, so
+# ambiguous responses now fail closed instead of allowing commits.
+STRICT_MODE="true"
 
 # Timeout in seconds for AI provider response
 # Default: 300 (5 minutes)
@@ -60,7 +61,9 @@ TIMEOUT="300"
 
 # OpenCode provider: optional agent profile
 # Keep this lightweight. Agent prompts can add significant token overhead.
-# OPENCODE_AGENT="gga-reviewer"
+# gga-reviewer (defined in ~/.config/opencode/opencode.json) is a tool-less
+# reviewer that emits the exact STATUS line, so parse_review_status works.
+OPENCODE_AGENT="gga-reviewer"
 
 # Base branch for --pr-mode (auto-detects main/master/develop if empty)
 # Default: auto-detect
