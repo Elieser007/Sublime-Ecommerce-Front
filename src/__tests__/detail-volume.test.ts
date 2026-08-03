@@ -1,19 +1,14 @@
 /**
  * Detail Volume UI — Static Source Tests (D2/D3)
  *
- * Asserts the product detail volume UI is server-rendered with real
- * <option> elements (not escaped HTML strings) and hydrated as Astro
- * client:load islands — regression for the volume-price-selector /
- * price-tier-list innerHTML swap of unregistered elements.
+ * Asserts the product detail volume UI is server-rendered as a static
+ * tier table (no interactive <select>, no volume-tier-change event
+ * machinery) and hydrated as an Astro client:load island.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
-const selectorSource = readFileSync(
-  resolve(__dirname, "../components/VolumePriceSelector.astro"),
-  "utf-8"
-);
 const tierListSource = readFileSync(
   resolve(__dirname, "../components/PriceTierList.astro"),
   "utf-8"
@@ -31,38 +26,28 @@ const cartUtilsSource = readFileSync(
   "utf-8"
 );
 
-describe("VolumePriceSelector renders real options (D3)", () => {
-  it("maps tiers to real <option> elements instead of an escaped HTML string", () => {
-    expect(selectorSource).toContain("sortedTiers.map((tier) => {");
-    expect(selectorSource).toContain("data-price={tier.price}");
-    expect(selectorSource).not.toContain('.join("")');
-    expect(selectorSource).not.toContain('<option value="${tier.id}"');
-  });
-
-  it("exposes a basePrice prop used as the initial price fallback", () => {
-    expect(selectorSource).toContain("basePrice?: number");
-    expect(selectorSource).toMatch(/getTierPrice\(tiers, initialQty,\s*basePrice/);
-  });
-});
-
-describe("PriceTierList highlights on volume-tier-change (D2)", () => {
-  it("has a client script listening for volume-tier-change", () => {
-    expect(tierListSource).toContain("'volume-tier-change'");
-  });
-
-  it("exposes min_quantity per row for client highlight", () => {
+describe("PriceTierList renders statically (D2/D3)", () => {
+  it("exposes min_quantity per row", () => {
     expect(tierListSource).toContain("data-min-qty={tier.min_quantity}");
+  });
+
+  it("no longer listens for volume-tier-change", () => {
+    expect(tierListSource).not.toContain("'volume-tier-change'");
   });
 });
 
 describe("[slug].astro server-rendered volume UI (D2)", () => {
-  it("renders VolumePriceSelector and PriceTierList as Astro components", () => {
-    expect(detailSource).toContain("<VolumePriceSelector");
+  it("renders PriceTierList as the only volume UI component", () => {
     expect(detailSource).toContain("<PriceTierList");
+    expect(detailSource).not.toContain("<VolumePriceSelector");
   });
 
-  it("hydrates the volume islands with client:load", () => {
+  it("hydrates the tier list island with client:load", () => {
     expect(detailSource).toContain("client:load");
+  });
+
+  it("no longer wires the volume-tier-change event", () => {
+    expect(detailSource).not.toContain("'volume-tier-change'");
   });
 
   it("removes the renderVolumeSection innerHTML swap of unregistered elements", () => {
@@ -110,9 +95,9 @@ describe("Add-to-cart D4 price contract", () => {
     expect(detailSource).toContain("selected_tier_price: selectedTier?.price");
   });
 
-  it("cart-utils passes item.price as getTierPrice fallback (clarity)", () => {
+  it("cart-utils recomputes the applicable tier from the sanitized quantity", () => {
     expect(cartUtilsSource).toContain(
-      "getTierPrice(item.price_tiers, item.quantity, item.price)"
+      "getTierForQuantity(item.price_tiers, sanitizeQuantity(item.quantity))"
     );
   });
 });

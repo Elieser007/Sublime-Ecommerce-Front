@@ -9,7 +9,7 @@ import {
   clearCart,
   formatPrice,
 } from './cart';
-import { getCartKey, hasAttribute, getAttributeValue, getEffectivePrice, reevalTier, migrateCart, isHashKey } from './cart-utils';
+import { getCartKey, hasAttribute, getAttributeValue, getEffectivePrice, getApplicableTier, getItemTotal, getCartTierBadge, sanitizeQuantity, reevalTier, migrateCart, isHashKey } from './cart-utils';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -230,6 +230,166 @@ describe('cart-utils', () => {
       });
       expect(result[0].price).toBe(20000);
       expect(result[0].selected_tier_price).toBe(17000);
+    });
+  });
+
+  describe('sanitizeQuantity', () => {
+    it('maps NaN, zero and negatives to 1', () => {
+      expect(sanitizeQuantity(NaN)).toBe(1);
+      expect(sanitizeQuantity(0)).toBe(1);
+      expect(sanitizeQuantity(-2)).toBe(1);
+    });
+
+    it('keeps fractional and whole positive quantities', () => {
+      expect(sanitizeQuantity(2.5)).toBe(2.5);
+      expect(sanitizeQuantity(3)).toBe(3);
+    });
+  });
+
+  describe('getEffectivePrice (recompute-first)', () => {
+    it('ignores stale selected_tier_price when tiers exist (recompute from qty)', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 100 },
+        { id: 't2', branch_id: 'b1', branch_name: 'B', min_quantity: 10, price: 80 },
+      ];
+      const item = {
+        id: '1', name: 'A', price: 100, image: 'x', quantity: 15, price_tiers: tiers,
+        selected_tier_id: 't2', selected_tier_price: 17000, selected_tier_min_qty: 10,
+      } as any;
+      expect(getEffectivePrice(item)).toBe(80);
+    });
+
+    it('clamps negative results at 0 (base 5000 - mod 6000)', () => {
+      const item = {
+        id: '1', name: 'A', price: 5000, image: 'x', quantity: 1,
+        selected_attributes: { 'mod-size': { value_id: 'v-s', label: 'S', raw_value: 'S', price_modifier: -6000 } },
+      } as any;
+      expect(getEffectivePrice(item)).toBe(0);
+      expect(getItemTotal(item)).toBe(0);
+    });
+
+    it('falls back to base price plus modifiers when quantity is below all tier minimums', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 10, price: 18000 },
+      ];
+      const item = {
+        id: '1', name: 'A', price: 20000, image: 'x', quantity: 2, price_tiers: tiers,
+        selected_attributes: { 'mod-size': { value_id: 'v-s', label: 'S', raw_value: 'S', price_modifier: 1000 } },
+      } as any;
+      expect(getEffectivePrice(item)).toBe(21000);
+    });
+
+    it('adds modifiers to the stored base price when no tiers exist', () => {
+      const item = {
+        id: '1', name: 'A', price: 20000, image: 'x', quantity: 2,
+        selected_attributes: { 'mod-size': { value_id: 'v-s', label: 'S', raw_value: 'S', price_modifier: 1000 } },
+      } as any;
+      expect(getEffectivePrice(item)).toBe(21000);
+    });
+
+    it('returns 0 when price is missing or not finite', () => {
+      const item = { id: '1', name: 'A', image: 'x', quantity: 1 } as any;
+      expect(getEffectivePrice(item)).toBe(0);
+    });
+  });
+
+  describe('getApplicableTier', () => {
+    it('returns null when no price_tiers', () => {
+      const item = { id: '1', name: 'A', price: 100, image: 'x', quantity: 5 } as any;
+      expect(getApplicableTier(item)).toBeNull();
+    });
+
+    it('returns null when quantity is below all tier minimums', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 10, price: 18000 },
+      ];
+      const item = { id: '1', name: 'A', price: 20000, image: 'x', quantity: 2, price_tiers: tiers } as any;
+      expect(getApplicableTier(item)).toBeNull();
+    });
+
+    it('returns the applicable tier by quantity (2 and 15)', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 120000 },
+        { id: 't2', branch_id: 'b1', branch_name: 'B', min_quantity: 15, price: 100000 },
+      ];
+      const qty2 = { id: '1', name: 'A', price: 120000, image: 'x', quantity: 2, price_tiers: tiers } as any;
+      expect(getApplicableTier(qty2)?.id).toBe('t1');
+
+      const qty15 = { id: '1', name: 'A', price: 120000, image: 'x', quantity: 15, price_tiers: tiers } as any;
+      expect(getApplicableTier(qty15)?.id).toBe('t2');
+    });
+  });
+
+  describe('getItemTotal', () => {
+    it('multiplies unit price by quantity', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 100 },
+        { id: 't2', branch_id: 'b1', branch_name: 'B', min_quantity: 10, price: 80 },
+      ];
+      const item = { id: '1', name: 'A', price: 100, image: 'x', quantity: 15, price_tiers: tiers } as any;
+      expect(getItemTotal(item)).toBe(1200); // 80 x 15
+    });
+
+    it('treats invalid quantity 0 as 1', () => {
+      const item = { id: '1', name: 'A', price: 100, image: 'x', quantity: 0 } as any;
+      expect(getItemTotal(item)).toBe(100);
+    });
+  });
+
+  describe('getCartTierBadge', () => {
+    const tiers = [
+      { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 120000 },
+      { id: 't2', branch_id: 'b1', branch_name: 'B', min_quantity: 15, price: 100000 },
+    ];
+
+    it('shows the applicable base tier, not active, at qty 2', () => {
+      const item = { id: '1', name: 'A', price: 120000, image: 'x', quantity: 2, price_tiers: tiers } as any;
+      expect(getCartTierBadge(item)).toEqual({ label: 'Desde 1 unds: Gs. 120.000', active: false });
+    });
+
+    it('shows the cheapest applicable tier as active at qty 15', () => {
+      const item = { id: '1', name: 'A', price: 120000, image: 'x', quantity: 15, price_tiers: tiers } as any;
+      expect(getCartTierBadge(item)).toEqual({ label: 'Desde 15 unds: Gs. 100.000', active: true });
+    });
+
+    it('returns null when quantity is below all tier minimums', () => {
+      const highTiers = [{ id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 10, price: 18000 }];
+      const item = { id: '1', name: 'A', price: 20000, image: 'x', quantity: 2, price_tiers: highTiers } as any;
+      expect(getCartTierBadge(item)).toBeNull();
+    });
+
+    it('returns null when no price_tiers', () => {
+      const item = { id: '1', name: 'A', price: 100, image: 'x', quantity: 1 } as any;
+      expect(getCartTierBadge(item)).toBeNull();
+    });
+  });
+
+  describe('migrateCart (normalization)', () => {
+    it('refreshes stale selected_tier_* from live tiers (stale 17000 → 20000)', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 20000 },
+        { id: 't2', branch_id: 'b1', branch_name: 'B', min_quantity: 24, price: 17000 },
+      ];
+      const items = [{
+        id: '1', composite_key: '1', name: 'A', price: 20000, image: 'x', quantity: 1,
+        price_tiers: tiers, selected_tier_id: 't2', selected_tier_price: 17000, selected_tier_min_qty: 24,
+      }];
+      const migrated = migrateCart(items as any);
+      expect(migrated[0].selected_tier_price).toBe(20000);
+      expect(migrated[0].selected_tier_id).toBe('t1');
+      expect(migrated[0].selected_tier_min_qty).toBe(1);
+    });
+
+    it('sanitizes invalid quantities to 1', () => {
+      const items = [{ id: '1', composite_key: '1', name: 'A', price: 100, image: 'x', quantity: 0 }];
+      const migrated = migrateCart(items as any);
+      expect(migrated[0].quantity).toBe(1);
+    });
+
+    it('leaves no-tier items unchanged', () => {
+      const items = [{ id: '1', composite_key: '1', name: 'A', price: 100, image: 'x', quantity: 3 }];
+      const migrated = migrateCart(items as any);
+      expect(migrated[0]).toEqual(items[0]);
     });
   });
 

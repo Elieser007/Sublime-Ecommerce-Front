@@ -1,5 +1,5 @@
 import type { PriceTier } from './public-api';
-import { getTierForQuantity, getTierPrice } from './price-utils';
+import { getTierForQuantity, formatTierLabel } from './price-utils';
 
 export type CartAttributeValue = string | { value_id: string } | null | undefined;
 
@@ -103,31 +103,53 @@ export function getAttributeValue(compositeKey: string, moduleId: string): strin
   return null;
 }
 
+export function sanitizeQuantity(qty: number): number {
+  return Number.isFinite(qty) && qty >= 1 ? qty : 1;
+}
+
+export function sanitizePrice(p: number): number {
+  return Number.isFinite(p) ? p : 0;
+}
+
 function getSurcharges(item: CartItem): number {
   if (!item.selected_attributes) return 0;
   return Object.values(item.selected_attributes).reduce((sum, attr) => {
-    return sum + (attr.price_modifier || 0);
+    const mod = attr.price_modifier;
+    return sum + (Number.isFinite(mod) ? (mod as number) : 0);
   }, 0);
+}
+
+export function getApplicableTier(item: CartItem): PriceTier | null {
+  if (!item.price_tiers || item.price_tiers.length === 0) return null;
+  return getTierForQuantity(item.price_tiers, sanitizeQuantity(item.quantity));
 }
 
 export function getEffectivePrice(item: CartItem): number {
   const surcharges = getSurcharges(item);
 
-  // If a tier price was already evaluated and stored, use it + surcharges
-  if (item.selected_tier_price != null) return item.selected_tier_price + surcharges;
-
-  // If tiers exist and quantity qualifies, compute the tier price + surcharges
+  let tierUnit: number;
   if (item.price_tiers && item.price_tiers.length > 0) {
-    const tierPrice = getTierPrice(item.price_tiers, item.quantity, item.price);
-    if (tierPrice > 0) {
-      const sorted = [...item.price_tiers].sort((a, b) => a.min_quantity - b.min_quantity);
-      const noTierMatches = sorted.every((t) => t.min_quantity > item.quantity);
-      if (noTierMatches) return item.price;
-      return tierPrice + surcharges;
-    }
+    const tier = getApplicableTier(item);
+    tierUnit = tier ? tier.price : sanitizePrice(item.price);
+  } else {
+    tierUnit = Number.isFinite(item.selected_tier_price)
+      ? (item.selected_tier_price as number)
+      : sanitizePrice(item.price);
   }
 
-  return item.price;
+  return Math.max(0, tierUnit + surcharges);
+}
+
+export function getItemTotal(item: CartItem): number {
+  return getEffectivePrice(item) * sanitizeQuantity(item.quantity);
+}
+
+export function getCartTierBadge(item: CartItem): { label: string; active: boolean } | null {
+  if (!item.price_tiers || item.price_tiers.length === 0) return null;
+  const tier = getApplicableTier(item);
+  if (!tier) return null;
+  const cheapestPrice = Math.min(...item.price_tiers.map((t) => t.price));
+  return { label: formatTierLabel(tier), active: tier.price === cheapestPrice };
 }
 
 export function reevalTier(item: CartItem): CartItem {
@@ -155,16 +177,35 @@ export function isHashKey(compositeKey: string | undefined): boolean {
 export function migrateCart(cart: CartItem[]): CartItem[] {
   let changed = false;
   const migrated = cart.map((item) => {
+    let next = item;
+
     const needsMigration = !item.composite_key || isHashKey(item.composite_key);
     if (needsMigration) {
-      changed = true;
-      return {
-        ...item,
+      next = {
+        ...next,
         composite_key: getCartKey(item.id, item.selected_attributes),
         price_tiers: item.price_tiers || [],
       };
     }
-    return item;
+
+    const qty = sanitizeQuantity(next.quantity);
+    if (qty !== next.quantity) {
+      next = { ...next, quantity: qty };
+    }
+
+    if (next.price_tiers && next.price_tiers.length > 0) {
+      const refreshed = reevalTier(next);
+      if (
+        refreshed.selected_tier_id !== next.selected_tier_id ||
+        refreshed.selected_tier_price !== next.selected_tier_price ||
+        refreshed.selected_tier_min_qty !== next.selected_tier_min_qty
+      ) {
+        next = refreshed;
+      }
+    }
+
+    if (next !== item) changed = true;
+    return next;
   });
   if (changed) {
     try {
