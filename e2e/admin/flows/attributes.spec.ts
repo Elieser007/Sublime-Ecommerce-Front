@@ -29,16 +29,26 @@ const SEEDED_MODULE_SLUG = "color";
 const SEEDED_VALUE_LABEL = "Negro";
 const SEEDED_VALUE_RAW = "negro";
 
+/**
+ * Unique-name helpers: Date.now() alone collides when two calls land in the
+ * same millisecond (e.g. two modules created in one test) — the backend then
+ * rejects the second slug with 409. A counter disambiguates same-ms calls.
+ */
+let uniqueCounter = 0;
+
 function uniqueModuleName(): string {
-  return `E2E Mod ${Date.now()}`;
+  uniqueCounter += 1;
+  return `E2E Mod ${Date.now()}-${uniqueCounter}`;
 }
 
 function uniqueModuleSlug(): string {
-  return `e2e-mod-${Date.now()}`;
+  uniqueCounter += 1;
+  return `e2e-mod-${Date.now()}-${uniqueCounter}`;
 }
 
 function uniqueProductName(): string {
-  return `E2E P9 Prod ${Date.now()}`;
+  uniqueCounter += 1;
+  return `E2E P9 Prod ${Date.now()}-${uniqueCounter}`;
 }
 
 test.beforeAll(() => {
@@ -213,7 +223,7 @@ test("assigns and unassigns a module to a product", async ({ page }) => {
   // POST /api/admin/products/:id/attributes → card + product badge update.
   await assignModule(page, productName, moduleName, moduleId);
   await page.locator("#search").fill(productName);
-  const row = page.locator("tbody tr", { hasText: productName });
+  let row = page.locator("tbody tr", { hasText: productName });
   await expect(row.locator(".attr-badge")).toHaveText("1 módulos");
 
   // DELETE /api/admin/products/:id/attributes/:moduleId → card + badge reset.
@@ -228,6 +238,10 @@ test("assigns and unassigns a module to a product", async ({ page }) => {
   await expect(overlay.locator("#assigned-modules-list")).toContainText("No hay módulos asignados");
   await overlay.locator("#attr-modal-cancel").click();
   await expect(overlay).toBeHidden();
+  // The unassign flow reloads the modal contents, not the products table —
+  // re-query the list (same search value re-fires the debounced load).
+  await page.locator("#search").fill(productName);
+  row = page.locator("tbody tr", { hasText: productName });
   await expect(row.locator(".attr-badge")).toHaveText("0 módulos");
 });
 
