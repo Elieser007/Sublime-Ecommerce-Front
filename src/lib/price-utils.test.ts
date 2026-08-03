@@ -7,9 +7,11 @@ import {
   getBestVolumeBadge,
   getTierPrice,
   formatTierLabel,
+  formatTierOption,
   getTierSavings,
   getTierForQuantity,
   isBestVolumeTier,
+  getVolumeTierCount,
 } from "./price-utils";
 
 const mockTiers = [
@@ -139,6 +141,14 @@ describe("formatTierLabel", () => {
   });
 });
 
+describe("formatTierOption", () => {
+  it("formats options correctly with Guaraníes formatting", () => {
+    expect(formatTierOption(mockTiers[0])).toBe("1+ unds \u2014 Gs. 100.000/u");
+    expect(formatTierOption(mockTiers[1])).toBe("10+ unds \u2014 Gs. 90.000/u");
+    expect(formatTierOption(mockTiers[2])).toBe("50+ unds \u2014 Gs. 80.000/u");
+  });
+});
+
 describe("getTierSavings", () => {
   it("calculates percentage savings correctly", () => {
     expect(getTierSavings(mockTiers[1], mockTiers)).toBe(10);
@@ -189,6 +199,33 @@ describe("getTierForQuantity", () => {
 
   it("returns highest applicable tier for qty between tiers", () => {
     expect(getTierForQuantity(mockTiers, 25)?.id).toBe("t2");
+  });
+
+  it("returns base tier when only base tier exists", () => {
+    expect(getTierForQuantity(mockTiersOnlyBase, 100)?.id).toBe("t1");
+  });
+});
+
+describe("getVolumeTierCount", () => {
+  it("returns 0 for empty tiers", () => {
+    expect(getVolumeTierCount(emptyTiers)).toBe(0);
+  });
+
+  it("returns 0 when only base tier exists", () => {
+    expect(getVolumeTierCount(mockTiersOnlyBase)).toBe(0);
+  });
+
+  it("counts tiers with min_quantity > 1", () => {
+    expect(getVolumeTierCount(mockTiers)).toBe(2);
+  });
+
+  it("counts volume tiers regardless of array order", () => {
+    const unsorted = [
+      { id: "c", branch_id: "b1", branch_name: "P", min_quantity: 50, price: 80000 },
+      { id: "a", branch_id: "b1", branch_name: "P", min_quantity: 10, price: 90000 },
+      { id: "b", branch_id: "b1", branch_name: "P", min_quantity: 1, price: 100000 },
+    ];
+    expect(getVolumeTierCount(unsorted)).toBe(2);
   });
 });
 

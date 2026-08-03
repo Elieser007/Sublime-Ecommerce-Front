@@ -75,37 +75,6 @@ const currentTier = sortedTiers.find((t) => t.price === currentTierPrice) || sor
   </div>
 )}
 
-<script>
-  // Highlights the tier row applicable to the selected quantity on volume-tier-change
-  const rows = Array.from(document.querySelectorAll('[data-tier-id]'));
-  const qtySpans = rows.map((row) => row.querySelector('td.tier-col-qty span'));
-  const priceSpans = rows.map((row) => row.querySelector('td.tier-col-price span'));
-
-  function highlightTier(qty: number) {
-    let bestIndex = -1;
-    let bestMin = -1;
-
-    rows.forEach((row, index) => {
-      const min = Number(row.getAttribute('data-min-qty'));
-      if (min <= qty && min > bestMin) {
-        bestMin = min;
-        bestIndex = index;
-      }
-    });
-
-    rows.forEach((row, index) => {
-      const isActive = index === bestIndex;
-      row.classList.toggle('tier-row--active', isActive);
-      qtySpans[index]?.classList.toggle('tier-qty--active', isActive);
-      priceSpans[index]?.classList.toggle('tier-price--active', isActive);
-    });
-  }
-
-  window.addEventListener('volume-tier-change', ((e: CustomEvent) => {
-    highlightTier(Number(e.detail.qty));
-  }) as EventListener);
-</script>
-
 <style>
   .tier-list {
     margin-top: var(--space-md);

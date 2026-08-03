@@ -13,7 +13,7 @@
 
 import { formatPrice } from '../lib/cart.js';
 import { escapeHtml } from '../lib/escape-html';
-import { getBestVolumeBadge } from '../lib/price-utils';
+import { getBestVolumeBadge, getVolumeTierCount } from '../lib/price-utils';
 
 class ProductCard extends HTMLElement {
   connectedCallback() {
@@ -25,6 +25,8 @@ class ProductCard extends HTMLElement {
     const category = product.category || '';
     const priceTiers = product.price_tiers || [];
     const bestTier = getBestVolumeBadge(priceTiers);
+    const volumeTierCount = getVolumeTierCount(priceTiers);
+    const extraVolumeTiers = bestTier && volumeTierCount > 1 ? volumeTierCount - 1 : 0;
 
     const shadow = this.attachShadow({ mode: 'open' });
 
@@ -148,9 +150,26 @@ class ProductCard extends HTMLElement {
           border: var(--_border-width) solid color-mix(in srgb, var(--_primary) 30%, transparent);
           padding: var(--_space-xs) var(--_space-sm);
           word-break: break-word;
+          cursor: default;
         }
 
         .volume-badge.visible {
+          display: inline-flex;
+        }
+
+        .volume-badge-extra {
+          display: none;
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--_on-surface-variant);
+          background: color-mix(in srgb, var(--_outline) 12%, transparent);
+          border: var(--_border-width) solid var(--_outline-variant);
+          padding: var(--_space-xs) var(--_space-sm);
+          word-break: break-word;
+          cursor: default;
+        }
+
+        .volume-badge-extra.visible {
           display: inline-flex;
         }
 
@@ -200,6 +219,7 @@ class ProductCard extends HTMLElement {
             <div class="product-price-row">
               <p class="product-price">Gs. ${escapeHtml(formatPrice(product.price))}</p>
               ${bestTier ? `<span class="volume-badge visible">Desde ${escapeHtml(bestTier.min_quantity)} unds: Gs. ${escapeHtml(formatPrice(bestTier.price))}</span>` : '<span class="volume-badge"></span>'}
+              ${extraVolumeTiers > 0 ? `<span class="volume-badge-extra visible">+${escapeHtml(extraVolumeTiers)}</span>` : ''}
             </div>
           </div>
         </a>
@@ -210,6 +230,14 @@ class ProductCard extends HTMLElement {
     `;
 
     this._bindCart(product);
+    this._makeBadgeInert();
+  }
+
+  // Badge and extra chip sit inside the card anchor; preventDefault stops their click from navigating.
+  _makeBadgeInert() {
+    this.shadowRoot.querySelectorAll('.volume-badge, .volume-badge-extra').forEach((el) => {
+      el.addEventListener('click', (event) => event.preventDefault());
+    });
   }
 
   _bindCart(product) {

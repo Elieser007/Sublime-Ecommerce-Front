@@ -12,6 +12,12 @@ export function getBestVolumeBadge(tiers: PriceTier[]): PriceTier | null {
   );
 }
 
+export function getVolumeTierCount(tiers: PriceTier[]): number {
+  if (!tiers || tiers.length === 0) return 0;
+
+  return tiers.filter((t) => t.min_quantity > 1).length;
+}
+
 export function getTierPrice(tiers: PriceTier[], qty: number, fallbackPrice = 0): number {
   if (!tiers || tiers.length === 0) return fallbackPrice;
 

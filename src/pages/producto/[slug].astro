@@ -12,7 +12,6 @@ import { getProductImageUrl } from '../../lib/public-api';
 import { formatPrice } from '../../lib/public-api';
 import { getApiUrl } from '../../lib/api-url';
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import VolumePriceSelector from '../../components/VolumePriceSelector.astro';
 import PriceTierList from '../../components/PriceTierList.astro';
 import ProductGallery from '../../components/ProductGallery.astro';
 import Button from '../../components/Button.astro';
@@ -100,13 +99,10 @@ const basePriceFormatted = formatPrice(product.base_price);
         <h1 class="detail-name headline-lg-mobile" id="detail-name">{product.name}</h1>
         <p class="detail-price headline-xl" id="detail-price">Gs. {basePriceFormatted}</p>
         
-        <!-- Volume Price Selector + Tier List -->
+        <!-- Volume Price Tier Table -->
         <div id="volume-price-section">
           {tiers.length > 0 && (
-            <>
-              <VolumePriceSelector priceTiers={tiers} basePrice={product.base_price} client:load />
-              <PriceTierList priceTiers={tiers} selectedQty={1} basePrice={product.base_price} client:load />
-            </>
+            <PriceTierList priceTiers={tiers} selectedQty={1} basePrice={product.base_price} client:load />
           )}
         </div>
 
@@ -350,16 +346,9 @@ const basePriceFormatted = formatPrice(product.base_price);
       if ($numberInput) $numberInput.value = 1;
       selectedTier = getTierForQuantity(currentTiers, selectedQty);
 
-      window.addEventListener('volume-tier-change', ((e: CustomEvent) => {
-        const { tier, qty } = e.detail;
-        selectedTier = tier;
-        selectedQty = qty;
-        if ($numberInput) $numberInput.value = qty;
-        updatePriceDisplay();
-      }) as EventListener);
-
       $qtySection.addEventListener('number-input:change', ((e: CustomEvent) => {
         selectedQty = e.detail.value;
+        selectedTier = getTierForQuantity(currentTiers, selectedQty);
         updatePriceDisplay();
       }) as EventListener);
 
@@ -421,11 +410,6 @@ const basePriceFormatted = formatPrice(product.base_price);
   .detail-description {
     color: var(--on-surface-variant);
     line-height: 1.6;
-  }
-
-  /* Volume price section */
-  .volume-selector {
-    margin-bottom: var(--space-md);
   }
 
   /* Quantity stepper */

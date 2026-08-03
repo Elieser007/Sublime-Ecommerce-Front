@@ -175,13 +175,34 @@ class VariantModal extends HTMLElement {
   }
 
   _renderTierInfo() {
+    const badges = this._renderVolumeBadges();
+    if (!badges) return '';
+
+    return `
+      <div class="volume-badges">
+        ${badges}
+      </div>`;
+  }
+
+  _renderVolumeBadges() {
     const bestTier = getBestVolumeBadge(this._priceTiers);
     if (!bestTier) return '';
 
-    return `
-      <span class="volume-badge">
-        ${escapeHtml(formatTierLabel(bestTier))}
+    const volumeTiers = this._priceTiers
+      .filter((t) => t.min_quantity > 1)
+      .sort((a, b) => a.min_quantity - b.min_quantity);
+    const orderedTiers = [bestTier, ...volumeTiers.filter((t) => t.id !== bestTier.id)];
+    const activeTier = getTierForQuantity(this._priceTiers, this._quantity);
+
+    return orderedTiers
+      .map((tier) => {
+        const isActive = activeTier?.id === tier.id;
+        return `
+      <span class="volume-badge"${isActive ? ' data-active="true"' : ''}>
+        ${escapeHtml(formatTierLabel(tier))}
       </span>`;
+      })
+      .join('');
   }
 
   _renderModalBody() {
@@ -403,13 +424,10 @@ class VariantModal extends HTMLElement {
   }
 
   _updateTierInfo() {
-    const badgeEl = this._shadow.querySelector('.volume-badge');
-    if (!badgeEl) return;
+    const badgesEl = this._shadow.querySelector('.volume-badges');
+    if (!badgesEl) return;
 
-    const bestTier = getBestVolumeBadge(this._priceTiers);
-    if (bestTier) {
-      badgeEl.textContent = formatTierLabel(bestTier);
-    }
+    badgesEl.innerHTML = this._renderVolumeBadges();
   }
 
   _handleConfirm() {
@@ -597,10 +615,16 @@ class VariantModal extends HTMLElement {
         margin: 0;
       }
 
+      .volume-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--_space-xs);
+        margin-top: var(--_space-sm);
+      }
+
       .volume-badge {
         display: inline-flex;
         align-items: center;
-        margin-top: var(--_space-sm);
         font-size: 11px;
         font-weight: 500;
         color: var(--_primary);
@@ -608,6 +632,11 @@ class VariantModal extends HTMLElement {
         border: var(--_border-width) solid color-mix(in srgb, var(--_primary) 30%, transparent);
         padding: var(--_space-xs) var(--_space-sm);
         word-break: break-word;
+      }
+
+      .volume-badge[data-active="true"] {
+        background: color-mix(in srgb, var(--_primary) 20%, transparent);
+        border-color: var(--_primary);
       }
 
       .modal-body {
