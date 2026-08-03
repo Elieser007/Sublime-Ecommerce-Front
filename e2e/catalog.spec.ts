@@ -1,4 +1,12 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+// The desktop sidebar shows ONE tab at a time (sidebar-tabs landed in 2be0321):
+// sort/price controls live in the "Filtros" panel, which is display:none until
+// its tab is activated. Every test that drives those controls opens it first.
+async function openDesktopFilters(page: Page) {
+  await page.click('.sidebar-tab[data-sidebar-tab="filters"]');
+  await expect(page.locator("#sidebar-filters")).toHaveClass(/active/);
+}
 
 test.describe("Catalog Browse", () => {
   test("home page loads successfully", async ({ page }) => {
@@ -21,38 +29,45 @@ test.describe("Catalog Browse", () => {
 });
 
 test.describe("Sort", () => {
+  // [data-sort] buttons exist twice (desktop sidebar + mobile filter panel),
+  // so all assertions here scope to the visible aside set.
   test("sort by price ascending", async ({ page }) => {
     await page.goto("/");
-    await page.click('[data-sort="price-asc"]');
+    await openDesktopFilters(page);
+    await page.click("aside [data-sort='price-asc']");
     // Verify button is active
-    await expect(page.locator('[data-sort="price-asc"]')).toHaveClass(/active/);
+    await expect(page.locator("aside [data-sort='price-asc']")).toHaveClass(/active/);
     // Wait for re-render
     await page.waitForTimeout(200);
   });
 
   test("sort by price descending", async ({ page }) => {
     await page.goto("/");
-    await page.click('[data-sort="price-desc"]');
-    await expect(page.locator('[data-sort="price-desc"]')).toHaveClass(/active/);
+    await openDesktopFilters(page);
+    await page.click("aside [data-sort='price-desc']");
+    await expect(page.locator("aside [data-sort='price-desc']")).toHaveClass(/active/);
   });
 
   test("sort by name", async ({ page }) => {
     await page.goto("/");
-    await page.click('[data-sort="name"]');
-    await expect(page.locator('[data-sort="name"]')).toHaveClass(/active/);
+    await openDesktopFilters(page);
+    await page.click("aside [data-sort='name']");
+    await expect(page.locator("aside [data-sort='name']")).toHaveClass(/active/);
   });
 
   test("default sort returns to Destacados", async ({ page }) => {
     await page.goto("/");
-    await page.click('[data-sort="price-asc"]');
-    await page.click('[data-sort="default"]');
-    await expect(page.locator('[data-sort="default"]')).toHaveClass(/active/);
+    await openDesktopFilters(page);
+    await page.click("aside [data-sort='price-asc']");
+    await page.click("aside [data-sort='default']");
+    await expect(page.locator("aside [data-sort='default']")).toHaveClass(/active/);
   });
 });
 
 test.describe("Price Filter", () => {
   test("price range filter with apply button", async ({ page }) => {
     await page.goto("/");
+    await openDesktopFilters(page);
     await page.fill("#price-min-desktop", "50000");
     await page.fill("#price-max-desktop", "150000");
     await page.click("#apply-filters-desktop");
@@ -62,6 +77,7 @@ test.describe("Price Filter", () => {
 
   test("clear filters resets price inputs", async ({ page }) => {
     await page.goto("/");
+    await openDesktopFilters(page);
     await page.fill("#price-min-desktop", "50000");
     await page.click("#apply-filters-desktop");
     await page.click("#clear-filters");
@@ -73,7 +89,9 @@ test.describe("Price Filter", () => {
 test.describe("Search", () => {
   test("search input exists and is functional", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.locator("#catalog-search-input");
+    // Catalog search is the header search input (#catalog-search-input was
+    // removed with the header redesign); it wires the catalog filter state.
+    const searchInput = page.locator("#search-input");
     await expect(searchInput).toBeVisible();
     await searchInput.fill("test");
     // Wait for debounce (300ms)
@@ -85,7 +103,7 @@ test.describe("Search", () => {
   test("search filters products", async ({ page }) => {
     await page.goto("/");
     const initialCount = await page.locator("#product-count-text").textContent();
-    await page.locator("#catalog-search-input").fill("xyz_no_match");
+    await page.locator("#search-input").fill("xyz_no_match");
     await page.waitForTimeout(400);
     // Should show empty state or reduced count
     const newCount = await page.locator("#product-count-text").textContent();
@@ -107,6 +125,7 @@ test.describe("Category Filter", () => {
 test.describe("Clear Filters", () => {
   test("clear button appears when filter is active", async ({ page }) => {
     await page.goto("/");
+    await openDesktopFilters(page);
     // Initially hidden
     await expect(page.locator("#clear-filters")).toBeHidden();
     // Activate a sort
@@ -117,26 +136,28 @@ test.describe("Clear Filters", () => {
 
   test("clear button resets all filters", async ({ page }) => {
     await page.goto("/");
+    await openDesktopFilters(page);
     // Set some filters
-    await page.click('[data-sort="name"]');
+    await page.click("aside [data-sort='name']");
     await page.fill("#price-min-desktop", "10000");
     await page.click("#apply-filters-desktop");
-    await page.locator("#catalog-search-input").fill("test");
+    await page.locator("#search-input").fill("test");
     await page.waitForTimeout(400);
     // Clear
     await page.click("#clear-filters");
-    // Default sort should be active again
-    await expect(page.locator('[data-sort="default"]')).toHaveClass(/active/);
+    // Default sort should be active again (scoped to the aside set — the
+    // mobile panel duplicates the [data-sort] buttons)
+    await expect(page.locator("aside [data-sort='default']")).toHaveClass(/active/);
     await expect(page.locator("#clear-filters")).toBeHidden();
     // Search should be cleared
-    await expect(page.locator("#catalog-search-input")).toHaveValue("");
+    await expect(page.locator("#search-input")).toHaveValue("");
   });
 });
 
 test.describe("Empty State", () => {
   test("empty state shows when no products match", async ({ page }) => {
     await page.goto("/");
-    await page.locator("#catalog-search-input").fill("zzz_impossible_match_xyz");
+    await page.locator("#search-input").fill("zzz_impossible_match_xyz");
     await page.waitForTimeout(400);
     await expect(page.locator("#empty-state")).toBeVisible();
     await expect(page.locator("#empty-state")).toContainText("No se encontraron productos");
@@ -144,11 +165,14 @@ test.describe("Empty State", () => {
 
   test("empty state clear button works", async ({ page }) => {
     await page.goto("/");
-    await page.locator("#catalog-search-input").fill("zzz_impossible");
+    await page.locator("#search-input").fill("zzz_impossible");
     await page.waitForTimeout(400);
     await page.click("#empty-clear-btn");
-    // Should show products again
-    await expect(page.locator("#product-count-text")).not.toContainText("0");
+    // Products show again — the empty state leaves the DOM-visible state
+    // (a text assertion like not.toContainText("0") is fragile: counts like
+    // "20 productos encontrados" also contain a zero)
+    await expect(page.locator("#empty-state")).toBeHidden();
+    await expect(page.locator("product-card").first()).toBeVisible();
   });
 });
 
@@ -163,22 +187,20 @@ test.describe("Pagination", () => {
 });
 
 test.describe("Product Card", () => {
-  test("add to cart button works", async ({ page }) => {
+  test("add to cart button opens the variant modal", async ({ page }) => {
     await page.goto("/");
     const firstCard = page.locator("product-card").first();
     await expect(firstCard).toBeVisible();
-    
+
     // Access shadow DOM for the add button
     const addButton = firstCard.locator(".product-add-btn");
     await expect(addButton).toBeVisible();
     await addButton.click();
-    
-    // Button text should change to "¡Agregado!"
-    await expect(addButton).toContainText("¡Agregado!");
-    
-    // Wait for it to revert
-    await page.waitForTimeout(2000);
-    await expect(addButton).toContainText("Agregar al carrito");
+
+    // The button now opens the variant modal (the old inline "¡Agregado!"
+    // text flip was replaced by the modal flow); the modal overlay loses
+    // aria-hidden once open.
+    await expect(page.locator("variant-modal .overlay")).toBeVisible();
   });
 });
 
@@ -298,9 +320,10 @@ test.describe("Mobile Catalog", () => {
     const panel = page.locator("#mobile-category-panel");
     await expect(panel).toHaveClass(/open/);
 
-    // Click the overlay backdrop (the panel element itself, not the inner content)
-    // The overlay is the parent; clicking outside the inner panel triggers close
-    await panel.click({ position: { x: 10, y: 10 } });
+    // Click the overlay backdrop OUTSIDE the inner panel (the panel is
+    // 85% wide = ~319px on a 375px viewport, so x=360 hits the backdrop;
+    // clicking at x=10 used to hit the panel itself and never closed it).
+    await panel.click({ position: { x: 360, y: 400 } });
     await page.waitForTimeout(500);
     await expect(panel).not.toHaveClass(/open/);
   });
@@ -317,14 +340,16 @@ test.describe("Mobile Catalog", () => {
     await expect(panel).not.toHaveClass(/open/);
   });
 
-  test("search overlay works on mobile", async ({ page }) => {
+  test("mobile search bar filters products", async ({ page }) => {
     await page.goto("/");
-    await page.click("#search-toggle");
-    await expect(page.locator("#search-overlay")).toHaveClass(/open/);
-
-    // Type in search
-    await page.fill("#search-overlay-input", "test");
-    await expect(page.locator("#search-overlay-input")).toHaveValue("test");
+    // The header search toggle/overlay were replaced by the catalog's own
+    // mobile search bar (index.astro #mobile-search-bar-input).
+    const bar = page.locator("#mobile-search-bar-input");
+    await expect(bar).toBeVisible();
+    await bar.fill("test");
+    await page.waitForTimeout(400);
+    // A non-empty search activates the clear-filters state
+    await expect(page.locator("#clear-filters")).toBeVisible();
   });
 
   test("pagination works on mobile", async ({ page }) => {
@@ -357,14 +382,22 @@ test.describe("Mobile Panels Hidden on Desktop", () => {
 });
 
 test.describe("Button Colors", () => {
+  // Intent: primary button text must be readable against its background.
+  // The design system colors the text with --on-surface (rgb(26,26,26) in
+  // the light theme), not pure black, and the tokens can vary by theme — so
+  // assert foreground differs from the background instead of a hard-coded
+  // color.
   test("primary buttons have visible text color", async ({ page }) => {
     await page.goto("/");
+    await openDesktopFilters(page);
     // Check the apply filters button on desktop
     const btn = page.locator("#apply-filters-desktop");
     await expect(btn).toBeVisible();
-    const color = await btn.evaluate((el) => getComputedStyle(el).color);
-    // Should be black (#000) for contrast on cyan background
-    expect(color).toBe("rgb(0, 0, 0)");
+    const colors = await btn.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { fg: cs.color, bg: cs.backgroundColor };
+    });
+    expect(colors.fg).not.toBe(colors.bg);
   });
 
   test("primary button on product detail has visible text", async ({ page }) => {
@@ -372,11 +405,14 @@ test.describe("Button Colors", () => {
     const productLink = page.locator('a[href*="/producto/"]').first();
     if (await productLink.isVisible()) {
       await productLink.click();
-      await page.waitForLoadState("networkidle");
+      await page.waitForURL(/\/producto\//);
       const btn = page.locator("#detail-add-cart");
       if (await btn.isVisible()) {
-        const color = await btn.evaluate((el) => getComputedStyle(el).color);
-        expect(color).toBe("rgb(0, 0, 0)");
+        const colors = await btn.evaluate((el) => {
+          const cs = getComputedStyle(el);
+          return { fg: cs.color, bg: cs.backgroundColor };
+        });
+        expect(colors.fg).not.toBe(colors.bg);
       }
     }
   });
@@ -388,7 +424,9 @@ test.describe("Product Detail", () => {
     const productLink = page.locator('a[href*="/producto/"]').first();
     if (await productLink.isVisible()) {
       await productLink.click();
-      await expect(page.url()).toContain("/producto/");
+      // waitForURL is retrying — the navigation completes asynchronously
+      // after click() resolves, so a plain page.url() sample is racy.
+      await page.waitForURL(/\/producto\//);
     }
   });
 });

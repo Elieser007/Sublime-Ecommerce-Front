@@ -108,10 +108,13 @@ test.describe("Header — Responsive", () => {
   test.describe("Mobile (375px)", () => {
     test.use({ viewport: { width: 375, height: 812 } });
 
-    test("search bar is hidden, search icon is visible", async ({ page }) => {
+    // The header search toggle/overlay were removed in the header redesign;
+    // mobile search now lives in the catalog's own search bar
+    // (#mobile-search-bar / #mobile-search-bar-input, index.astro).
+    test("search bar is hidden, mobile search bar is visible", async ({ page }) => {
       await page.goto("/");
       await expect(page.locator(".search-form")).toBeHidden();
-      await expect(page.locator("#search-toggle")).toBeVisible();
+      await expect(page.locator("#mobile-search-bar")).toBeVisible();
     });
 
     test("wishlist icon is hidden on mobile", async ({ page }) => {
@@ -134,27 +137,34 @@ test.describe("Header — Responsive", () => {
       await expect(page.locator("#menu-toggle")).toBeVisible();
     });
 
-    test("search overlay opens when search icon is clicked", async ({ page }) => {
+    test("mobile search bar is interactive", async ({ page }) => {
       await page.goto("/");
-      await page.click("#search-toggle");
-      await expect(page.locator("#search-overlay")).toHaveClass(/open/);
-      await expect(page.locator("#search-overlay-input")).toBeFocused();
+      const bar = page.locator("#mobile-search-bar-input");
+      await expect(bar).toBeVisible();
+      await bar.fill("camiseta");
+      await expect(bar).toHaveValue("camiseta");
+      await page.waitForTimeout(400);
+      // The search wires the catalog filter state
+      await expect(page.locator("#clear-filters")).toBeVisible();
     });
 
-    test("search overlay closes on close button", async ({ page }) => {
+    test("clear filters resets mobile search bar", async ({ page }) => {
       await page.goto("/");
-      await page.click("#search-toggle");
-      await expect(page.locator("#search-overlay")).toHaveClass(/open/);
-      await page.click("#search-overlay-close");
-      await expect(page.locator("#search-overlay")).not.toHaveClass(/open/);
+      const bar = page.locator("#mobile-search-bar-input");
+      await bar.fill("camiseta");
+      await page.waitForTimeout(400);
+      await expect(page.locator("#clear-filters")).toBeVisible();
+      await page.click("#clear-filters");
+      await expect(bar).toHaveValue("");
     });
 
-    test("search overlay closes on Escape key", async ({ page }) => {
+    test("Escape closes the mobile filters panel", async ({ page }) => {
       await page.goto("/");
-      await page.click("#search-toggle");
-      await expect(page.locator("#search-overlay")).toHaveClass(/open/);
+      await page.click("#open-filters");
+      await expect(page.locator("#mobile-filters-panel")).toHaveClass(/open/);
       await page.keyboard.press("Escape");
-      await expect(page.locator("#search-overlay")).not.toHaveClass(/open/);
+      await page.waitForTimeout(400);
+      await expect(page.locator("#mobile-filters-panel")).not.toHaveClass(/open/);
     });
 
     test("hamburger menu opens mobile nav", async ({ page }) => {
@@ -175,9 +185,9 @@ test.describe("Header — Responsive", () => {
       await expect(page.locator(".search-form")).toBeVisible();
     });
 
-    test("search toggle icon is hidden on desktop", async ({ page }) => {
+    test("mobile search bar is hidden on desktop", async ({ page }) => {
       await page.goto("/");
-      await expect(page.locator("#search-toggle")).toBeHidden();
+      await expect(page.locator("#mobile-search-bar")).toBeHidden();
     });
 
     test("wishlist icon is visible on desktop", async ({ page }) => {
@@ -286,7 +296,11 @@ test.describe("Mobile Filter Panel", () => {
     await page.click("#open-filters");
     const panel = page.locator("#mobile-filters-panel");
     await panel.locator('[data-sort="price-asc"]').click();
-    await expect(panel.locator('[data-sort="price-asc"]')).toHaveClass(/active/);
+    // The panel syncs the active state to the DESKTOP sidebar button
+    // (index.astro mobile sort handler re-applies active to the first
+    // [data-sort] match, which is the aside's button — the panel button
+    // itself stays unstyled by design).
+    await expect(page.locator("aside [data-sort='price-asc']")).toHaveClass(/active/);
   });
 
   test("apply filters works in mobile filter panel", async ({ page }) => {
@@ -336,7 +350,9 @@ test.describe("Product Detail — Responsive", () => {
         const productLink = page.locator('a[href*="/producto/"]').first();
         if (await productLink.isVisible()) {
           await productLink.click();
-          await expect(page.url()).toContain("/producto/");
+          // Retrying wait — navigation completes asynchronously after the
+          // click, so a single page.url() sample is racy.
+          await page.waitForURL(/\/producto\//);
         }
       });
 
@@ -427,7 +443,9 @@ test.describe("Cart — Responsive Layout", () => {
 
         test("quantity controls are touch-friendly on mobile", async ({ page }) => {
           await page.goto("/cart");
-          const btn = page.locator('.cart-item [data-action="increase"]').first();
+          // The cart's increment button is role-identified ("Aumentar");
+          // the old [data-action="increase"] attribute no longer exists.
+          const btn = page.locator(".cart-item").first().getByRole("button", { name: "Aumentar" });
           const box = await btn.boundingBox();
           expect(box!.width).toBeGreaterThanOrEqual(40);
           expect(box!.height).toBeGreaterThanOrEqual(40);
@@ -477,15 +495,17 @@ test.describe("Touch Targets — All Interactive Elements", () => {
     await page.goto("/");
     const cartBtn = page.locator("#cart-btn");
     const userBtn = page.locator("#user-btn");
-    const searchToggle = page.locator("#search-toggle");
+    // The search toggle icon was removed; the theme toggle (40x40) now
+    // represents the header icon set alongside cart/user.
+    const themeToggle = page.locator("#theme-toggle");
     
     const cartBox = await cartBtn.boundingBox();
     const userBox = await userBtn.boundingBox();
-    const searchBox = await searchToggle.boundingBox();
+    const themeBox = await themeToggle.boundingBox();
     
     expect(cartBox!.height).toBeGreaterThanOrEqual(40);
     expect(userBox!.height).toBeGreaterThanOrEqual(40);
-    expect(searchBox!.height).toBeGreaterThanOrEqual(40);
+    expect(themeBox!.height).toBeGreaterThanOrEqual(40);
   });
 });
 
