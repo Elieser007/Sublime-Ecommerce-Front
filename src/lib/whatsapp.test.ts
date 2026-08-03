@@ -176,6 +176,42 @@ describe("buildCartMessage", () => {
     expect(message).toContain("24xGs. 18.000 = *Gs. 432.000*");
     expect(message).toContain("*Total: Gs. 432.000*");
   });
+
+  it("shows the PURE applicable tier price in the volume line, ignoring modifiers (recompute-first)", () => {
+    const tiers = [
+      { id: "t1", branch_id: "b1", branch_name: "B", min_quantity: 1, price: 20000 },
+      { id: "t2", branch_id: "b1", branch_name: "B", min_quantity: 24, price: 17000 },
+    ];
+    const cart = [
+      {
+        id: "1", name: "Producto Volumen", price: 20000, image: "", quantity: 24,
+        price_tiers: tiers, selected_tier_id: "t2", selected_tier_price: 17000, selected_tier_min_qty: 24,
+        selected_attributes: { "mod-size": { value_id: "v-s", label: "S", raw_value: "S", price_modifier: 1000 } },
+      },
+    ];
+    const message = buildCartMessage(cart);
+    // 📦 shows tier price 17.000, never the modifier-inclusive 18.000
+    expect(message).toContain("24+ unds): Gs. 17.000/u");
+    expect(message).not.toContain("24+ unds): Gs. 18.000");
+    // Unit line and totals keep the modifier-inclusive effective price
+    expect(message).toContain("24xGs. 18.000 = *Gs. 432.000*");
+    expect(message).toContain("*Total: Gs. 432.000*");
+  });
+
+  it("does not show a volume line or legacy warning when tiers exist but none applies", () => {
+    const tiers = [
+      { id: "t1", branch_id: "b1", branch_name: "B", min_quantity: 10, price: 18000 },
+    ];
+    const cart = [
+      {
+        id: "1", name: "Producto Volumen", price: 20000, image: "", quantity: 2,
+        price_tiers: tiers, selected_tier_id: "t1", selected_tier_price: 18000, selected_tier_min_qty: 10,
+      },
+    ];
+    const message = buildCartMessage(cart);
+    expect(message).not.toContain("Precio por volumen");
+    expect(message).not.toContain("\u26A0\uFE0F");
+  });
 });
 
 describe("generateWhatsAppUrl", () => {

@@ -1,46 +1,11 @@
-/**
- * WhatsApp Checkout — Tarea 4
- * 
- * Generates a wa.me link with a formatted order message.
- * 
- * Flow:
- * 1. Read cart from LocalStorage
- * 2. Calculate subtotals and total in Guaraníes (Gs.)
- * 3. Build readable message for the seller
- * 4. Generate wa.me link with encodeURIComponent
- * 
- * The message is clean, structured, and seller-friendly.
- * Supports volume pricing tiers with warning if qty < tier minimum.
- */
-
-import type { PriceTier } from "./public-api";
 import { formatPrice } from "./format";
 import type { CartItem } from "./cart-utils";
-import { getEffectivePrice } from "./cart-utils";
+import { getEffectivePrice, getItemTotal, getApplicableTier } from "./cart-utils";
 
-/**
- * Format a number as Guaraníes (Gs.)
- * Delegates to shared formatPrice utility.
- * 
- * @example formatGuaranies(120000) → "120.000"
- */
 export function formatGuaranies(amount: number): string {
   return formatPrice(amount);
 }
 
-/**
- * Build the WhatsApp message from cart items.
- * Includes volume tier info and warning if quantity < tier minimum.
- * 
- * Structure:
- * - Header: 🛒 Pedido Sublime E-commerce
- * - Items: product name, quantity x price = subtotal
- *   If item has tier: includes tier line and warning if qty < min
- * - Footer: 💰 Total + confirmation line
- * 
- * @param cart - Array of cart items
- * @returns Formatted message string
- */
 export function buildCartMessage(cart: CartItem[]): string {
   if (cart.length === 0) {
     return "🛒 Pedido Sublime E-commerce\n\nCarrito vacío";
@@ -51,42 +16,49 @@ export function buildCartMessage(cart: CartItem[]): string {
   let total = 0;
 
   cart.forEach((item) => {
-    // Use effective price (tier + attribute surcharges)
     const unitPrice = getEffectivePrice(item);
-    const subtotal = unitPrice * item.quantity;
+    const subtotal = getItemTotal(item);
     total += subtotal;
 
-    // Product line: "• Product Name"
     lines.push(`• ${item.name}`);
 
-    // Variant attributes (Talle: L, Color: Negro)
     if (item.selected_attributes) {
       const attrEntries = Object.values(item.selected_attributes);
       for (const attr of attrEntries) {
-        const typeName = (attr as any).type_name || '';
+        const typeName = attr.type_name || '';
         lines.push(`  ${typeName ? `${typeName}: ` : ''}${attr.label}`);
       }
     }
 
-    // Detail line: "  2xGs. 120.000 = *Gs. 240.000*"
     lines.push(
       `  ${item.quantity}xGs. ${formatGuaranies(unitPrice)} = *Gs. ${formatGuaranies(subtotal)}*`
     );
 
-    // Volume tier info
-    if (item.selected_tier_id && item.selected_tier_min_qty) {
-      const tierMinQty = item.selected_tier_min_qty;
-      const tierPrice = getEffectivePrice(item);
-      
+    const applicableTier = getApplicableTier(item);
+    if (applicableTier) {
       lines.push(
-        `  📦 Precio por volumen (${tierMinQty}+ unds): Gs. ${formatGuaranies(tierPrice)}/u`
+        `  📦 Precio por volumen (${applicableTier.min_quantity}+ unds): Gs. ${formatGuaranies(applicableTier.price)}/u`
       );
-      
-      // Warning if quantity doesn't meet tier minimum
-      if (item.quantity < tierMinQty) {
+
+      if (item.quantity < applicableTier.min_quantity) {
         lines.push(
-          `  ⚠️ *Nota: Precio válido para ${tierMinQty}+ unidades. Cantidad actual: ${item.quantity}.*`
+          `  ⚠️ *Nota: Precio válido para ${applicableTier.min_quantity}+ unidades. Cantidad actual: ${item.quantity}.*`
         );
+      }
+    } else if (!item.price_tiers || item.price_tiers.length === 0) {
+      if (item.selected_tier_id && item.selected_tier_min_qty) {
+        const tierMinQty = item.selected_tier_min_qty;
+        const tierPrice = getEffectivePrice(item);
+
+        lines.push(
+          `  📦 Precio por volumen (${tierMinQty}+ unds): Gs. ${formatGuaranies(tierPrice)}/u`
+        );
+
+        if (item.quantity < tierMinQty) {
+          lines.push(
+            `  ⚠️ *Nota: Precio válido para ${tierMinQty}+ unidades. Cantidad actual: ${item.quantity}.*`
+          );
+        }
       }
     }
   });
@@ -101,13 +73,6 @@ export function buildCartMessage(cart: CartItem[]): string {
   return lines.join("\n");
 }
 
-/**
- * Generate a wa.me URL with the cart message.
- * 
- * @param cart - Array of cart items
- * @param phone - WhatsApp phone number (with country code, no + or spaces)
- * @returns wa.me URL or "#" if cart is empty
- */
 export function generateWhatsAppUrl(
   cart: CartItem[],
   phone: string
@@ -122,9 +87,6 @@ export function generateWhatsAppUrl(
   return `https://wa.me/${phone}?text=${encoded}`;
 }
 
-/**
- * Calculate cart totals using tier prices when available
- */
 export function calculateCartTotals(cart: CartItem[]): {
   subtotal: number;
   itemCount: number;
@@ -133,8 +95,7 @@ export function calculateCartTotals(cart: CartItem[]): {
   let itemCount = 0;
 
   cart.forEach((item) => {
-    const unitPrice = getEffectivePrice(item);
-    subtotal += unitPrice * item.quantity;
+    subtotal += getItemTotal(item);
     itemCount += item.quantity;
   });
 
