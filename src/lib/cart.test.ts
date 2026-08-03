@@ -291,6 +291,29 @@ describe('cart-utils', () => {
       const item = { id: '1', name: 'A', image: 'x', quantity: 1 } as any;
       expect(getEffectivePrice(item)).toBe(0);
     });
+
+    it('keeps unit unchanged when an attribute modifier is zero (tier 17000 + mod 0)', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 17000 },
+      ];
+      const item = {
+        id: '1', name: 'A', price: 17000, image: 'x', quantity: 1, price_tiers: tiers,
+        selected_attributes: { 'mod-size': { value_id: 'v-s', label: 'S', raw_value: 'S', price_modifier: 0 } },
+      } as any;
+      expect(getEffectivePrice(item)).toBe(17000);
+    });
+
+    it('keeps in-range negative modifiers (tier 17000 - mod 500 = 16500)', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 17000 },
+      ];
+      const item = {
+        id: '1', name: 'A', price: 17000, image: 'x', quantity: 1, price_tiers: tiers,
+        selected_attributes: { 'mod-size': { value_id: 'v-s', label: 'S', raw_value: 'S', price_modifier: -500 } },
+      } as any;
+      expect(getEffectivePrice(item)).toBe(16500);
+      expect(getItemTotal(item)).toBe(16500);
+    });
   });
 
   describe('getApplicableTier', () => {
@@ -333,6 +356,20 @@ describe('cart-utils', () => {
     it('treats invalid quantity 0 as 1', () => {
       const item = { id: '1', name: 'A', price: 100, image: 'x', quantity: 0 } as any;
       expect(getItemTotal(item)).toBe(100);
+    });
+
+    it('recomputes unit and total from live quantity (qty 24 -> 1: unit 20000, total 20000)', () => {
+      const tiers = [
+        { id: 't1', branch_id: 'b1', branch_name: 'B', min_quantity: 1, price: 20000 },
+        { id: 't2', branch_id: 'b1', branch_name: 'B', min_quantity: 24, price: 17000 },
+      ];
+      const qty24 = { id: '1', name: 'A', price: 20000, image: 'x', quantity: 24, price_tiers: tiers } as any;
+      expect(getEffectivePrice(qty24)).toBe(17000);
+      expect(getItemTotal(qty24)).toBe(408000); // 17000 x 24
+
+      const qty1 = { ...qty24, quantity: 1 };
+      expect(getEffectivePrice(qty1)).toBe(20000);
+      expect(getItemTotal(qty1)).toBe(20000);
     });
   });
 

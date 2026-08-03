@@ -246,6 +246,68 @@ test.describe("Cart Page", () => {
     await expect(badge).toHaveClass(/cart-item-tier-badge--active/);
   });
 
+  test("unit price and subtotal recompute live on quantity change", async ({ page }) => {
+    await page.goto("/cart");
+
+    const firstItem = page.locator(".cart-item").nth(0);
+    const priceEl = firstItem.locator(".cart-item-price");
+    const totalEl = firstItem.locator(".cart-item-total");
+
+    // qty 2 applies tier [1 -> 120000]: unit 120.000, subtotal 240.000
+    await expect(priceEl).toContainText("Gs. 120.000 c/u");
+    await expect(totalEl).toContainText("Gs. 240.000");
+
+    // qty 2 -> 15 (13 increments) applies tier [15 -> 100000]: unit 100.000, subtotal 1.500.000
+    for (let i = 0; i < 13; i++) {
+      await clickInc(page, 0);
+    }
+    await expect(await getQtyValue(page, 0)).toHaveValue("15");
+    await expect(priceEl).toContainText("Gs. 100.000 c/u");
+    await expect(totalEl).toContainText("Gs. 1.500.000");
+  });
+
+  test("renders 'Type: Label' attribute prefix from type_name (detail add path)", async ({ page }) => {
+    const items = [
+      {
+        id: "test-3",
+        composite_key: "test-3:mod-color=v-azul",
+        name: "Remera Azul",
+        price: 100000,
+        image: "/placeholder-product.svg",
+        quantity: 1,
+        selected_attributes: {
+          "mod-color": { value_id: "v-azul", label: "Azul", raw_value: "Azul", type_name: "Color" },
+        },
+      },
+    ];
+    await setCart(page, items);
+
+    await page.goto("/cart");
+
+    await expect(page.locator(".cart-item-attrs")).toContainText("Color: Azul");
+  });
+
+  test("falls back to module_name prefix for legacy attribute payloads", async ({ page }) => {
+    const items = [
+      {
+        id: "test-4",
+        composite_key: "test-4:mod-talla=v-xl",
+        name: "Remera XL",
+        price: 100000,
+        image: "/placeholder-product.svg",
+        quantity: 1,
+        selected_attributes: {
+          "mod-talla": { value_id: "v-xl", label: "XL", raw_value: "XL", module_name: "Talla" },
+        },
+      },
+    ];
+    await setCart(page, items);
+
+    await page.goto("/cart");
+
+    await expect(page.locator(".cart-item-attrs")).toContainText("Talla: XL");
+  });
+
   test("composite key identity: same product ID with different attributes are separate items", async ({ page }) => {
     const items = [
       {

@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { generateWhatsAppUrl, formatGuaranies, buildCartMessage } from "./whatsapp";
+import { generateWhatsAppUrl, formatGuaranies, buildCartMessage, calculateCartTotals } from "./whatsapp";
 
 // Mock cart data
 const mockCart = [
@@ -241,5 +241,23 @@ describe("generateWhatsAppUrl", () => {
 
     expect(textParam).toContain("Camiseta Basica");
     expect(textParam).toContain("Tote Bag");
+  });
+});
+
+describe("calculateCartTotals", () => {
+  it("returns 0 subtotal and 0 item count for an empty cart (no NaN, no error)", () => {
+    const totals = calculateCartTotals([]);
+
+    expect(totals.subtotal).toBe(0);
+    expect(totals.itemCount).toBe(0);
+    expect(Number.isNaN(totals.subtotal)).toBe(false);
+  });
+
+  it("sums per-item totals and quantities for a non-empty cart", () => {
+    const totals = calculateCartTotals(mockCart);
+
+    // (120000 * 2) + (85000 * 1) = 325000
+    expect(totals.subtotal).toBe(325000);
+    expect(totals.itemCount).toBe(3);
   });
 });
