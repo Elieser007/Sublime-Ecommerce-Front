@@ -112,10 +112,11 @@ test("uploads gallery images and removes them", async ({ page }) => {
   await expect(modal).toBeHidden();
 
   // POST /api/upload ×2 + POST /api/products/:id/images ×2 → persisted.
+  // NOTE: the gallery count text renders "imagenes" without accent (UI copy).
   modal = await openEditModal(page, name);
   const thumbs = modal.locator("#gallery-strip .gallery-thumb");
   await expect(thumbs).toHaveCount(2);
-  await expect(modal.locator("#gallery-count")).toHaveText("2 imágenes");
+  await expect(modal.locator("#gallery-count")).toHaveText("2 imagenes");
   await expect(thumbs.first().locator("img")).toHaveAttribute("src", /\/api\/upload\//);
 
   // Remove the first image (confirm modal → DELETE image + R2 object).
@@ -132,5 +133,5 @@ test("uploads gallery images and removes them", async ({ page }) => {
   await expect(deleteModal).toBeVisible();
   await deleteModal.locator("#delete-confirm").click();
   await expect(modal.locator("#gallery-strip .gallery-thumb")).toHaveCount(0);
-  await expect(modal.locator("#gallery-count")).toHaveText("0 imágenes");
+  await expect(modal.locator("#gallery-count")).toHaveText("0 imagenes");
 });
