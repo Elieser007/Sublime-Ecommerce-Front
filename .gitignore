@@ -11,6 +11,9 @@ dist/
 test-results/
 playwright-report/
 
+# E2E admin session state (Playwright storageState — contains live cookies)
+e2e/admin/.auth/
+
 # Environment
 .env
 .env.local
