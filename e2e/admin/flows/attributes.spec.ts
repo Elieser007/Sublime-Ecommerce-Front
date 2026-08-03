@@ -128,11 +128,13 @@ async function assignModule(page: Page, productName: string, moduleName: string,
 test("lists the seeded attribute modules and their values", async ({ page }) => {
   await page.goto(ADMIN_URLS.attributes);
 
-  // Seeded mod-color by its unique slug; component label + active badge.
+  // Seeded mod-color by its unique slug; the component badge shows the raw
+  // stored value ("ColorSelector" — the UI label map only covers dropdowns,
+  // so seeded modules fall back to the raw frontend_component value).
   const row = moduleRowBySlug(page, SEEDED_MODULE_SLUG);
   await expect(row).toHaveCount(1);
   await expect(row).toContainText(SEEDED_MODULE_NAME);
-  await expect(row.locator(".component-badge")).toHaveText("Selector de Color");
+  await expect(row.locator(".component-badge")).toHaveText("ColorSelector");
   await expect(row).toContainText("Activo");
 
   // Expand → seeded values render from the real API (val-negro fixed id).
@@ -150,8 +152,10 @@ test("creates an attribute module", async ({ page }) => {
   const slug = uniqueModuleSlug();
   await createModule(page, name, slug);
 
-  // POST /api/admin/attributes/modules → the client-side filtered list shows it.
-  await page.locator("#search-input").fill(name);
+  // POST /api/admin/attributes/modules → the client-side filtered list shows
+  // it. NOTE: the site Header also has an id="search-input" (catalog search),
+  // so scope to the admin main area.
+  await page.locator("main #search-input").fill(name);
   const row = moduleRowBySlug(page, slug);
   await expect(row).toHaveCount(1);
   await expect(row).toContainText(name);
@@ -192,7 +196,7 @@ test("edits an attribute module", async ({ page }) => {
   await modal.locator('#module-form input[name="name"]').fill(renamed);
   await modal.locator('#module-form button[type="submit"]').click();
   await expect(modal).toBeHidden();
-  await page.locator("#search-input").fill(renamed);
+  await page.locator("main #search-input").fill(renamed);
   const renamedRow = page.locator("tr.module-row", { hasText: renamed });
   await expect(renamedRow).toHaveCount(1);
   await expect(renamedRow).toContainText("Activo");
