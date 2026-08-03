@@ -215,16 +215,35 @@ test.describe("Cart Page", () => {
     await expect(secondItem.locator(".cart-item-attrs")).not.toBeVisible();
   });
 
-  test("shows tier badge for cart item with price_tiers", async ({ page }) => {
+  test("shows tier badge for cart item with price_tiers (recompute-first)", async ({ page }) => {
     await page.goto("/cart");
 
     const firstItem = page.locator(".cart-item").nth(0);
     await expect(firstItem.locator(".cart-item-tier-badge")).toBeVisible();
-    await expect(firstItem.locator(".cart-item-tier-badge")).toContainText("Desde 15 unds");
-    await expect(firstItem.locator(".cart-item-tier-badge")).toContainText("100.000");
+    await expect(firstItem.locator(".cart-item-tier-badge")).toContainText("Desde 1 unds");
+    await expect(firstItem.locator(".cart-item-tier-badge")).toContainText("120.000");
 
     const secondItem = page.locator(".cart-item").nth(1);
     await expect(secondItem.locator(".cart-item-tier-badge")).not.toBeVisible();
+  });
+
+  test("tier badge switches live to the cheapest tier and activates at qty 15", async ({ page }) => {
+    await page.goto("/cart");
+
+    const firstItem = page.locator(".cart-item").nth(0);
+    const badge = firstItem.locator(".cart-item-tier-badge");
+    await expect(badge).toContainText("Desde 1 unds");
+    await expect(badge).toContainText("120.000");
+    await expect(badge).not.toHaveClass(/cart-item-tier-badge--active/);
+
+    // qty 2 -> 15 (13 increments)
+    for (let i = 0; i < 13; i++) {
+      await clickInc(page, 0);
+    }
+    await expect(await getQtyValue(page, 0)).toHaveValue("15");
+    await expect(badge).toContainText("Desde 15 unds");
+    await expect(badge).toContainText("100.000");
+    await expect(badge).toHaveClass(/cart-item-tier-badge--active/);
   });
 
   test("composite key identity: same product ID with different attributes are separate items", async ({ page }) => {

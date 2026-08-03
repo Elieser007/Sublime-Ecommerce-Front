@@ -441,7 +441,7 @@ class VariantModal extends HTMLElement {
           label: val.label,
           raw_value: val.raw_value,
           price_modifier: val.price_modifier,
-          module_name: mod.name,
+          type_name: mod.name,
         };
       }
     }

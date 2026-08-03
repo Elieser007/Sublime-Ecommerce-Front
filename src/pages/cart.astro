@@ -614,8 +614,7 @@ import CartSummary from '../components/CartSummary.astro';
 
 <script>
   import { getCart, updateCartQuantity, removeFromCart, formatPrice } from '../lib/cart.js';
-  import { getEffectivePrice } from '../lib/cart-utils';
-  import { getBestVolumeBadge } from '../lib/price-utils';
+  import { getEffectivePrice, getItemTotal, getCartTierBadge } from '../lib/cart-utils';
   import { escapeHtml } from '../lib/escape-html';
 
   function renderEmptyState(container: HTMLElement) {
@@ -636,7 +635,7 @@ import CartSummary from '../components/CartSummary.astro';
 
   function renderItem(item: any): string {
     const effectivePrice = getEffectivePrice(item);
-    const subtotal = formatPrice(effectivePrice * item.quantity);
+    const subtotal = formatPrice(getItemTotal(item));
     const key = item.composite_key || item.id;
     const safeKey = escapeHtml(key);
     const safeName = escapeHtml(item.name);
@@ -645,11 +644,11 @@ import CartSummary from '../components/CartSummary.astro';
     if (item.selected_attributes && Object.keys(item.selected_attributes).length > 0) {
       const entries = Object.values(item.selected_attributes).filter((a: any) => a.label);
       if (entries.length > 0) {
-        attributeHtml = `<p class="cart-item-attrs">${entries.map((a: any) => a.type_name ? `${escapeHtml(a.type_name)}: ${escapeHtml(a.label)}` : escapeHtml(a.label)).join(' | ')}</p>`;
+        attributeHtml = `<p class="cart-item-attrs">${entries.map((a: any) => (a.type_name || a.module_name) ? `${escapeHtml(a.type_name || a.module_name)}: ${escapeHtml(a.label)}` : escapeHtml(a.label)).join(' | ')}</p>`;
         const withModifiers = entries.filter((a: any) => a.price_modifier && a.price_modifier !== 0);
         if (withModifiers.length > 0) {
           const modText = withModifiers.map((a: any) =>
-            `${escapeHtml(a.label)} (+Gs. ${formatPrice(a.price_modifier)})`
+            `${escapeHtml(a.label)} (${a.price_modifier > 0 ? '+' : '-'}Gs. ${formatPrice(Math.abs(a.price_modifier))})`
           ).join(' | ');
           attributeHtml += `<p class="cart-item-modifiers">${modText}</p>`;
         }
@@ -657,10 +656,9 @@ import CartSummary from '../components/CartSummary.astro';
     }
 
     let tierBadgeHtml = '';
-    const best = getBestVolumeBadge(item.price_tiers || []);
-    if (best) {
-      const isAtBestTier = item.selected_tier_price != null && item.selected_tier_price <= best.price;
-      tierBadgeHtml = `<span class="cart-item-tier-badge${isAtBestTier ? ' cart-item-tier-badge--active' : ''}">Desde ${best.min_quantity} unds: Gs. ${formatPrice(best.price)}</span>`;
+    const badge = getCartTierBadge(item);
+    if (badge) {
+      tierBadgeHtml = `<span class="cart-item-tier-badge${badge.active ? ' cart-item-tier-badge--active' : ''}">${escapeHtml(badge.label)}</span>`;
     }
 
     return `
@@ -721,18 +719,21 @@ import CartSummary from '../components/CartSummary.astro';
         if (item) {
           const effective = getEffectivePrice(item);
           const subtotalEl = document.querySelector(`[data-subtotal-for="${productId}"]`);
-          if (subtotalEl) subtotalEl.textContent = `Gs. ${formatPrice(effective * item.quantity)}`;
+          if (subtotalEl) subtotalEl.textContent = `Gs. ${formatPrice(getItemTotal(item))}`;
 
           const cartItemEl = (qtyEl as HTMLElement).closest('.cart-item') as HTMLElement;
           const priceEl = cartItemEl?.querySelector('.cart-item-price');
           if (priceEl) priceEl.textContent = `Gs. ${formatPrice(effective)} c/u`;
 
           const badgeEl = cartItemEl?.querySelector('.cart-item-tier-badge') as HTMLElement | null;
+          const badge = getCartTierBadge(item);
           if (badgeEl) {
-            const best = getBestVolumeBadge(item.price_tiers || []);
-            if (best) {
-              const isAtBestTier = item.selected_tier_price != null && item.selected_tier_price <= best.price;
-              badgeEl.classList.toggle('cart-item-tier-badge--active', isAtBestTier);
+            if (badge) {
+              badgeEl.textContent = badge.label;
+              badgeEl.classList.toggle('cart-item-tier-badge--active', badge.active);
+              badgeEl.style.display = '';
+            } else {
+              badgeEl.style.display = 'none';
             }
           }
         }
