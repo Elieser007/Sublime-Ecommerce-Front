@@ -60,10 +60,24 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
-      command: "npm run dev",
+      // Astro 7's `astro dev` DAEMONIZES by default: the CLI process exits as
+      // soon as the background server is up, which breaks Playwright's
+      // webServer keep-alive contract ("Process from config.webServer exited
+      // early"). This wrapper keeps a foreground process alive while the
+      // daemon serves and stops any stale daemon on teardown — so evidence
+      // can never run against a previous compile again (verify F2).
+      //
+      // Readiness gate (verify F3): `astro dev` compiles product pages on
+      // first request; if the backend isn't up yet, getStaticPaths caches an
+      // EMPTY catalog and every /producto/:slug 404s for the whole run. The
+      // wrapper waits for the public products API before booting Astro.
+      command:
+        `bash -c 'npx astro dev stop >/dev/null 2>&1; until curl -sf "http://localhost:8787/api/public/products?limit=1" -o /dev/null; do sleep 1; done; trap "npx astro dev stop >/dev/null 2>&1" EXIT TERM INT; npx astro dev >/dev/null 2>&1; while curl -sf http://localhost:4321 -o /dev/null; do sleep 2; done'`,
       url: "http://localhost:4321",
-      reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
+      // Always boot a fresh Astro daemon: a reused server may serve compiled
+      // pages from an earlier session (the invalid 104/104 evidence in P12).
+      reuseExistingServer: false,
+      timeout: 90_000,
     },
   ],
   reporter: process.env.CI ? [["junit", { outputFile: "test-results/e2e.xml" }]] : "list",
