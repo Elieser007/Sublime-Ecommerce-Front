@@ -18,7 +18,8 @@ test.describe.configure({ mode: "serial" });
 
 /** Seeded catalog fixtures (Back scripts/seed-catalog.ts, fixed IDs). */
 const SEEDED_PRODUCT_NAME = "Remera Sublime Básica Algodón";
-const SEEDED_PRODUCT_SLUG = "prod-remera-sublime-basica-algodon";
+// NOTE: the slug column is the bare slug — the fixed *id* has the prod- prefix.
+const SEEDED_PRODUCT_SLUG = "remera-sublime-basica-algodon";
 
 /** The create/edit/pricing/status flow only ever touches its own product. */
 function uniqueProductName(): string {

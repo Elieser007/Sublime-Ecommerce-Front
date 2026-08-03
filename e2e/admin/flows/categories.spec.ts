@@ -34,8 +34,12 @@ test.beforeAll(() => {
 test("lists seeded sections, categories and subcategories", async ({ page }) => {
   await page.goto(ADMIN_URLS.categories);
 
-  // Sections tab (default): seeded section with active badge.
-  let row = page.locator("#tab-sections tbody tr", { hasText: SEEDED_SECTION_NAME });
+  // Sections tab (default): seeded section with active badge. Filter on the
+  // exact name cell — a substring match would also hit the "Deportes"
+  // description ("Indumentaria y accesorios deportivos").
+  let row = page
+    .locator("#tab-sections tbody tr")
+    .filter({ has: page.locator("strong", { hasText: /^Indumentaria$/ }) });
   await expect(row).toBeVisible();
   await expect(row).toContainText("Activo");
 
