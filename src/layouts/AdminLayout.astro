@@ -1,9 +1,9 @@
 ---
 /**
- * AdminLayout — BaseLayout with client-side auth guard
+ * AdminLayout — BaseLayout with client-side admin guard
  *
- * Wraps BaseLayout and checks authentication on page load.
- * Redirects to /login if not authenticated.
+ * Wraps BaseLayout and checks the session role on page load.
+ * Redirects to /login if not authenticated or not an admin.
  */
 
 import BaseLayout from './BaseLayout.astro';
@@ -23,9 +23,9 @@ const { title } = Astro.props;
 </BaseLayout>
 
 <script>
-  import { requireAuth } from '../lib/auth-guard';
+  import { requireAdminAuth } from '../lib/auth-guard';
   document.addEventListener('astro:page-load', async () => {
-    const ok = await requireAuth();
+    const ok = await requireAdminAuth();
     if (ok) {
       document.querySelector('.admin-layout')?.classList.add('auth-ok');
     }
