@@ -180,6 +180,7 @@ const columns = [
         <input type="number" id="price-min-qty" class="form-input body-md" placeholder="Cant. mín." min="1" value="1" />
         <input type="number" id="price-value" class="form-input body-md" placeholder="Precio (Gs.)" min="0" />
         <Button variant="primary" id="add-price-btn">+ Agregar</Button>
+        <Button variant="secondary" id="price-edit-cancel" style="display: none;">Cancelar</Button>
       </div>
       <div class="form-error" id="price-error" role="alert" hidden></div>
       <table class="prices-table">
@@ -233,6 +234,8 @@ const columns = [
   let sections: any[] = [], categories: any[] = [], subcategories: any[] = [];
   let editingProductId: string | null = null;
   let pricingProductId: string | null = null;
+  let pricingTiers: any[] = [];
+  let editingPriceId: string | null = null;
 
   const $ = (id: string) => document.getElementById(id);
 
@@ -738,6 +741,7 @@ const columns = [
   // ═══════════════════════════════════════════════════════════
   async function openPricing(productId: string) {
     pricingProductId = productId;
+    resetPricingForm();
     const product = items.find((p: any) => p.id === productId);
     $('price-product-info')!.innerHTML = product ? `<strong>${escapeHtml(product.name)}</strong> — Precio base: ${fmt(product.base_price)}` : '';
 
@@ -749,25 +753,60 @@ const columns = [
     pricingModal.open();
   }
 
+  function setPricingFormMode(editing: boolean) {
+    const btn = $('add-price-btn');
+    if (btn) btn.textContent = editing ? 'Guardar' : '+ Agregar';
+    const cancel = $('price-edit-cancel');
+    if (cancel) cancel.style.display = editing ? '' : 'none';
+  }
+
+  function resetPricingForm() {
+    editingPriceId = null;
+    ($('price-min-qty') as HTMLInputElement).value = '1';
+    ($('price-value') as HTMLInputElement).value = '';
+    setPricingFormMode(false);
+  }
+
   async function loadPrices(productId: string) {
     const res = await fetch(`${API_URL}/api/products/${productId}/prices`, { credentials: 'include' });
     if (!res.ok) return;
     const { prices } = await res.json();
+    pricingTiers = prices || [];
     const tbody = $('prices-tbody')!;
-    if (!prices || prices.length === 0) {
+    if (pricingTiers.length === 0) {
       tbody.innerHTML = '<tr><td colspan="3" class="empty-cell">Sin precios configurados</td></tr>';
     } else {
-      tbody.innerHTML = prices.map((p: any) => `<tr>
-        <td>${p.min_quantity}+ unds</td>
-        <td>${fmt(p.price)}</td>
-        <td><div class="cell-actions">
-          <button class="ta-btn ta-btn--delete" onclick="deletePrice('${p.id}')" title="Eliminar">🗑️</button>
-        </div></td>
-      </tr>`).join('');
+      tbody.innerHTML = pricingTiers.map((p: any) => {
+        const inactive = !p.is_active;
+        const qtyCell = inactive
+          ? `<td>${p.min_quantity}+ unds <span class="badge badge--inactive">Deshabilitado</span></td>`
+          : `<td>${p.min_quantity}+ unds</td>`;
+        const actions = inactive
+          ? `<button class="ta-btn ta-btn--warning" onclick="reactivatePrice('${p.id}')" title="Reactivar">↺</button>
+             <button class="ta-btn" onclick="editPrice('${p.id}')" title="Editar">✏️</button>`
+          : `<button class="ta-btn" onclick="editPrice('${p.id}')" title="Editar">✏️</button>
+             <button class="ta-btn ta-btn--delete" onclick="deletePrice('${p.id}')" title="Eliminar">🗑️</button>`;
+        return `<tr class="${inactive ? 'price-row--inactive' : ''}">
+          ${qtyCell}
+          <td>${fmt(p.price)}</td>
+          <td><div class="cell-actions">${actions}</div></td>
+        </tr>`;
+      }).join('');
     }
   }
 
-  function closePricingModal() { pricingModal.close(); pricingProductId = null; }
+  function closePricingModal() { pricingModal.close(); pricingProductId = null; resetPricingForm(); }
+
+  (window as any).editPrice = (id: string) => {
+    const tier = pricingTiers.find((t: any) => t.id === id);
+    if (!tier) return;
+    editingPriceId = id;
+    ($('price-min-qty') as HTMLInputElement).value = String(tier.min_quantity);
+    ($('price-value') as HTMLInputElement).value = String(tier.price);
+    setPricingFormMode(true);
+    const el = $('price-error');
+    if (el) { el.textContent = ''; el.hidden = true; }
+  };
 
   // ═══════════════════════════════════════════════════════════
   // EVENT LISTENERS
@@ -856,6 +895,18 @@ const columns = [
     if (!pricingProductId || !confirm('¿Eliminar este precio?')) return;
     const res = await fetch(`${API_URL}/api/products/${pricingProductId}/prices/${priceId}`, { method: 'DELETE', credentials: 'include' });
     if (res.ok) loadPrices(pricingProductId);
+  };
+
+  (window as any).reactivatePrice = async (priceId: string) => {
+    if (!pricingProductId || !confirm('¿Reactivar este precio?')) return;
+    const res = await fetch(`${API_URL}/api/products/${pricingProductId}/prices/${priceId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ isActive: true }),
+    });
+    if (res.ok) { loadPrices(pricingProductId); return; }
+    let msg = 'Error al reactivar el precio';
+    try { const b = await res.json(); if (b?.error) msg = b.error; } catch {}
+    alert(msg);
   };
 
   async function init() { await loadDependencies(); await loadProducts(); }
@@ -1051,15 +1102,19 @@ const columns = [
       const minQuantity = parseInt(($('price-min-qty') as HTMLInputElement).value) || 1;
       const price = parseInt(($('price-value') as HTMLInputElement).value);
       if (!price) { alert('Ingresá un precio'); return; }
-      const res = await fetch(`${API_URL}/api/products/${pricingProductId}/prices`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({ minQuantity, price }),
+      // Editing always saves an ACTIVE tier — re-editing a disabled tier
+      // reactivates it instead of creating a new record.
+      const url = editingPriceId
+        ? `${API_URL}/api/products/${pricingProductId}/prices/${editingPriceId}`
+        : `${API_URL}/api/products/${pricingProductId}/prices`;
+      const res = await fetch(url, {
+        method: editingPriceId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify(editingPriceId ? { minQuantity, price, isActive: true } : { minQuantity, price }),
       });
       const el = $('price-error');
       if (res.ok) {
         if (el) { el.textContent = ''; el.hidden = true; }
-        ($('price-min-qty') as HTMLInputElement).value = '1';
-        ($('price-value') as HTMLInputElement).value = '';
+        resetPricingForm();
         loadPrices(pricingProductId);
       } else {
         let msg = 'Error al guardar el precio';
@@ -1067,6 +1122,8 @@ const columns = [
         if (el) { el.textContent = msg; el.hidden = false; }
       }
     });
+
+    $('price-edit-cancel')?.addEventListener('click', resetPricingForm);
 
     $('status-confirm-activate')?.addEventListener('click', executeStatusToggle);
     $('status-confirm-deactivate')?.addEventListener('click', executeStatusToggle);
@@ -1244,6 +1301,8 @@ const columns = [
   .prices-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
   .prices-table th, .prices-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--outline-variant); color: var(--on-surface); font-size: 14px; }
   .prices-table th { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--on-surface-variant); }
+  tr.price-row--inactive { opacity: 0.55; }
+  tr.price-row--inactive:hover { opacity: 0.85; }
 
   /* ═══════════════════════════════════════════════════════════ */
   /* INACTIVE ROW + REACTIVATE BUTTON                           */
