@@ -53,6 +53,20 @@ const {
     <meta name="apple-mobile-web-app-title" content="Sublime" />
     <link rel="manifest" href="/manifest.json" />
     <title>{title}</title>
+    <!-- Popstate interceptor: MUST be registered before <ClientRouter /> so a
+         consumed popstate is stopImmediatePropagation'd and the router never
+         re-renders on modal close. Inline scripts run at parse time, before
+         all head modules. window.__modalBackHook dedupes re-registration when
+         inline head scripts re-execute on swapped documents. -->
+    <script is:inline>
+      (function () {
+        if (window.__modalBackHook) return; window.__modalBackHook = true;
+        window.addEventListener('popstate', function (e) {
+          var h = window.ModalStackHandler;
+          if (h && h.onPopState(e)) e.stopImmediatePropagation();
+        });
+      })();
+    </script>
     <ClientRouter />
 
     <!-- Open Graph / Facebook / WhatsApp -->
