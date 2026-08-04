@@ -566,12 +566,26 @@ try {
     });
 
     // ===== MOBILE CATEGORY PANEL (server-rendered, toggled by class) =====
-    function closeCategoriesPanel() {
+    let categoryStackId = null;
+
+    // Pure hide — used by manual close AND the stack closeFn (closeTop owns
+    // the history pop, so this must never call back())
+    function hideCategoryPanel() {
       const panel = document.getElementById('mobile-category-panel');
       if (!panel) return;
       panel.classList.remove('open');
       document.body.style.overflow = '';
       setTimeout(() => panel.classList.add('hidden'), 300);
+    }
+
+    function closeCategoriesPanel() {
+      hideCategoryPanel();
+      // Manual close pops its own history entry so back never re-opens it
+      if (categoryStackId !== null) {
+        window.ModalStack.remove(categoryStackId);
+        categoryStackId = null;
+        window.ModalStack.popHistoryEntry();
+      }
     }
 
     document.getElementById('open-categories')?.addEventListener('click', () => {
@@ -580,15 +594,33 @@ try {
       panel.classList.remove('hidden');
       requestAnimationFrame(() => panel.classList.add('open'));
       document.body.style.overflowY = 'hidden';
+      // Drawer joins the stack: browser back / ESC close it (MOD-BACK-4)
+      if (categoryStackId === null && window.ModalStack) {
+        categoryStackId = window.ModalStack.open('category-drawer', () => {
+          hideCategoryPanel();
+          categoryStackId = null;
+        });
+      }
     });
 
     // ===== MOBILE FILTERS PANEL (server-rendered, toggled by class) =====
-    function closeFiltersPanel() {
+    let filtersStackId = null;
+
+    function hideFiltersPanel() {
       const panel = document.getElementById('mobile-filters-panel');
       if (!panel) return;
       panel.classList.remove('open');
       document.body.style.overflow = '';
       setTimeout(() => panel.classList.add('hidden'), 300);
+    }
+
+    function closeFiltersPanel() {
+      hideFiltersPanel();
+      if (filtersStackId !== null) {
+        window.ModalStack.remove(filtersStackId);
+        filtersStackId = null;
+        window.ModalStack.popHistoryEntry();
+      }
     }
 
     document.getElementById('open-filters')?.addEventListener('click', () => {
@@ -597,6 +629,12 @@ try {
       panel.classList.remove('hidden');
       requestAnimationFrame(() => panel.classList.add('open'));
       document.body.style.overflowY = 'hidden';
+      if (filtersStackId === null && window.ModalStack) {
+        filtersStackId = window.ModalStack.open('filters-drawer', () => {
+          hideFiltersPanel();
+          filtersStackId = null;
+        });
+      }
     });
 
     // ===== MOBILE PANEL CLOSE HANDLERS =====
