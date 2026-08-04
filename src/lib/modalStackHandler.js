@@ -51,7 +51,7 @@ function init() {
   // re-registration re-targets the current window
   window.ModalStackHandler = { onPopState };
   window.ModalStack = {
-    open: (name, closeFn) => modalStack.push(closeFn),
+    open: (name, closeFn) => modalStack.push(closeFn, name),
     remove: modalStack.remove,
     closeTop: modalStack.closeTop,
     popHistoryEntry: modalStack.popHistoryEntry,
