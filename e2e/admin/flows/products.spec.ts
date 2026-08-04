@@ -146,3 +146,31 @@ test("toggles product status active and back via the confirmation modal", async 
   await expect(row).toContainText("Activo");
   await expect(row.getByTitle("Desactivar")).toBeVisible();
 });
+
+test("back button closes the products modal without navigating (MOD-BACK-1)", async ({ page }) => {
+  await page.goto(ADMIN_URLS.products);
+  await page.locator("#add-product").click();
+  const modal = page.locator("#modal-overlay");
+  await expect(modal).toBeVisible();
+
+  // The modal's entry sits on top of the products page entry: back must close
+  // the modal and leave the URL unchanged (assert hidden + URL-unchanged only,
+  // never a changed-URL assert — the entry below is the auth-setup entry).
+  const url = page.url();
+  const modalRef = await page.evaluateHandle(() => document.getElementById("modal-overlay"));
+  await page.goBack();
+  await page.waitForTimeout(500);
+
+  await expect(modal).toBeHidden();
+  expect(page.url()).toBe(url);
+
+  // No ClientRouter re-render: the pre-back element is still in the live
+  // document (a same-URL transition would have swapped it out).
+  let swapped = false;
+  try {
+    swapped = !(await modalRef.evaluate((el) => !!el && el.isConnected));
+  } catch {
+    swapped = true;
+  }
+  expect(swapped).toBe(false);
+});
