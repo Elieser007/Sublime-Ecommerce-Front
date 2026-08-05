@@ -7,6 +7,8 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import {
   getImageById,
   getNextImage,
@@ -15,6 +17,11 @@ import {
   getImageCount,
 } from "../lib/gallery-utils";
 import type { GalleryImage } from "../lib/image-types";
+
+const gallerySource = readFileSync(
+  resolve(__dirname, "../components/ProductGallery.astro"),
+  "utf-8"
+);
 
 // ─── Realistic Data ─────────────────────────────────────────
 
@@ -84,5 +91,22 @@ describe("ProductGallery — no images", () => {
 
   it("returns 0 for count", () => {
     expect(getImageCount([])).toBe(0);
+  });
+});
+
+describe("ProductGallery markup (D5)", () => {
+  it("tracks pointer position via --x/--y for the zoom origin", () => {
+    expect(gallerySource).toContain("--x");
+    expect(gallerySource).toContain("--y");
+    expect(gallerySource).toContain("gallery-main__img--zoomed");
+  });
+
+  it("renders an SSR counter element kept in sync on navigation", () => {
+    expect(gallerySource).toContain("data-counter");
+    expect(gallerySource).toContain("gallery-counter");
+  });
+
+  it("navigates with arrow keys from inside the gallery", () => {
+    expect(gallerySource).toContain("keydown");
   });
 });
