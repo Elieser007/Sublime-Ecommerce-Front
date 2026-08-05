@@ -1,0 +1,129 @@
+---
+/**
+ * VariedadSelector — Button pills for candy variety selection
+ *
+ * Global "Variedad" attribute module (REQ-1/REQ-3). Renders variety values
+ * as clickable chips with the same data-attribute contract as SizeSelector
+ * (data-module-id / data-value-id / data-raw-value / data-price-modifier).
+ * Shows price modifier if non-zero (Intl es-PY, ₲).
+ * Disables unavailable options based on dependencies.
+ * Touch-friendly targets ≥44px (NFR-5).
+ */
+
+interface Props {
+  moduleId: string;
+  moduleName: string;
+  values: Array<{
+    value_id: string;
+    label: string;
+    raw_value: string;
+    price_modifier: number;
+    available: boolean;
+  }>;
+  selectedValueId?: string;
+}
+
+const { moduleId, moduleName, values, selectedValueId } = Astro.props;
+
+function formatModifier(mod: number): string {
+  if (mod === 0) return "";
+  const sign = mod > 0 ? "+" : "";
+  return `${sign}₲${mod.toLocaleString("es-PY")}`;
+}
+---
+
+<div class="variedad-selector" role="radiogroup" aria-label={moduleName}>
+  <span class="variedad-selector__label label-sm">{moduleName}</span>
+  <div class="variedad-selector__options">
+    {values.map((val) => (
+      <button
+        type="button"
+        class={`variedad-selector__btn ${val.value_id === selectedValueId ? "variedad-selector__btn--selected" : ""} ${!val.available ? "variedad-selector__btn--disabled" : ""}`}
+        data-module-id={moduleId}
+        data-value-id={val.value_id}
+        data-raw-value={val.raw_value}
+        data-price-modifier={val.price_modifier}
+        role="radio"
+        aria-checked={val.value_id === selectedValueId}
+        aria-disabled={!val.available}
+        disabled={!val.available}
+        title={val.label}
+      >
+        <span class="variedad-selector__label-text">{val.label}</span>
+        {val.price_modifier !== 0 && (
+          <span class="variedad-selector__modifier">{formatModifier(val.price_modifier)}</span>
+        )}
+      </button>
+    ))}
+  </div>
+</div>
+
+<style>
+  .variedad-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .variedad-selector__label {
+    color: var(--on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .variedad-selector__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .variedad-selector__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--surface-container-high);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface);
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+  }
+
+  .variedad-selector__btn:hover:not(:disabled) {
+    border-color: var(--primary);
+    background-color: var(--primary-container);
+  }
+
+  .variedad-selector__btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .variedad-selector__btn--selected {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-primary);
+  }
+
+  .variedad-selector__btn--disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .variedad-selector__label-text {
+    line-height: 1;
+  }
+
+  .variedad-selector__modifier {
+    font-size: 11px;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+</style>
