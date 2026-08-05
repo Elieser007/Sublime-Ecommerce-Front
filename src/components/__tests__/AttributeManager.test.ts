@@ -35,7 +35,7 @@ interface ProductAttribute {
   module_id: string;
   module_name: string;
   values: Array<{
-    value_id: string;
+    id: string;
     label: string;
     raw_value: string;
     price_modifier: number;
@@ -67,8 +67,8 @@ const mockProductAttributes: ProductAttribute[] = [
     module_id: "mod-1",
     module_name: "Color",
     values: [
-      { value_id: "val-1", label: "Rojo", raw_value: "#FF0000", price_modifier: 0 },
-      { value_id: "val-2", label: "Azul", raw_value: "#0000FF", price_modifier: 500 },
+      { id: "val-1", label: "Rojo", raw_value: "#FF0000", price_modifier: 0 },
+      { id: "val-2", label: "Azul", raw_value: "#0000FF", price_modifier: 500 },
     ],
   },
   {
@@ -77,9 +77,9 @@ const mockProductAttributes: ProductAttribute[] = [
     module_id: "mod-2",
     module_name: "Talle",
     values: [
-      { value_id: "val-3", label: "S", raw_value: "S", price_modifier: 0 },
-      { value_id: "val-4", label: "M", raw_value: "M", price_modifier: 0 },
-      { value_id: "val-5", label: "L", raw_value: "L", price_modifier: 200 },
+      { id: "val-3", label: "S", raw_value: "S", price_modifier: 0 },
+      { id: "val-4", label: "M", raw_value: "M", price_modifier: 0 },
+      { id: "val-5", label: "L", raw_value: "L", price_modifier: 200 },
     ],
   },
 ];
@@ -187,7 +187,7 @@ function isValueAssigned(assignedValueIds: Set<string>, valueId: string): boolea
 function buildAssignedValueIds(attributes: ProductAttribute[], moduleId: string): Set<string> {
   const attr = attributes.find((a) => a.module_id === moduleId);
   if (!attr) return new Set();
-  return new Set(attr.values.map((v) => v.value_id));
+  return new Set(attr.values.map((v) => v.id));
 }
 
 // ─── TESTS ────────────────────────────────────────────────
@@ -230,7 +230,7 @@ describe("AttributeManager logic", () => {
           product_id: "prod-1",
           module_id: "mod-1",
           module_name: "Color",
-          values: [{ value_id: "val-1", label: "Rojo", raw_value: "#FF0000", price_modifier: -200 }],
+          values: [{ id: "val-1", label: "Rojo", raw_value: "#FF0000", price_modifier: -200 }],
         },
       ];
       expect(calculateTotalModifier(attrs)).toBe(-200);
@@ -351,6 +351,18 @@ describe("AttributeManager logic", () => {
       const assignedIds = new Set<string>();
       const available = getAvailableValuesForPicker(allModuleValues, assignedIds);
       expect(available).toHaveLength(3);
+    });
+
+    it("picker excludes values assigned to the product (API id shape, REQ-4)", () => {
+      const assignedIds = buildAssignedValueIds(mockProductAttributes, "mod-1");
+      const available = getAvailableValuesForPicker(allModuleValues, assignedIds);
+      expect(available.map((v) => v.id)).toEqual(["val-6"]);
+    });
+
+    it("returns empty list when all values are assigned (empty state, REQ-4)", () => {
+      const allIds = new Set(allModuleValues.map((v) => v.id));
+      const available = getAvailableValuesForPicker(allModuleValues, allIds);
+      expect(available).toHaveLength(0);
     });
 
     it("isValueAssigned returns true for assigned value", () => {

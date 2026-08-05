@@ -472,17 +472,6 @@ const { productId, productName } = Astro.props;
     font-size: 13px;
   }
 
-  .attr-picker-item--assigned {
-    opacity: 0.6;
-  }
-
-  .attr-picker-item--assigned .attr-picker-btn {
-    background-color: rgba(62, 72, 80, 0.3);
-    color: #6b7280;
-    border-color: rgba(62, 72, 80, 0.3);
-    cursor: not-allowed;
-  }
-
   .attr-picker-btn {
     padding: 4px 10px;
     font-family: var(--font-mono);
@@ -498,15 +487,8 @@ const { productId, productName } = Astro.props;
     border: 1px solid var(--primary-50);
   }
 
-  .attr-picker-btn:hover:not(:disabled) {
+  .attr-picker-btn:hover {
     background-color: rgba(130, 207, 255, 0.2);
-  }
-
-  .attr-picker-btn:disabled {
-    background-color: rgba(62, 72, 80, 0.3);
-    color: #6b7280;
-    border-color: rgba(62, 72, 80, 0.3);
-    cursor: not-allowed;
   }
 
   :global(.btn--secondary) {
@@ -762,28 +744,30 @@ const { productId, productName } = Astro.props;
     const allValues = await loadModuleValues(moduleId);
     const currentAttr = productAttributes.find((a: any) => a.module_id === moduleId);
     const assignedIds = new Set(currentAttr?.values?.map((v: any) => v.id) || []);
+    // REQ-4: the picker lists ONLY unassigned dictionary values (keyed by API id)
+    const unassignedValues = allValues.filter((v: any) => !assignedIds.has(v.id));
 
     if (allValues.length === 0) {
       $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">No hay valores disponibles para este módulo</p>';
       return;
     }
 
-    $('value-picker-list')!.innerHTML = allValues.map((v: any) => {
-      const isAssigned = assignedIds.has(v.id);
-      return `
-        <div class="attr-picker-item ${isAssigned ? 'attr-picker-item--assigned' : ''}">
-          <span class="attr-picker-item-info">
-            ${v.hex_color ? `<span class="attr-value-color" style="background:${v.hex_color}"></span>` : ''}
-            ${escapeHtml(v.label)}
-          </span>
-          <button class="attr-picker-btn" 
-                  ${isAssigned ? 'disabled' : ''}
-                  onclick="assignValueFromPicker('${moduleId}', '${v.id}')">
-            ${isAssigned ? 'Agregado' : 'Agregar'}
-          </button>
-        </div>
-      `;
-    }).join('');
+    if (unassignedValues.length === 0) {
+      $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">Todos los valores ya están asignados</p>';
+      return;
+    }
+
+    $('value-picker-list')!.innerHTML = unassignedValues.map((v: any) => `
+      <div class="attr-picker-item">
+        <span class="attr-picker-item-info">
+          ${v.hex_color ? `<span class="attr-value-color" style="background:${v.hex_color}"></span>` : ''}
+          ${escapeHtml(v.label)}
+        </span>
+        <button class="attr-picker-btn" onclick="assignValueFromPicker('${moduleId}', '${v.id}')">
+          Agregar
+        </button>
+      </div>
+    `).join('');
   };
 
   (window as any).assignValueFromPicker = async (moduleId: string, valueId: string) => {
