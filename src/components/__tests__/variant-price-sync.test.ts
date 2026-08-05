@@ -80,6 +80,11 @@ describe("[slug].astro — WhatsApp link includes selected attributes", () => {
     expect(whatsappLinkBody).toContain("buildSelectedAttributes()");
   });
 
+  it("does NOT double-count modifiers: cart item carries base price, not finalPrice", () => {
+    expect(whatsappLinkBody).toContain("price: baseForTier");
+    expect(whatsappLinkBody).toContain("selected_tier_price: tier ? tier.price : undefined");
+  });
+
   it("defines the shared buildSelectedAttributes helper with type_name", () => {
     expect(slugSource).toContain("function buildSelectedAttributes()");
     expect(slugSource.indexOf("function buildSelectedAttributes()")).toBeLessThan(

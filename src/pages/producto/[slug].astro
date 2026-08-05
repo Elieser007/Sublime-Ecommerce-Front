@@ -279,15 +279,13 @@ const basePriceFormatted = formatPrice(product.base_price);
     if (!$whatsappBtn) return;
 
     const baseForTier = tier ? tier.price : currentProduct.base_price;
-    const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
-    const finalPrice = Math.max(0, baseForTier + modifierSum);
 
     const selectedAttributes = buildSelectedAttributes();
 
     const cartItem = {
       id: currentProduct.id,
       name: currentProduct.name,
-      price: finalPrice,
+      price: baseForTier,
       quantity: selectedQty,
       image: getProductImageUrl(
         currentProduct.images && currentProduct.images.length > 0
@@ -295,7 +293,7 @@ const basePriceFormatted = formatPrice(product.base_price);
           : null
       ),
       selected_tier_id: tier?.id,
-      selected_tier_price: finalPrice,
+      selected_tier_price: tier ? tier.price : undefined,
       selected_tier_min_qty: tier?.min_quantity,
       ...(Object.keys(selectedAttributes).length > 0 ? { selected_attributes: selectedAttributes } : {}),
     };
