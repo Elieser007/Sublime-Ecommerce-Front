@@ -355,6 +355,15 @@ const basePriceFormatted = formatPrice(product.base_price);
         updatePriceDisplay();
       }) as EventListener);
 
+      // Quick-add (D3): tier "+" buttons dispatch tier-add with the tier minimum;
+      // the setter clamps to 999 and fires number-input:change once, reusing the
+      // existing listener above for price/WhatsApp updates. No-op when unchanged.
+      document.addEventListener('tier-add', ((e: CustomEvent) => {
+        const qty = e.detail?.min_quantity;
+        if (typeof qty !== 'number' || !$numberInput) return;
+        $numberInput.value = Math.min(999, qty);
+      }) as EventListener);
+
       updatePriceDisplay();
     }
   });
