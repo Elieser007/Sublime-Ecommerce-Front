@@ -241,6 +241,27 @@ const basePriceFormatted = formatPrice(product.base_price);
     }
   }
 
+  function buildSelectedAttributes() {
+    const selectedAttributes: Record<string, { value_id: string; label: string; raw_value: string; price_modifier: number; type_name?: string }> = {};
+
+    for (const [moduleId, valueId] of selectedAttributesMap) {
+      const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
+      if (!mod) continue;
+      const val = mod.values.find((v: any) => v.value_id === valueId);
+      if (val) {
+        selectedAttributes[moduleId] = {
+          value_id: valueId,
+          label: val.label,
+          raw_value: val.raw_value,
+          price_modifier: val.price_modifier,
+          type_name: mod.name,
+        };
+      }
+    }
+
+    return selectedAttributes;
+  }
+
   function updatePriceDisplay() {
     const basePrice = currentProduct.base_price;
     const tierPrice = currentTiers.length > 0 ? getTierPrice(currentTiers, selectedQty, basePrice) : basePrice;
@@ -261,6 +282,8 @@ const basePriceFormatted = formatPrice(product.base_price);
     const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
     const finalPrice = Math.max(0, baseForTier + modifierSum);
 
+    const selectedAttributes = buildSelectedAttributes();
+
     const cartItem = {
       id: currentProduct.id,
       name: currentProduct.name,
@@ -274,6 +297,7 @@ const basePriceFormatted = formatPrice(product.base_price);
       selected_tier_id: tier?.id,
       selected_tier_price: finalPrice,
       selected_tier_min_qty: tier?.min_quantity,
+      ...(Object.keys(selectedAttributes).length > 0 ? { selected_attributes: selectedAttributes } : {}),
     };
 
     const message = buildCartMessage([cartItem]);
@@ -288,26 +312,7 @@ const basePriceFormatted = formatPrice(product.base_price);
 
       const tierMinQty = selectedTier?.min_quantity || 1;
 
-      const selectedAttributes: Record<string, { value_id: string; label: string; raw_value: string; price_modifier: number; type_name?: string }> = {};
-      const getModuleName = (moduleId: string) => {
-        const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
-        return mod?.name || moduleId;
-      };
-
-      for (const [moduleId, valueId] of selectedAttributesMap) {
-        const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
-        if (!mod) continue;
-        const val = mod.values.find((v: any) => v.value_id === valueId);
-        if (val) {
-          selectedAttributes[moduleId] = {
-            value_id: valueId,
-            label: val.label,
-            raw_value: val.raw_value,
-            price_modifier: val.price_modifier,
-            type_name: getModuleName(moduleId),
-          };
-        }
-      }
+      const selectedAttributes = buildSelectedAttributes();
 
       const hasAttributes = Object.keys(selectedAttributes).length > 0;
 

@@ -38,6 +38,11 @@ const updateVisualsBody = wcSource.slice(
   wcSource.indexOf("customElements.define")
 );
 
+const whatsappLinkBody = slugSource.slice(
+  slugSource.indexOf("function updateWhatsAppLink"),
+  slugSource.indexOf("document.addEventListener('astro:page-load'")
+);
+
 // ─── TESTS ─────────────────────────────────────────────────
 
 describe("[slug].astro — variant-change price sync", () => {
@@ -66,5 +71,23 @@ describe("variant-selector.js — _updateSelectedVisuals cleanup", () => {
   it("resets material selects to the empty placeholder value", () => {
     expect(updateVisualsBody).toContain("querySelectorAll('.material-selector__select')");
     expect(updateVisualsBody).toContain("value = ''");
+  });
+});
+
+describe("[slug].astro — WhatsApp link includes selected attributes", () => {
+  it("includes selected_attributes in the cart item sent to WhatsApp", () => {
+    expect(whatsappLinkBody).toContain("selected_attributes");
+    expect(whatsappLinkBody).toContain("buildSelectedAttributes()");
+  });
+
+  it("defines the shared buildSelectedAttributes helper with type_name", () => {
+    expect(slugSource).toContain("function buildSelectedAttributes()");
+    expect(slugSource.indexOf("function buildSelectedAttributes()")).toBeLessThan(
+      slugSource.indexOf("function updateWhatsAppLink")
+    );
+    expect(slugSource.slice(
+      slugSource.indexOf("function buildSelectedAttributes()"),
+      slugSource.indexOf("function updatePriceDisplay()")
+    )).toContain("type_name");
   });
 });
