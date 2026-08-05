@@ -11,6 +11,7 @@
 import { getProductImageUrl } from '../../lib/public-api';
 import { formatPrice } from '../../lib/public-api';
 import { getApiUrl } from '../../lib/api-url';
+import { getRelatedProducts } from '../../lib/product-related';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PriceTierList from '../../components/PriceTierList.astro';
 import ProductGallery from '../../components/ProductGallery.astro';
@@ -51,7 +52,12 @@ export async function getStaticPaths() {
       const detailData = await detailRes.json();
       paths.push({
         params: { slug: product.slug },
-        props: { product: detailData.product },
+        props: {
+          product: detailData.product,
+          // Build-time recommendations from the in-memory list (D6/REQ-10):
+          // deterministic, zero runtime fetches.
+          related: getRelatedProducts(products, product.slug, product.section_slug || ''),
+        },
       });
     }
 
@@ -62,7 +68,7 @@ export async function getStaticPaths() {
   }
 }
 
-const { product } = Astro.props;
+const { product, related = [] } = Astro.props;
 
 // Pre-compute values for template
 const primaryImage = product.images && product.images.length > 0
@@ -132,6 +138,29 @@ const basePriceFormatted = formatPrice(product.base_price);
         </div>
       </div>
     </div>
+
+    <!-- Related products (D6): static same-section recommendations from build time -->
+    {related.length > 0 && (
+      <section id="related-products" class="related-products">
+        <h2 class="related-products__title">Productos relacionados</h2>
+        <div class="related-products__grid">
+          {related.map((relatedProduct: any) => (
+            <product-card
+              product={JSON.stringify({
+                id: relatedProduct.id,
+                slug: relatedProduct.slug,
+                name: relatedProduct.name,
+                price: relatedProduct.base_price,
+                image: getProductImageUrl(relatedProduct.image_url),
+                category: relatedProduct.section_name,
+                price_tiers: relatedProduct.price_tiers || [],
+                has_variants: !!relatedProduct.has_variants,
+              })}
+            />
+          ))}
+        </div>
+      </section>
+    )}
   </div>
 
   <!-- Inject build-time product data for client-side script -->
@@ -399,6 +428,34 @@ const basePriceFormatted = formatPrice(product.base_price);
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  /* Related products */
+  .related-products {
+    margin-top: var(--space-3xl);
+    border-top: var(--border-width) solid var(--outline-variant);
+    padding-top: var(--space-2xl);
+  }
+
+  .related-products__title {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--on-surface-variant);
+    margin-bottom: var(--space-lg);
+  }
+
+  .related-products__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md);
+  }
+
+  @media (min-width: 768px) {
+    .related-products__grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
   }
 
   /* Info */
