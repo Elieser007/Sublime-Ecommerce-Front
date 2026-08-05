@@ -20,6 +20,7 @@ import TilesPromo from './promo/TilesPromo.astro';
 import SplitPromo from './promo/SplitPromo.astro';
 import BannerPromo from './promo/BannerPromo.astro';
 import RibbonPromo from './promo/RibbonPromo.astro';
+import { getProductImageUrl } from '../lib/public-api';
 
 interface Promotion {
   id: string;
@@ -54,26 +55,30 @@ const {
 
 const displayType = sectionInfo?.displayType || "tiles";
 const hasPromotions = promotions.length > 0;
+const safePromotions = promotions.map((promo) => ({
+  ...promo,
+  imageUrl: getProductImageUrl(promo.imageUrl),
+}));
 ---
 
 <div class:list={['promotion-wall', className]} data-section={section}>
   {hasPromotions && displayType === 'hero' && (
-    <HeroPromo promotions={promotions} />
+    <HeroPromo promotions={safePromotions} />
   )}
   {hasPromotions && displayType === 'carousel' && (
-    <CarouselPromo promotions={promotions} id={section} />
+    <CarouselPromo promotions={safePromotions} id={section} />
   )}
   {hasPromotions && displayType === 'tiles' && (
-    <TilesPromo promotions={promotions} />
+    <TilesPromo promotions={safePromotions} />
   )}
   {hasPromotions && displayType === 'split' && (
-    <SplitPromo promotions={promotions} />
+    <SplitPromo promotions={safePromotions} />
   )}
   {hasPromotions && displayType === 'banner' && (
-    <BannerPromo promotions={promotions} />
+    <BannerPromo promotions={safePromotions} />
   )}
   {hasPromotions && displayType === 'ribbon' && (
-    <RibbonPromo promotions={promotions} />
+    <RibbonPromo promotions={safePromotions} />
   )}
 </div>
 

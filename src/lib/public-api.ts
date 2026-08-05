@@ -143,5 +143,10 @@ export { formatPrice } from "./format";
 export function getProductImageUrl(
   imageUrl: string | null | undefined
 ): string {
-  return imageUrl || "/placeholder-product.svg";
+  if (imageUrl == null) return "/placeholder-product.svg";
+  const trimmed = imageUrl.trim();
+  if (trimmed === "" || trimmed === "null" || trimmed === "undefined" || trimmed === "/null") {
+    return "/placeholder-product.svg";
+  }
+  return trimmed;
 }

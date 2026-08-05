@@ -199,6 +199,13 @@ describe("getProductImageUrl", () => {
     expect(getProductImageUrl(undefined)).toBe("/placeholder-product.svg");
   });
 
+  it("returns placeholder for literal null-ish strings", () => {
+    expect(getProductImageUrl("/null")).toBe("/placeholder-product.svg");
+    expect(getProductImageUrl("null")).toBe("/placeholder-product.svg");
+    expect(getProductImageUrl("undefined")).toBe("/placeholder-product.svg");
+    expect(getProductImageUrl("")).toBe("/placeholder-product.svg");
+  });
+
   it("returns the image URL when provided", () => {
     expect(getProductImageUrl("https://images.example.com/test.webp")).toBe(
       "https://images.example.com/test.webp"
