@@ -150,18 +150,45 @@ describe("formatTierOption", () => {
 });
 
 describe("getTierSavings", () => {
-  it("calculates percentage savings correctly", () => {
-    expect(getTierSavings(mockTiers[1], mockTiers)).toBe(10);
-    expect(getTierSavings(mockTiers[2], mockTiers)).toBe(20);
+  // Prod-like tiers: batch quantities only (12+), no min_quantity === 1 row
+  const prodTiers = [
+    { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 216000 },
+    { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 208000 },
+  ];
+
+  it("calculates savings in Guaraníes from basePrice", () => {
+    expect(getTierSavings(prodTiers[0], prodTiers, 240000)).toBe(24000);
+    expect(getTierSavings(prodTiers[1], prodTiers, 240000)).toBe(32000);
+  });
+
+  it("clamps savings to 0 when tier price exceeds base", () => {
+    const aboveBase = [
+      { id: "t1", branch_id: "b1", branch_name: "P", min_quantity: 1, price: 100000 },
+      { id: "t2", branch_id: "b1", branch_name: "P", min_quantity: 10, price: 120000 },
+    ];
+    expect(getTierSavings(aboveBase[1], aboveBase)).toBe(0);
+    expect(getTierSavings(prodTiers[0], prodTiers, 200000)).toBe(0);
+  });
+
+  it("falls back to the min_quantity === 1 row when basePrice is absent", () => {
+    const withBase = [
+      { id: "t1", branch_id: "b1", branch_name: "P", min_quantity: 1, price: 100000 },
+      { id: "t2", branch_id: "b1", branch_name: "P", min_quantity: 10, price: 90000 },
+    ];
+    expect(getTierSavings(withBase[1], withBase)).toBe(10000);
   });
 
   it("returns 0 for base tier", () => {
-    expect(getTierSavings(mockTiers[0], mockTiers)).toBe(0);
+    const withBase = [
+      { id: "t1", branch_id: "b1", branch_name: "P", min_quantity: 1, price: 100000 },
+      { id: "t2", branch_id: "b1", branch_name: "P", min_quantity: 10, price: 90000 },
+    ];
+    expect(getTierSavings(withBase[0], withBase)).toBe(0);
   });
 
-  it("returns 0 for missing base tier", () => {
-    const noBase = [{ id: "t2", branch_id: "b1", branch_name: "P", min_quantity: 10, price: 90000 }];
-    expect(getTierSavings(noBase[0], noBase)).toBe(0);
+  it("returns 0 when no basePrice and no min_quantity === 1 row exist", () => {
+    expect(getTierSavings(prodTiers[0], prodTiers)).toBe(0);
+    expect(getTierSavings(prodTiers[1], prodTiers)).toBe(0);
   });
 
   it("returns 0 for zero base price", () => {
@@ -172,13 +199,8 @@ describe("getTierSavings", () => {
     expect(getTierSavings(zeroBase[1], zeroBase)).toBe(0);
   });
 
-  it("returns 0 savings when no min_quantity===1 row exists", () => {
-    const noBaseTiers = [
-      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 18000 },
-      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 17000 },
-    ];
-    expect(getTierSavings(noBaseTiers[0], noBaseTiers)).toBe(0);
-    expect(getTierSavings(noBaseTiers[1], noBaseTiers)).toBe(0);
+  it("returns 0 for empty tiers", () => {
+    expect(getTierSavings(undefined as any, [])).toBe(0);
   });
 });
 
