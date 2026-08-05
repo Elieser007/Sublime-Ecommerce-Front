@@ -41,6 +41,7 @@ const mainImageAlt = primary?.alt || alt;
       <>
         <button class="gallery-nav gallery-nav--prev" data-action="prev" aria-label="Imagen anterior">‹</button>
         <button class="gallery-nav gallery-nav--next" data-action="next" aria-label="Imagen siguiente">›</button>
+        <span class="gallery-counter" data-counter>1 / {images.length}</span>
       </>
     )}
   </div>
@@ -69,6 +70,8 @@ const mainImageAlt = primary?.alt || alt;
   if (gallery) {
     const mainImg = gallery.querySelector('[data-main-image]') as HTMLImageElement;
     const thumbs = Array.from(gallery.querySelectorAll('[data-thumb-id]')) as HTMLButtonElement[];
+    const mainViewer = gallery.querySelector('.gallery-main') as HTMLElement;
+    const counter = gallery.querySelector('[data-counter]') as HTMLElement | null;
     let currentIndex = 0;
 
     function updateMain(index: number) {
@@ -85,8 +88,36 @@ const mainImageAlt = primary?.alt || alt;
         t.classList.toggle('gallery-thumb--active', i === index);
         t.setAttribute('aria-selected', i === index ? 'true' : 'false');
       });
+      if (counter) counter.textContent = `${index + 1} / ${thumbs.length}`;
       currentIndex = index;
     }
+
+    // Hover zoom (D5 / REQ-7): --x/--y origin tracks the pointer position
+    mainViewer?.addEventListener('mousemove', (e) => {
+      const rect = mainViewer.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      mainViewer.style.setProperty('--x', `${x}%`);
+      mainViewer.style.setProperty('--y', `${y}%`);
+    });
+    mainViewer?.addEventListener('mouseenter', () => {
+      mainImg?.classList.add('gallery-main__img--zoomed');
+    });
+    mainViewer?.addEventListener('mouseleave', () => {
+      mainImg?.classList.remove('gallery-main__img--zoomed');
+    });
+
+    // Keyboard navigation (REQ-9): ←/→ wrap around from focused controls
+    gallery.addEventListener('keydown', (e) => {
+      if (thumbs.length === 0) return;
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        updateMain((currentIndex + 1) % thumbs.length);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        updateMain((currentIndex - 1 + thumbs.length) % thumbs.length);
+      }
+    });
 
     // Thumbnail clicks
     thumbs.forEach((thumb, idx) => {
@@ -116,12 +147,41 @@ const mainImageAlt = primary?.alt || alt;
     background-color: var(--surface-container);
     aspect-ratio: 1;
     overflow: hidden;
+    cursor: zoom-in;
   }
 
   .gallery-main__img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.15s ease;
+  }
+
+  .gallery-main__img--zoomed {
+    transform: scale(1.7);
+    transform-origin: var(--x, 50%) var(--y, 50%);
+  }
+
+  .gallery-counter {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    z-index: 1;
+    background: rgba(0, 0, 0, 0.6);
+    color: #ffffff;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 2px 8px;
+  }
+
+  @media (hover: none) {
+    .gallery-main {
+      cursor: default;
+    }
+
+    .gallery-main__img--zoomed {
+      transform: none;
+    }
   }
 
   .gallery-nav {
