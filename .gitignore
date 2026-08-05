@@ -11,6 +11,9 @@ dist/
 test-results/
 playwright-report/
 
+# Playwright MCP runtime state
+.playwright-mcp/
+
 # E2E admin session state (Playwright storageState — contains live cookies)
 e2e/admin/.auth/
 
@@ -33,4 +36,3 @@ Thumbs.db
 # Agent worktree scripts (local only)
 start.sh
 .agent-env
-node_modules
