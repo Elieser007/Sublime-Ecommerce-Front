@@ -40,14 +40,11 @@ export function formatTierLabel(tier: PriceTier): string {
   return `Desde ${tier.min_quantity} unds: Gs. ${formatPrice(tier.price)}`;
 }
 
-export function getTierSavings(tier: PriceTier, tiers: PriceTier[]): number {
+export function getTierSavings(tier: PriceTier, tiers: PriceTier[], basePrice?: number): number {
   if (!tier || !tiers || tiers.length === 0) return 0;
 
-  const baseTier = tiers.find((t) => t.min_quantity === 1);
-  if (!baseTier || baseTier.price === 0) return 0;
-
-  const savings = ((baseTier.price - tier.price) / baseTier.price) * 100;
-  return Math.round(savings);
+  const base = basePrice ?? tiers.find((t) => t.min_quantity === 1)?.price ?? 0;
+  return Math.max(0, base - tier.price);
 }
 
 export function getTierForQuantity(tiers: PriceTier[], qty: number): PriceTier | null {
