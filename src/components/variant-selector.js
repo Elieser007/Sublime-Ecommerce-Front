@@ -609,6 +609,21 @@ class VariantSelector extends HTMLElement {
   _updateSelectedVisuals() {
     const root = this._shadow;
 
+    // Clear previous visual selection state before painting current one,
+    // otherwise stale chips/circles stay selected after a re-render cycle
+    // (modules attribute re-set → render → selected attribute → this sync).
+    root.querySelectorAll('.size-selector__btn--selected').forEach((btn) => {
+      btn.classList.remove('size-selector__btn--selected');
+      btn.setAttribute('aria-checked', 'false');
+    });
+    root.querySelectorAll('.color-selector__circle--selected').forEach((btn) => {
+      btn.classList.remove('color-selector__circle--selected');
+      btn.setAttribute('aria-checked', 'false');
+    });
+    root.querySelectorAll('.material-selector__select').forEach((select) => {
+      select.value = '';
+    });
+
     for (const [moduleId, valueId] of Object.entries(this._selected)) {
       // Size
       const sizeBtn = root.querySelector(

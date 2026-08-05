@@ -187,6 +187,7 @@ const basePriceFormatted = formatPrice(product.base_price);
       const complete = isSelectionComplete(currentVariantModules, selectedAttributesMap);
       if ($addCart) $addCart.disabled = !complete;
 
+      updatePriceDisplay();
       refreshVariants();
     }) as EventListener);
   }
@@ -241,10 +242,9 @@ const basePriceFormatted = formatPrice(product.base_price);
   }
 
   function updatePriceDisplay() {
-    if (currentTiers.length === 0) return;
-
-    const tierPrice = getTierPrice(currentTiers, selectedQty, currentProduct.base_price);
-    const applicableTier = getTierForQuantity(currentTiers, selectedQty);
+    const basePrice = currentProduct.base_price;
+    const tierPrice = currentTiers.length > 0 ? getTierPrice(currentTiers, selectedQty, basePrice) : basePrice;
+    const applicableTier = currentTiers.length > 0 ? getTierForQuantity(currentTiers, selectedQty) : null;
 
     const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
     const displayPrice = Math.max(0, tierPrice + modifierSum);

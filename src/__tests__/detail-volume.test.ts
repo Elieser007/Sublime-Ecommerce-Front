@@ -60,8 +60,9 @@ describe("[slug].astro server-rendered volume UI (D2)", () => {
   });
 
   it("wires the base_price fallback into the price display", () => {
+    expect(detailSource).toContain("const basePrice = currentProduct.base_price");
     expect(detailSource).toMatch(
-      /getTierPrice\(currentTiers, selectedQty,\s*currentProduct\.base_price\)/
+      /getTierPrice\(currentTiers, selectedQty,\s*basePrice\)\s*:\s*basePrice/
     );
   });
 });
