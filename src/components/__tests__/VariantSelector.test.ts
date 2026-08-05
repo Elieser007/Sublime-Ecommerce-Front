@@ -7,6 +7,8 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import {
   computeFinalPrice,
   isSelectionComplete,
@@ -54,6 +56,18 @@ const mockModules: ModuleWithValues[] = [
       { value_id: "val-polyester", label: "Poliéster", raw_value: "polyester", hex_color: null, price_modifier: -300, available: true },
     ],
   },
+  {
+    id: "mod-variedad",
+    module_id: "mod-variedad",
+    name: "Variedad",
+    slug: "variedad",
+    frontend_component: "VariedadSelector",
+    sort_order: 4,
+    values: [
+      { value_id: "val-masticable", label: "Masticable", raw_value: "masticable", hex_color: null, price_modifier: 0, available: true },
+      { value_id: "val-relleno-frutal", label: "Relleno Frutal", raw_value: "relleno-frutal", hex_color: null, price_modifier: 1000, available: true },
+    ],
+  },
 ];
 
 // ─── TESTS ────────────────────────────────────────────────
@@ -97,6 +111,14 @@ describe("VariantSelector logic", () => {
     it("handles large prices typical of Guaraníes", () => {
       expect(computeFinalPrice(250000, [15000, -5000])).toBe(260000);
     });
+
+    it("adds variedad modifier to base price (REQ-4): 5000 + 1000 = 6000", () => {
+      expect(computeFinalPrice(5000, [1000])).toBe(6000);
+    });
+
+    it("clamps negative variedad modifier to zero (REQ-4): 5000 - 6000 → 0", () => {
+      expect(computeFinalPrice(5000, [-6000])).toBe(0);
+    });
   });
 
   // ── Selection Completeness ──
@@ -107,6 +129,7 @@ describe("VariantSelector logic", () => {
         ["mod-color", "val-rojo"],
         ["mod-size", "val-m"],
         ["mod-material", "val-algodon"],
+        ["mod-variedad", "val-masticable"],
       ]);
       expect(isSelectionComplete(mockModules, selected)).toBe(true);
     });
@@ -135,6 +158,26 @@ describe("VariantSelector logic", () => {
       ];
       const selected = new Map<string, string>([["mod-size", "val-m"]]);
       expect(isSelectionComplete(modulesWithEmpty, selected)).toBe(true);
+    });
+  });
+
+  // ── Module-type registry (REQ-8) ──
+
+  describe("module-type registry completeness (REQ-8)", () => {
+    const wcSource = readFileSync(
+      resolve(__dirname, "../variant-selector.js"),
+      "utf-8"
+    );
+
+    it("registers all four module types", () => {
+      expect(wcSource).toContain("case 'SizeSelector'");
+      expect(wcSource).toContain("case 'ColorSelector'");
+      expect(wcSource).toContain("case 'MaterialSelector'");
+      expect(wcSource).toContain("case 'VariedadSelector'");
+    });
+
+    it("unknown frontend_component falls to the default break (no partial render)", () => {
+      expect(wcSource).toMatch(/default:\s*break;/);
     });
   });
 });

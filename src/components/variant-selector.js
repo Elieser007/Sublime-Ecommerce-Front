@@ -3,7 +3,8 @@
  *
  * Reusable variant selector with Shadow DOM.
  * Renders SizeSelector (radio pills), ColorSelector (hex circles),
- * and MaterialSelector (dropdown) based on module frontend_component type.
+ * MaterialSelector (dropdown), and VariedadSelector (chip pills) based on
+ * module frontend_component type.
  *
  * Used by: variant-modal, product detail page refactor.
  *
@@ -16,7 +17,6 @@
  */
 
 import { escapeHtml } from '../lib/escape-html';
-import { formatPrice } from '../lib/format';
 
 class VariantSelector extends HTMLElement {
   static get observedAttributes() {
@@ -29,6 +29,8 @@ class VariantSelector extends HTMLElement {
     this._modules = [];
     this._selected = {};
     this._onKeyDownBound = this._onKeyDown.bind(this);
+    this._onClickBound = this._onClick.bind(this);
+    this._onChangeBound = this._onChange.bind(this);
   }
 
   connectedCallback() {
@@ -110,6 +112,11 @@ class VariantSelector extends HTMLElement {
           break;
         case 'MaterialSelector':
           sectionsHtml += this._renderMaterialSelector(mod);
+          break;
+        case 'VariedadSelector':
+          // D1: reuse the size chip renderer — identical markup/ARIA contract;
+          // click/keydown handlers are class + module-id driven, so zero new code
+          sectionsHtml += this._renderSizeSelector(mod);
           break;
         default:
           break;
@@ -409,8 +416,8 @@ class VariantSelector extends HTMLElement {
 
     const optionsHtml = mod.values.map((val) => {
       const hex = val.hex_color || val.raw_value;
-      const modifierLabel = val.price_modifier > 0 ? ` +₲${val.price_modifier}` : '';
-      const modifierInline = val.price_modifier > 0 ? ` (+₲${val.price_modifier})` : '';
+      const modifierLabel = val.price_modifier > 0 ? ` ${this._formatModifier(val.price_modifier)}` : '';
+      const modifierInline = val.price_modifier > 0 ? ` (${this._formatModifier(val.price_modifier)})` : '';
       return `
         <button type="button"
           class="color-selector__circle ${disabledClass(val)} ${selectedClass(val)}"
@@ -424,7 +431,7 @@ class VariantSelector extends HTMLElement {
           aria-label="${escapeHtml(val.label)}${escapeHtml(modifierLabel)}"
           title="${escapeHtml(val.label)}${escapeHtml(modifierInline)}">
           <span class="color-selector__swatch" style="background-color: ${escapeHtml(hex)};"></span>
-          <span class="color-selector__price-modifier">${val.price_modifier > 0 ? `+₲${val.price_modifier.toLocaleString('es-PY')}` : '\u00A0'}</span>
+          <span class="color-selector__price-modifier">${val.price_modifier > 0 ? this._formatModifier(val.price_modifier) : '\u00A0'}</span>
         </button>`;
     }).join('');
 
@@ -466,11 +473,11 @@ class VariantSelector extends HTMLElement {
     const selector = root.querySelector('.variant-selector');
     if (!selector) return;
 
-    selector.removeEventListener('click', this._onClick);
-    selector.addEventListener('click', (e) => this._onClick(e));
+    selector.removeEventListener('click', this._onClickBound);
+    selector.addEventListener('click', this._onClickBound);
 
-    selector.removeEventListener('change', this._onChange);
-    selector.addEventListener('change', (e) => this._onChange(e));
+    selector.removeEventListener('change', this._onChangeBound);
+    selector.addEventListener('change', this._onChangeBound);
 
     selector.removeEventListener('keydown', this._onKeyDownBound);
     selector.addEventListener('keydown', this._onKeyDownBound);

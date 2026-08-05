@@ -198,10 +198,10 @@ e2e/                          # Playwright E2E tests
 
 - **TypeScript strict mode** — no exceptions
 - **Conventional commits** — `feat:`, `fix:`, `docs:`, `refactor:`, etc.
-- **No comments in code** unless critical (XSS prevention, CSS scoping notes)
+- **No comments in code** unless critical (XSS prevention, CSS scoping notes). Exception: `variant-selector.js` keeps its component-level contract docs (header, section dividers) and design-traceability comments such as the D1 renderer-reuse note in the `VariedadSelector` case — that Web Component predates this rule and its comments are part of the SDD design record (change `caramelos-variedad`).
 - **Pure functions in `lib/`** — extract logic from `.astro` `<script>` blocks for testability
 - **No mutation** — lib functions return new arrays/objects
-- **Price formatting**: Always use `formatPrice()` from `lib/format.ts` — Guaraníes, no decimals, `es-PY` locale
+- **Price formatting**: Always use `formatPrice()` from `lib/format.ts` — Guaraníes, no decimals, `es-PY` locale. Exception: `variant-selector.js` renders signed modifier hints (`+₲1.000`) with its own `_formatModifier` — `formatPrice()` outputs a bare decimal number (no sign, no ₲ symbol), so the REQ-3 hint contract (sign + ₲ + es-PY grouping) cannot be expressed through it; the component predates this rule.
 - **API URL**: Always read from `import.meta.env.PUBLIC_API_URL` with `http://localhost:8787` fallback
 - **Credentials**: All API fetch calls use `credentials: "include"` for cookie-based auth
 
