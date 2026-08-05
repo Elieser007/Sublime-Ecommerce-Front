@@ -95,12 +95,12 @@ describe('sortData', () => {
 
   it('sorts numbers numerically', () => {
     const result = sortData(items, 'price', 'asc');
-    expect(result.map((r) => r.id)).toEqual(['b', 'd', 'e', 'a']);
+    expect(result.map((r) => r.id)).toEqual(['b', 'd', 'e', 'a', 'c']);
   });
 
   it('sorts numbers descending', () => {
     const result = sortData(items, 'price', 'desc');
-    expect(result.map((r) => r.id)).toEqual(['a', 'e', 'd', 'b']);
+    expect(result.map((r) => r.id)).toEqual(['a', 'e', 'd', 'b', 'c']);
   });
 
   it('keeps null values last regardless of direction', () => {
@@ -128,7 +128,7 @@ describe('sortData', () => {
 
   it('supports a custom value getter', () => {
     const result = sortData(items, 'name', 'asc', (row) => row.price);
-    expect(result.map((r) => r.id)).toEqual(['b', 'd', 'e', 'a']);
+    expect(result.map((r) => r.id)).toEqual(['b', 'd', 'e', 'a', 'c']);
   });
 
   it('returns a new array even when already sorted', () => {
@@ -163,6 +163,10 @@ describe('buildPageRange', () => {
   });
 
   it('honors a custom maxButtons', () => {
-    expect(buildPageRange(10, 50, 5)).toEqual([1, 'ellipsis', 9, 10, 11, 'ellipsis', 50]);
+    expect(buildPageRange(10, 50, 5)).toEqual([1, 'ellipsis', 10, 'ellipsis', 50]);
+  });
+
+  it('honors a larger maxButtons', () => {
+    expect(buildPageRange(10, 50, 9)).toEqual([1, 'ellipsis', 8, 9, 10, 11, 12, 'ellipsis', 50]);
   });
 });
