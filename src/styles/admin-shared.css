@@ -322,6 +322,81 @@ tr:hover .cell-actions {
   border-color: rgba(213, 202, 0, 0.5);
 }
 
+/* ─── Buttons (global) ────────────────────────────────────────
+   DUPLICATE STYLE SYSTEM — by design, not a bug.
+
+   Global .btn* rules for JS template literals in admin components
+   (AttributeManager.astro injected rows/buttons) that cannot use the
+   Astro Button component. Button.astro defines its own scoped styles;
+   scoped styles load AFTER this global import, so scoped always wins
+   (REQ-6: scoped precedence preserved).
+
+   Keep these rules in sync with Button.astro when changing colors,
+   sizes, or variants.
+   ═══════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: 0px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn:hover {
+  text-decoration: none;
+  transform: scale(1.02);
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  pointer-events: none;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.btn--sm {
+  padding: 6px 12px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  height: 28px;
+}
+.btn--primary {
+  background-color: var(--primary-10);
+  color: var(--on-surface);
+  border: 1px solid var(--primary-50);
+}
+.btn--primary:hover {
+  background-color: rgba(130, 207, 255, 0.2);
+  border-color: var(--primary);
+}
+.btn--danger {
+  background-color: rgba(255, 180, 171, 0.1);
+  color: var(--error);
+  border: 1px solid rgba(255, 180, 171, 0.5);
+}
+.btn--danger:hover {
+  background-color: rgba(255, 180, 171, 0.2);
+  border-color: var(--error);
+}
+.badge--sm {
+  padding: 2px 8px;
+  font-size: 10px;
+  gap: 4px;
+}
+
 /* ─── Badges ─────────────────────────────────────────────────── */
 .badge {
   display: inline-flex;

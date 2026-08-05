@@ -42,6 +42,16 @@ describe('admin-shared.css', () => {
     expect(css).toContain('.btn--secondary');
   });
 
+  it('contains global button rule blocks for JS-injected markup (REQ-6)', () => {
+    const css = readFileSync(CSS_PATH, 'utf-8');
+    // Rule BLOCKS (selector followed by `{`), not mere mentions in comments —
+    // JS template literals rely on these global styles applying.
+    expect(css).toMatch(/\.btn--primary\s*\{/);
+    expect(css).toMatch(/\.btn--danger\s*\{/);
+    expect(css).toMatch(/\.btn--sm\s*\{/);
+    expect(css).toMatch(/\.badge--sm\s*\{/);
+  });
+
   it('contains badge styles', () => {
     const css = readFileSync(CSS_PATH, 'utf-8');
     expect(css).toContain('.badge');
