@@ -6,12 +6,20 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import { getRelatedProducts } from "../lib/product-related";
 
 // Mock fetch for build-time API calls
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 const API_URL = "http://localhost:8787";
+
+const detailSource = readFileSync(
+  resolve(__dirname, "../pages/producto/[slug].astro"),
+  "utf-8"
+);
 
 // ─── getStaticPaths logic (extracted for testing) ─────────────────
 // This mirrors what getStaticPaths() will do in [slug].astro
@@ -32,7 +40,10 @@ async function getStaticPathsLogic() {
     const detailData = await detailRes.json();
     paths.push({
       params: { slug: product.slug },
-      props: { product: detailData.product },
+      props: {
+        product: detailData.product,
+        related: getRelatedProducts(products, product.slug, product.section_slug || ''),
+      },
     });
   }
 
@@ -153,5 +164,51 @@ describe("getStaticPaths logic", () => {
     expect(paths[0].params).toHaveProperty("slug");
     expect(paths[0].props).toHaveProperty("product");
     expect(typeof paths[0].params.slug).toBe("string");
+  });
+
+  it("passes related products: same section, max 4, no self, deterministic", async () => {
+    const listProducts = [
+      { slug: "s1", section_slug: "ropa", created_at: 1 },
+      { slug: "s2", section_slug: "ropa", created_at: 2 },
+      { slug: "s3", section_slug: "ropa", created_at: 3 },
+      { slug: "s4", section_slug: "ropa", created_at: 4 },
+      { slug: "s5", section_slug: "ropa", created_at: 5 },
+      { slug: "s6", section_slug: "ropa", created_at: 6 },
+      { slug: "otro", section_slug: "accesorios", created_at: 999 },
+    ];
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: listProducts }),
+      });
+    for (const p of listProducts) {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ product: { ...p } }),
+      });
+    }
+
+    const paths = await getStaticPathsLogic();
+    expect(paths).toHaveLength(7);
+
+    const s1 = paths.find((p: any) => p.params.slug === "s1");
+    expect(s1.props.related).toHaveLength(4);
+    expect(s1.props.related.map((r: any) => r.slug)).toEqual(["s6", "s5", "s4", "s3"]);
+    expect(s1.props.related.some((r: any) => r.slug === "s1")).toBe(false);
+    expect(s1.props.related.some((r: any) => r.slug === "otro")).toBe(false);
+
+    // Deterministic across identical builds
+    const s1Again = paths.find((p: any) => p.params.slug === "s1");
+    expect(s1Again.props.related.map((r: any) => r.slug)).toEqual(["s6", "s5", "s4", "s3"]);
+  });
+});
+
+describe("product detail related markers (D6)", () => {
+  it("listens for tier-add to wire quick-add", () => {
+    expect(detailSource).toContain("'tier-add'");
+  });
+
+  it("renders the related-products section", () => {
+    expect(detailSource).toContain('id="related-products"');
   });
 });
