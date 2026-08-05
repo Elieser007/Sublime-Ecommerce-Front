@@ -297,3 +297,47 @@ test("creates and deletes a dependency between assigned modules", async ({ page 
   await expect(overlay.locator("#dependencies-list")).toContainText("No hay dependencias configuradas");
   await overlay.locator("#attr-modal-cancel").click();
 });
+
+test("back walks the AttributeManager LIFO, closing the topmost modal each press (MOD-BACK-2)", async ({ page }) => {
+  // Two flow-created modules + a flow-created product, both assigned (mirrors
+  // the dependency test setup; no dependency is needed to open the dep modal).
+  const modAName = uniqueModuleName();
+  const modASlug = uniqueModuleSlug();
+  const modBName = uniqueModuleName();
+  const modBSlug = uniqueModuleSlug();
+  await createModule(page, modAName, modASlug);
+  await createModule(page, modBName, modBSlug);
+  const modAId = await moduleIdBySlug(page, modASlug);
+  const modBId = await moduleIdBySlug(page, modBSlug);
+  const productName = uniqueProductName();
+  await createProduct(page, productName);
+  await assignModule(page, productName, modAName, modAId);
+  await assignModule(page, productName, modBName, modBId);
+
+  // Stack: products page → attr overlay → dep overlay
+  await page.goto(ADMIN_URLS.products);
+  await page.locator("#search").fill(productName);
+  const row = page.locator("tbody tr", { hasText: productName });
+  await expect(row).toBeVisible();
+  await row.getByTitle("Atributos").click();
+  const attrOverlay = page.locator("#attr-overlay");
+  await expect(attrOverlay).toBeVisible();
+  await attrOverlay.locator("#show-dependency-btn").click();
+  const depOverlay = page.locator("#dep-overlay");
+  await expect(depOverlay).toBeVisible();
+
+  const url = page.url();
+
+  // First back: closes the topmost (dep) modal; the AttributeManager stays open.
+  await page.goBack();
+  await page.waitForTimeout(500);
+  await expect(depOverlay).toBeHidden();
+  await expect(attrOverlay).toBeVisible();
+  expect(page.url()).toBe(url);
+
+  // Second back: closes the AttributeManager; URL still unchanged.
+  await page.goBack();
+  await page.waitForTimeout(500);
+  await expect(attrOverlay).toBeHidden();
+  expect(page.url()).toBe(url);
+});

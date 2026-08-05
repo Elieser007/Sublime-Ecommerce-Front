@@ -359,6 +359,126 @@ test.describe("Mobile Catalog", () => {
   });
 });
 
+test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  /**
+   * Proves the popstate interceptor consumed the back press: Astro's
+   * ClientRouter re-renders the whole page on a same-URL transition, which
+   * detaches the pre-back element reference from the live document. If the
+   * reference is still connected, no ClientRouter swap happened (D2).
+   *
+   * document.body is the swap discriminator because it ALWAYS exists: an
+   * earlier revision keyed on #product-count-text, which only renders when
+   * the catalog is non-empty, read null on an empty seeded backend and
+   * produced a false swap positive. body is present regardless of data.
+   */
+  async function expectNoDocumentSwap(page: Page) {
+    const ref = await page.evaluateHandle(() => document.body);
+    let swapped = false;
+    try {
+      swapped = !(await ref.evaluate((el) => !!el && el.isConnected));
+    } catch {
+      swapped = true; // execution context destroyed = document was swapped
+    }
+    expect(swapped).toBe(false);
+  }
+
+  test("back closes the category drawer with the URL unchanged", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#open-categories");
+    const panel = page.locator("#mobile-category-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    const url = page.url();
+    await page.goBack();
+    await page.waitForTimeout(500);
+
+    await expect(panel).not.toHaveClass(/open/);
+    expect(page.url()).toBe(url);
+    await expectNoDocumentSwap(page);
+  });
+
+  test("back closes the filters drawer with the URL unchanged", async ({ page }) => {
+    await page.goto("/");
+    await page.click("#open-filters");
+    const panel = page.locator("#mobile-filters-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    const url = page.url();
+    await page.goBack();
+    await page.waitForTimeout(500);
+
+    await expect(panel).not.toHaveClass(/open/);
+    expect(page.url()).toBe(url);
+    await expectNoDocumentSwap(page);
+  });
+
+  test("back closes the variant modal with the URL unchanged", async ({ page }) => {
+    await page.goto("/");
+    const firstCard = page.locator("product-card").first();
+    await expect(firstCard).toBeVisible();
+    await firstCard.locator(".product-add-btn").click();
+    await expect(page.locator("variant-modal .overlay")).toBeVisible();
+
+    const url = page.url();
+    await page.goBack();
+    await page.waitForTimeout(500);
+
+    await expect(page.locator("variant-modal .overlay")).toBeHidden();
+    expect(page.url()).toBe(url);
+    await expectNoDocumentSwap(page);
+  });
+
+  test("ESC then back navigates normally with no spurious transition", async ({ page }) => {
+    // Two real entries below the drawer's entry: /home then / — so a back
+    // press AFTER ESC has somewhere real to go.
+    await page.goto("/home");
+    await expect(page).toHaveTitle(/Sublime/i);
+    await page.goto("/");
+    await page.click("#open-categories");
+    const panel = page.locator("#mobile-category-panel");
+    await expect(panel).toHaveClass(/open/);
+
+    // ESC closes the drawer AND pops its entry (MOD-BACK-5 back parity)
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(500);
+    await expect(panel).not.toHaveClass(/open/);
+
+    // Back afterwards must land on the PREVIOUS page: the drawer entry is
+    // gone, so there is no spurious same-URL ClientRouter transition.
+    await page.goBack();
+    await page.waitForURL(/\/home/, { timeout: 10_000 });
+    expect(page.url()).toContain("/home");
+  });
+
+  test("backdrop-closed variant modal leaves no stale entry: back navigates normally", async ({ page }) => {
+    // Desktop viewport: the variant modal is centered with a clickable
+    // backdrop (on mobile it fills the screen and the X button only gets a
+    // listener on successful content load). Backdrop close is a manual close
+    // path that must pop its own entry (MOD-BACK-5).
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/home");
+    await expect(page).toHaveTitle(/Sublime/i);
+    await page.goto("/");
+    const firstCard = page.locator("product-card").first();
+    await expect(firstCard).toBeVisible();
+    await firstCard.locator(".product-add-btn").click();
+    await expect(page.locator("variant-modal .overlay")).toBeVisible();
+
+    // Click the backdrop OUTSIDE the centered modal (20,20 hits the overlay).
+    await page.locator("variant-modal .overlay").click({ position: { x: 20, y: 20 } });
+    await page.waitForTimeout(500);
+    await expect(page.locator("variant-modal .overlay")).toBeHidden();
+
+    // A stale entry would make back trigger a spurious same-URL transition;
+    // with the entry popped, back navigates to the previous page instead.
+    await page.goBack();
+    await page.waitForURL(/\/home/, { timeout: 10_000 });
+    expect(page.url()).toContain("/home");
+  });
+});
+
 test.describe("Mobile Panels Hidden on Desktop", () => {
   test("mobile action buttons are hidden on desktop", async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
