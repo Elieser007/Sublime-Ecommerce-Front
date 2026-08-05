@@ -16,3 +16,9 @@ describe("PromotionWall promo image fallback", () => {
     expect(promotionWallSource).not.toMatch(/url\('\$\{promo\.imageUrl\}'\)/);
   });
 });
+
+describe("PromotionWall promo link sanitization", () => {
+  it("normalizes promo links through sanitizePromoUrl", () => {
+    expect(promotionWallSource).toContain("sanitizePromoUrl");
+  });
+});

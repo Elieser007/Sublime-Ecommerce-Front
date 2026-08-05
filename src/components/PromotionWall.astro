@@ -21,6 +21,7 @@ import SplitPromo from './promo/SplitPromo.astro';
 import BannerPromo from './promo/BannerPromo.astro';
 import RibbonPromo from './promo/RibbonPromo.astro';
 import { getProductImageUrl } from '../lib/public-api';
+import { sanitizePromoUrl } from '../lib/escape-html';
 
 interface Promotion {
   id: string;
@@ -58,6 +59,7 @@ const hasPromotions = promotions.length > 0;
 const safePromotions = promotions.map((promo) => ({
   ...promo,
   imageUrl: getProductImageUrl(promo.imageUrl),
+  link: sanitizePromoUrl(promo.link),
 }));
 ---
 
