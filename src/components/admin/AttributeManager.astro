@@ -203,169 +203,6 @@ const { productId, productName } = Astro.props;
     gap: 8px;
   }
 
-  .attr-empty-state {
-    color: #6b7280;
-    font-size: 14px;
-    text-align: center;
-    padding: 16px;
-    background: rgba(31, 31, 31, 0.3);
-    border: 1px dashed rgba(62, 72, 80, 0.3);
-    margin: 0;
-  }
-
-  .attr-module-card {
-    background: var(--surface-50);
-    border: 1px solid rgba(62, 72, 80, 0.2);
-    border-radius: 0px;
-    padding: 12px;
-  }
-
-  .attr-module-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  .attr-module-name {
-    color: var(--primary);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .attr-module-name:hover {
-    color: #a8dcff;
-  }
-
-  .attr-module-name::before {
-    content: '▸';
-    transition: transform 0.2s ease;
-  }
-
-  .attr-module-name.expanded::before {
-    transform: rotate(90deg);
-  }
-
-  .attr-module-actions {
-    display: flex;
-    gap: 4px;
-  }
-
-  .attr-values-list {
-    display: none;
-    flex-direction: column;
-    gap: 6px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(62, 72, 80, 0.2);
-    margin-top: 8px;
-  }
-
-  .attr-values-list.visible {
-    display: flex;
-  }
-
-  .attr-value-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 8px;
-    background: rgba(31, 31, 31, 0.3);
-    border-radius: 0px;
-  }
-
-  .attr-value-label {
-    color: var(--on-surface);
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .attr-value-color {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-  }
-
-  .attr-value-price {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .attr-value-price input {
-    width: 80px;
-    padding: 4px 6px;
-    background: var(--surface-50);
-    border: 1px solid rgba(62, 72, 80, 0.3);
-    border-radius: 0px;
-    color: var(--on-surface);
-    font-size: 12px;
-    font-family: var(--font-mono);
-  }
-
-  .attr-value-price input:focus {
-    outline: none;
-    border-color: var(--primary);
-  }
-
-  .attr-value-price .price-modifier {
-    color: var(--tertiary);
-    font-family: var(--font-mono);
-    font-size: 11px;
-  }
-
-  .attr-add-value-form {
-    display: flex;
-    gap: 8px;
-    padding-top: 8px;
-    border-top: 1px dashed rgba(62, 72, 80, 0.2);
-  }
-
-  .attr-add-value-form input {
-    flex: 1;
-    padding: 6px 8px;
-    background: var(--surface-50);
-    border: 1px solid rgba(62, 72, 80, 0.3);
-    border-radius: 0px;
-    color: var(--on-surface);
-    font-size: 12px;
-  }
-
-  .attr-add-value-form input:focus {
-    outline: none;
-    border-color: var(--primary);
-  }
-
-  .attr-dep-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 8px 12px;
-    background: var(--surface-50);
-    border: 1px solid rgba(62, 72, 80, 0.2);
-    border-radius: 0px;
-  }
-
-  .attr-dep-info {
-    color: var(--on-surface);
-    font-size: 13px;
-  }
-
-  .attr-dep-info .dep-arrow {
-    color: var(--primary);
-    margin: 0 4px;
-  }
-
   .form-group {
     display: flex;
     flex-direction: column;
@@ -427,68 +264,12 @@ const { productId, productName } = Astro.props;
     border-radius: 0px;
   }
 
-  .attr-checklist-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 0;
-    color: var(--on-surface);
-    font-size: 13px;
-    cursor: pointer;
-  }
-
-  .attr-checklist-item:hover {
-    color: var(--primary);
-  }
-
-  .attr-checklist-item input[type="checkbox"] {
-    accent-color: var(--primary);
-  }
-
   .attr-picker-list {
     display: flex;
     flex-direction: column;
     gap: 6px;
     max-height: 400px;
     overflow-y: auto;
-  }
-
-  .attr-picker-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 8px 12px;
-    background: var(--surface-50);
-    border: 1px solid rgba(62, 72, 80, 0.2);
-    border-radius: 0px;
-  }
-
-  .attr-picker-item-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--on-surface);
-    font-size: 13px;
-  }
-
-  .attr-picker-btn {
-    padding: 4px 10px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-radius: 0px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background-color: var(--primary-10);
-    color: var(--primary);
-    border: 1px solid var(--primary-50);
-  }
-
-  .attr-picker-btn:hover {
-    background-color: rgba(130, 207, 255, 0.2);
   }
 
   :global(.btn--secondary) {
@@ -634,7 +415,7 @@ const { productId, productName } = Astro.props;
                   ${v.label}
                 </span>
                 <div class="attr-value-price">
-                  <input type="number" 
+                  <input type="number" class="form-input form-input--sm"
                          value="${v.price_modifier}" 
                          onchange="updatePriceModifier('${attr.module_id}', '${v.id}', this.value)"
                          placeholder="Mod. precio" />
@@ -763,7 +544,7 @@ const { productId, productName } = Astro.props;
           ${v.hex_color ? `<span class="attr-value-color" style="background:${v.hex_color}"></span>` : ''}
           ${escapeHtml(v.label)}
         </span>
-        <button class="attr-picker-btn" onclick="assignValueFromPicker('${moduleId}', '${v.id}')">
+        <button class="btn btn--primary btn--sm" onclick="assignValueFromPicker('${moduleId}', '${v.id}')">
           Agregar
         </button>
       </div>

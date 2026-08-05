@@ -8,6 +8,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
 // ─── TYPES ────────────────────────────────────────────────
 
@@ -374,5 +376,32 @@ describe("AttributeManager logic", () => {
       const assignedIds = new Set(["val-1", "val-2"]);
       expect(isValueAssigned(assignedIds, "val-6")).toBe(false);
     });
+  });
+});
+
+describe("AttributeManager source structure", () => {
+  const source = readFileSync(resolve(__dirname, "../admin/AttributeManager.astro"), "utf-8");
+
+  it("picker add button uses global btn classes, not scoped attr-picker-btn", () => {
+    expect(source).toContain('class="btn btn--primary btn--sm" onclick="assignValueFromPicker');
+    expect(source).not.toContain("attr-picker-btn");
+  });
+
+  it("price modifier input uses global form-input form-input--sm classes", () => {
+    expect(source).toContain('type="number" class="form-input form-input--sm"');
+  });
+
+  it("scoped style block does not style innerHTML-injected markup", () => {
+    const scoped = source.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? "";
+    for (const selector of [
+      ".attr-module-card",
+      ".attr-value-row",
+      ".attr-empty-state",
+      ".attr-picker-item",
+      ".attr-dep-item",
+      ".attr-checklist-item",
+    ]) {
+      expect(scoped, `scoped styles still contain ${selector}`).not.toContain(selector);
+    }
   });
 });

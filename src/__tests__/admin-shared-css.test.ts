@@ -64,6 +64,28 @@ describe('admin-shared.css', () => {
     expect(css).toContain('.toolbar');
     expect(css).toContain('.content-header');
   });
+
+  it('contains .form-input--sm modifier for inline modal rows', () => {
+    const css = readFileSync(CSS_PATH, 'utf-8');
+    expect(css).toMatch(/\.form-input--sm\s*\{/);
+    expect(css).toMatch(/\.form-input--sm\s*\{[^}]*width:\s*80px/s);
+    expect(css).toMatch(/\.form-input--sm\s*\{[^}]*min-width:\s*0/s);
+  });
+
+  it('contains global rule blocks for AttributeManager injected markup (injected-attr-styles)', () => {
+    const css = readFileSync(CSS_PATH, 'utf-8');
+    // Rule BLOCKS (selector followed by `{`), not mere mentions in comments —
+    // AttributeManager injects these via innerHTML, so scoped styles never apply.
+    expect(css).toMatch(/\.attr-value-row\s*\{/);
+    expect(css).toMatch(/\.attr-value-price\s+input\s*\{/);
+    expect(css).toMatch(/\.attr-empty-state\s*\{/);
+    expect(css).toMatch(/\.attr-picker-item\s*\{/);
+  });
+
+  it('does not resurrect the removed scoped attr-picker-btn class', () => {
+    const css = readFileSync(CSS_PATH, 'utf-8');
+    expect(css).not.toContain('attr-picker-btn');
+  });
 });
 
 describe('admin-shared.css covers shared selectors from products.astro', () => {
