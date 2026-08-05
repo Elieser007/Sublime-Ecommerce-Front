@@ -6,6 +6,7 @@
  * - SizeSelector → button pills
  * - ColorSelector → hex circles
  * - MaterialSelector → native dropdown
+ * - VariedadSelector → chip pills (global candy variety)
  *
  * Client-side logic:
  * - Dependency filtering via API call
@@ -19,6 +20,7 @@
 import SizeSelector from "./SizeSelector.astro";
 import ColorSelector from "./ColorSelector.astro";
 import MaterialSelector from "./MaterialSelector.astro";
+import VariedadSelector from "./VariedadSelector.astro";
 
 interface ModuleValue {
   value_id: string;
@@ -78,6 +80,14 @@ const sortedModules = [...modules].sort((a, b) => a.sort_order - b.sort_order);
       case "MaterialSelector":
         return (
           <MaterialSelector
+            moduleId={mod.id}
+            moduleName={mod.name}
+            values={mod.values}
+          />
+        );
+      case "VariedadSelector":
+        return (
+          <VariedadSelector
             moduleId={mod.id}
             moduleName={mod.name}
             values={mod.values}
@@ -200,6 +210,24 @@ const sortedModules = [...modules].sort((a, b) => a.sort_order - b.sort_order);
       });
     });
 
+    // Variedad buttons (global candy variety — same contract as size buttons)
+    container.querySelectorAll(".variedad-selector__btn").forEach((btn) => {
+      const moduleId = (btn as HTMLElement).dataset.moduleId!;
+      let mod = modules.find((m) => m.id === moduleId);
+      if (!mod) {
+        mod = { id: moduleId, slug: "variedad", frontend_component: "VariedadSelector", values: [] };
+        modules.push(mod);
+      }
+      mod.values.push({
+        value_id: (btn as HTMLElement).dataset.valueId!,
+        label: btn.textContent?.trim() || "",
+        raw_value: (btn as HTMLElement).dataset.rawValue || (btn as HTMLElement).dataset.valueId!,
+        hex_color: null,
+        price_modifier: parseInt((btn as HTMLElement).dataset.priceModifier || "0", 10),
+        available: !(btn as HTMLButtonElement).disabled,
+      });
+    });
+
     return modules;
   }
 
@@ -284,6 +312,30 @@ const sortedModules = [...modules].sort((a, b) => a.sort_order - b.sort_order);
     updatePrice();
   });
 
+  // Handle variedad button clicks (global candy variety)
+  container.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest(".variedad-selector__btn") as HTMLButtonElement;
+    if (!btn || btn.disabled) return;
+
+    const moduleId = btn.dataset.moduleId!;
+    const valueId = btn.dataset.valueId!;
+    const priceModifier = parseInt(btn.dataset.priceModifier || "0", 10);
+
+    // Deselect other buttons in same module
+    container.querySelectorAll(`.variedad-selector__btn[data-module-id="${moduleId}"]`).forEach((b) => {
+      b.classList.remove("variedad-selector__btn--selected");
+      b.setAttribute("aria-checked", "false");
+    });
+
+    // Select this button
+    btn.classList.add("variedad-selector__btn--selected");
+    btn.setAttribute("aria-checked", "true");
+
+    selectedAttributes.set(moduleId, valueId);
+    selectedModifiers.set(moduleId, priceModifier);
+    updatePrice();
+  });
+
   // Handle material select changes
   container.addEventListener("change", (e) => {
     const select = e.target as HTMLSelectElement;
@@ -309,7 +361,11 @@ const sortedModules = [...modules].sort((a, b) => a.sort_order - b.sort_order);
   // Keyboard navigation (ARIA)
   container.addEventListener("keydown", (e) => {
     const target = e.target as HTMLElement;
-    if (!target.classList.contains("size-selector__btn") && !target.classList.contains("color-selector__circle")) return;
+    if (
+      !target.classList.contains("size-selector__btn") &&
+      !target.classList.contains("color-selector__circle") &&
+      !target.classList.contains("variedad-selector__btn")
+    ) return;
 
     const group = target.closest("[role='radiogroup']");
     if (!group) return;
