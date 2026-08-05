@@ -35,8 +35,10 @@ export function clearHistoryAnnotation() {
   }
 }
 
-export function push(closeFn) {
-  const id = `modal-${++_idCounter}`;
+export function push(closeFn, name) {
+  // Named entries (drawers) carry their name in the id/_modalId for debuggable
+  // history.state; anonymous modals keep the modal- prefix
+  const id = name ? `${name}-${++_idCounter}` : `modal-${++_idCounter}`;
   _entries.push({ id, closeFn });
   pushAnnotatedEntry(id);
   return id;

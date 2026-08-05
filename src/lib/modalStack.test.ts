@@ -71,6 +71,30 @@ describe("push()", () => {
     expect(modalStack.has(a)).toBe(true);
     expect(modalStack.has(b)).toBe(true);
   });
+
+  // ─── Named entries (MB-11: drawers forward their name as the id) ───
+
+  it("uses the name as the entry id prefix when provided", () => {
+    const closeFn = vi.fn();
+    const id = modalStack.push(closeFn, "category-drawer");
+
+    expect(id).toMatch(/^category-drawer-\d+$/);
+    expect(pushState).toHaveBeenCalledWith(
+      expect.objectContaining({ _modalOpen: true, _modalId: id }),
+      ""
+    );
+    expect(modalStack.has(id)).toBe(true);
+  });
+
+  it("falls back to the modal- prefix when no name is given", () => {
+    const id = modalStack.push(vi.fn());
+
+    expect(id).toMatch(/^modal-\d+$/);
+    expect(pushState).toHaveBeenLastCalledWith(
+      expect.objectContaining({ _modalId: id }),
+      ""
+    );
+  });
 });
 
 // ─── closeTop() ────────────────────────────────────────────
@@ -441,6 +465,27 @@ describe("window.ModalStack delegation and lifecycle", () => {
     expect(closeFn).toHaveBeenCalledTimes(1);
     expect(back).toHaveBeenCalledTimes(1);
     expect(w.ModalStack.size()).toBe(0);
+  });
+
+  it("forwards the drawer name into the pushed entry id", () => {
+    const listeners: Record<string, Array<(e: any) => void>> = {};
+    vi.stubGlobal("window", {
+      addEventListener: (name: string, fn: (e: any) => void) => {
+        (listeners[name] ??= []).push(fn);
+      },
+    });
+    vi.stubGlobal("document", { readyState: "complete", addEventListener: vi.fn() });
+
+    modalStackHandler.init();
+
+    const w = window as any;
+    const id = w.ModalStack.open("filters-drawer", vi.fn());
+    expect(id).toMatch(/^filters-drawer-\d+$/);
+    expect(modalStack.has(id)).toBe(true);
+    expect(pushState).toHaveBeenLastCalledWith(
+      expect.objectContaining({ _modalId: id }),
+      ""
+    );
   });
 
   it("clears stack, annotation, and suppress counter on astro:page-load", () => {

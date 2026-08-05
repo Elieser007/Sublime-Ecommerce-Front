@@ -79,11 +79,12 @@ class VariantModal extends HTMLElement {
     this._fetchVariants();
 
     this._stackId = modalStack.push(() => {
-      this.close();
+      // Stack close (ESC/back): closeTop() owns the history pop — never pop here
+      this.close(true);
     });
   }
 
-  close() {
+  close(fromStack = false) {
     if (!this._isOpen) return;
     this._isOpen = false;
     this._cleanup();
@@ -97,7 +98,9 @@ class VariantModal extends HTMLElement {
 
     if (this._stackId) {
       modalStack.remove(this._stackId);
-      modalStack.clearHistoryAnnotation();
+      // Manual close pops exactly its own entry (back parity, MOD-BACK-1);
+      // the stack path never pops — closeTop()/the browser already did (D3)
+      if (!fromStack) modalStack.popHistoryEntry();
       this._stackId = null;
     }
 
