@@ -45,6 +45,7 @@ const alignClass = (align?: string) =>
         {columns.map((col) => (
           <th
             scope="col"
+            data-key={col.key}
             data-sort-key={col.sortable ? col.key : undefined}
             aria-sort={col.sortable ? 'none' : undefined}
             class:list={['dt-th', alignClass(col.align)]}

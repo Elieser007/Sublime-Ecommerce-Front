@@ -6,6 +6,7 @@ export interface DataTableColumn {
   key: string;
   label: string;
   align?: 'left' | 'center' | 'right';
+  sortable?: boolean;
 }
 
 export interface CreateDataTableOptions {
@@ -34,15 +35,16 @@ export function createDataTable(options: CreateDataTableOptions): DataTableHandl
   const { container } = options;
   const tbody = container.querySelector<HTMLTableSectionElement>('tbody');
   const columns: DataTableColumn[] = Array.from(
-    container.querySelectorAll<HTMLTableCellElement>('th[data-sort-key]')
+    container.querySelectorAll<HTMLTableCellElement>('th')
   ).map((th) => ({
-    key: th.dataset.sortKey as string,
+    key: (th.dataset.key as string) ?? (th.dataset.sortKey as string),
     label: (th.textContent || '').trim(),
     align: th.classList.contains('dt-th--right')
       ? 'right'
       : th.classList.contains('dt-th--center')
         ? 'center'
         : undefined,
+    sortable: th.hasAttribute('data-sort-key'),
   }));
   const colCount = container.querySelectorAll('th').length || 1;
   const pageSizeSelect = container.querySelector<HTMLSelectElement>('[data-page-size]');
