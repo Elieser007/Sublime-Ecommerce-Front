@@ -220,8 +220,8 @@ import Button from './Button.astro';
       link.classList.remove('active');
     });
     if (!activeSection) return;
-    // /admin/nuevo maps to the products section (no dedicated nav link).
-    const section = activeSection === 'nuevo' ? 'products' : activeSection;
+    // /admin/new maps to the products section (no dedicated nav link).
+    const section = activeSection === 'new' ? 'products' : activeSection;
     document.querySelectorAll('.sidebar-link').forEach((link) => {
       if ((link as HTMLElement).dataset.section === section) {
         link.classList.add('active');

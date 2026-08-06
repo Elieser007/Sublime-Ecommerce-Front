@@ -209,7 +209,7 @@ class ProductCard extends HTMLElement {
       </style>
 
       <article class="product-card">
-        <a href="/producto/${escapeHtml(product.slug)}" class="product-link">
+        <a href="/products/${escapeHtml(product.slug)}" class="product-link">
           <div class="product-image-wrapper">
             <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(product.name)}" class="product-image" loading="lazy" width="400" height="400" />
           </div>
