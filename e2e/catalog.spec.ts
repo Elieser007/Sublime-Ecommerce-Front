@@ -522,10 +522,10 @@ test.describe("Button Colors", () => {
 
   test("primary button on product detail has visible text", async ({ page }) => {
     await page.goto("/");
-    const productLink = page.locator('a[href*="/producto/"]').first();
+    const productLink = page.locator('a[href*="/products/"]').first();
     if (await productLink.isVisible()) {
       await productLink.click();
-      await page.waitForURL(/\/producto\//);
+      await page.waitForURL(/\/products\//);
       const btn = page.locator("#detail-add-cart");
       if (await btn.isVisible()) {
         const colors = await btn.evaluate((el) => {
@@ -541,12 +541,12 @@ test.describe("Button Colors", () => {
 test.describe("Product Detail", () => {
   test("product detail page loads when clicking a product", async ({ page }) => {
     await page.goto("/");
-    const productLink = page.locator('a[href*="/producto/"]').first();
+    const productLink = page.locator('a[href*="/products/"]').first();
     if (await productLink.isVisible()) {
       await productLink.click();
       // waitForURL is retrying — the navigation completes asynchronously
       // after click() resolves, so a plain page.url() sample is racy.
-      await page.waitForURL(/\/producto\//);
+      await page.waitForURL(/\/products\//);
     }
   });
 });

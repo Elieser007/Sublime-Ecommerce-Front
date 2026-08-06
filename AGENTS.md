@@ -4,7 +4,7 @@
 
 Astro SSG frontend for a medium-business e-commerce. Dark theme, CMYK accent palette, sharp corners, Swiss-inspired functionalism. All public pages are pre-rendered at build time; admin pages use client-side auth guards.
 
-**Deployment**: Cloudflare Pages (auto-deploys from `main`). Build command: `pnpm build`, output: `dist/`.
+**Deployment**: Cloudflare Pages (auto-deploys from `main`). Build command: `pnpm build`, output: `dist/`. Legacy Spanish routes (`/producto/*`, `/deseos`, `/admin/nuevo`) 301-redirect to English routes via `public/_redirects` (copied to `dist/` by Pages; `astro dev` ignores it — new code must target English routes only).
 
 ## Stack
 
@@ -36,15 +36,16 @@ src/
 │   ├── index.astro           # / — Product catalog (SSG, fetch at build)
 │   ├── home.astro            # /home — Hero + featured products
 │   ├── cart.astro            # /cart — Shopping cart (LocalStorage)
+│   ├── wishlist.astro        # /wishlist — Wishlist (LocalStorage)
 │   ├── login.astro           # /login — Email/password + OAuth (Google, Facebook)
 │   ├── register.astro        # /register — Registration form
 │   ├── dashboard.astro       # /dashboard — Protected user dashboard
-│   ├── producto/
-│   │   └── [slug].astro      # /producto/:slug — Product detail (SSG via getStaticPaths)
+│   ├── products/
+│   │   └── [slug].astro      # /products/:slug — Product detail (SSG via getStaticPaths)
 │   └── admin/                # Protected admin panel
 │       ├── index.astro       # Product list (placeholder data)
 │       ├── products.astro    # Product management (API-driven)
-│       ├── nuevo.astro       # Create product (AdminProductForm component)
+│       ├── new.astro         # Create product (AdminProductForm component)
 │       ├── categories.astro  # Category management
 │       ├── users.astro       # User management
 │       ├── orders.astro      # Order management
@@ -92,6 +93,7 @@ src/
 │   ├── auth-client.ts        # Better Auth client setup
 │   ├── auth-guard.ts         # requireAuth() — redirects to /login on 401
 │   ├── cart.js               # LocalStorage cart (getCart, addToCart, addToCartWithOptions, etc.)
+│   ├── wishlist.js           # LocalStorage wishlist (getWishlist, addToWishlist, removeFromWishlist, updateWishlistBadge, etc.)
 │   ├── image.ts              # Canvas image processing (resize ≤1000x1000, WebP 80%)
 │   ├── image-types.ts        # GalleryImage, UploadResult types
 │   ├── image-utils.ts        # Generic image CRUD (upload, associate, replace, delete)
@@ -119,6 +121,9 @@ src/
 │   ├── getStaticPaths.test.ts # getStaticPaths tests
 │   ├── gallery-utils.test.ts # Gallery navigation tests
 │   ├── promo-upload.test.ts  # Promo upload tests
+│   ├── route-sweep.test.ts   # English-route sweep tests (legacy paths forbidden)
+│   ├── redirects.test.ts     # _redirects rules tests
+│   ├── wishlist-page.test.ts # Wishlist page + Header wiring marker tests
 │   ├── token-compliance.test.ts # Token compliance tests
 │   └── user-avatar.test.ts   # Avatar tests
 └── components/
@@ -129,8 +134,12 @@ src/
 e2e/                          # Playwright E2E tests
 ├── catalog.spec.ts           # Catalog browsing, sort, filter, search, pagination, mobile panels
 ├── cart.spec.ts              # Cart page, quantity, remove, summary, mobile
-├── admin.spec.ts             # Admin panel tests
-└── responsive.spec.ts        # Responsive layout tests
+├── detail-volume.spec.ts     # Product detail volume-tier UI (seeded camiseta-gimnasio)
+├── wishlist.spec.ts          # Wishlist page: rows, remove, add-to-cart, badge (seeded localStorage)
+├── responsive.spec.ts        # Responsive layout tests
+└── admin/                    # Admin flows (auth.setup storageState, seeded Back D1)
+    ├── helpers.ts            # Shared login, seeded-state expectations, reseedE2E()
+    └── flows/*.spec.ts       # Products, orders, promotions, users, branches, categories, attributes, uploads, deploy
 ```
 
 ## Architecture
@@ -143,13 +152,14 @@ e2e/                          # Playwright E2E tests
 
 ### API Communication
 
-- **Public pages** (`/`, `/producto/:slug`): Fetch at build time via `fetch()` in frontmatter. No runtime API calls.
+- **Public pages** (`/`, `/products/:slug`): Fetch at build time via `fetch()` in frontmatter. No runtime API calls.
 - **Admin pages**: Runtime fetch to `PUBLIC_API_URL` with `credentials: "include"` for auth cookies.
 - **Auth**: Better Auth client connects to Hono backend. Login/register via `POST /api/auth/sign-in/email` or OAuth social providers. Session check via `GET /api/me`.
 
 ### State Management
 
 - **Cart**: LocalStorage (`cart` key). `cart.js` is the single source of truth. Events: `storage`, `cart-updated`.
+- **Wishlist**: LocalStorage (`wishlist` key). `wishlist.js` is the single source of truth. Events: `storage`, `wishlist-updated`; badge `#wishlist-count` synced via `updateWishlistBadge()`.
 - **Product detail variants**: Client-side fetch to `/api/public/products/:id/variants` on selection change.
 - **No global state library** — vanilla JS with DOM manipulation.
 
@@ -212,7 +222,7 @@ e2e/                          # Playwright E2E tests
 3. **Client-side JS** — cart, filters, variants, and WhatsApp link run in the browser via `<script>` tags.
 4. **Images** — process with `<canvas>` API before uploading. Backend expects WebP.
 5. **No backend calls in public catalog** — the catalog is static. Backend calls only in admin panel and auth flows.
-6. **LocalStorage for cart** — no server-side cart. Checkout = WhatsApp link.
+6. **LocalStorage for cart and wishlist** — no server-side cart/wishlist. Checkout = WhatsApp link. Wishlist mirrors the cart pattern (`wishlist` key, `storage` + `wishlist-updated` events).
 7. **Better Auth** — client-side auth. `requireAuth()` in AdminLayout redirects to /login on 401.
 8. **Node >= 22.12.0** — required by package.json engines field.
 

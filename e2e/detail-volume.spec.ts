@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 // camiseta-gimnasio is a seeded product with volume tiers (1 / 10 / 50 units).
 test.describe("Detail Volume UI (D2/D3)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/producto/camiseta-gimnasio");
+    await page.goto("/products/camiseta-gimnasio");
   });
 
   test("tier list table renders with rows", async ({ page }) => {

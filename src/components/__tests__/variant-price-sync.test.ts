@@ -15,7 +15,7 @@ import { resolve } from "path";
 // ─── SOURCES ───────────────────────────────────────────────
 
 const slugSource = readFileSync(
-  resolve(__dirname, "../../pages/producto/[slug].astro"),
+  resolve(__dirname, "../../pages/products/[slug].astro"),
   "utf-8"
 );
 const wcSource = readFileSync(

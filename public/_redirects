@@ -1,0 +1,3 @@
+/producto/* /products/:splat 301
+/deseos /wishlist 301
+/admin/nuevo /admin/new 301
