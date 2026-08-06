@@ -132,4 +132,9 @@ describe("sanitizePromoUrl", () => {
     expect(sanitizePromoUrl("javascript:alert(1)")).toBe("#");
     expect(sanitizePromoUrl("data:text/html,<script>alert(1)</script>")).toBe("#");
   });
+
+  it("rejects valid schemes carrying a trailing payload", () => {
+    expect(sanitizePromoUrl("https://site.com\njavascript:alert(1)")).toBe("#");
+    expect(sanitizePromoUrl("https://site.com extra")).toBe("#");
+  });
 });

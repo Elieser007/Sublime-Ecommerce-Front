@@ -56,6 +56,6 @@ export function sanitizeUrl(url: string | null | undefined): string {
 export function sanitizePromoUrl(url: string | null | undefined): string {
   if (!url) return "#";
   const trimmed = url.trim();
-  if (/^https?:\/\/\S+/.test(trimmed)) return trimmed;
+  if (/^https?:\/\/\S+$/.test(trimmed)) return trimmed;
   return "#";
 }
