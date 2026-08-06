@@ -10,12 +10,12 @@ import Button from '../../components/Button.astro';
 
 const columns = [
   { key: 'id', label: 'ID', width: '80px' },
-  { key: 'customer', label: 'Cliente' },
+  { key: 'customer', label: 'Cliente', sortable: true },
   { key: 'phone', label: 'Teléfono' },
   { key: 'branch', label: 'Sucursal' },
-  { key: 'total', label: 'Total' },
+  { key: 'total', label: 'Total', sortable: true, align: 'right' },
   { key: 'status', label: 'Estado' },
-  { key: 'created', label: 'Creado' },
+  { key: 'created', label: 'Creado', sortable: true },
   { key: 'actions', label: 'Acciones', width: '60px' },
 ];
 ---
@@ -41,27 +41,10 @@ const columns = [
           <option value="cancelled">Cancelado</option>
         </select>
         <select id="branch-filter" class="form-select body-md"><option value="">Todas las sucursales</option></select>
-        <select id="limit" class="form-select body-md">
-          <option value="10">10</option>
-          <option value="25" selected>25</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
       </div>
     </div>
 
-    <DataTable columns={columns}>
-      <tr><td colspan="8" class="empty-cell">Cargando...</td></tr>
-    </DataTable>
-
-    <div class="pagination-bar">
-      <span class="body-md" id="showing">Mostrando 0 de 0</span>
-      <div class="page-nav">
-        <Button variant="secondary" id="prev" disabled>Anterior</Button>
-        <span class="body-md" id="page-info">Página 1 de 1</span>
-        <Button variant="secondary" id="next" disabled>Siguiente</Button>
-      </div>
-    </div>
+    <DataTable id="orders-table" columns={columns} emptyMessage="No hay pedidos" ariaLabel="Lista de pedidos" />
   </main>
 
 <div class="modal-overlay" id="modal-overlay" style="display: none;">
@@ -105,6 +88,7 @@ const columns = [
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
   import { escapeHtml } from '../../lib/escape-html';
+  import { createDataTable } from '../../lib/data-table-widget';
   const orderModal = wrapModal('modal-overlay');
 
   const API_URL = getApiUrl();
@@ -137,8 +121,7 @@ const columns = [
   }
 
   async function loadOrders() {
-    const tbody = document.querySelector('tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">Cargando...</td></tr>';
+    ordersTable.setLoading();
     const params = new URLSearchParams();
     params.set('page', String(currentPage));
     params.set('limit', String(limit));
@@ -153,40 +136,42 @@ const columns = [
       items = data.data || [];
       totalItems = data.total || 0;
       totalPages = data.pages || 1;
-      render();
+      ordersTable.setRows(items, { total: totalItems, totalPages });
     } catch (err) {
-      if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">Error al cargar</td></tr>';
+      ordersTable.setError('Error al cargar');
     }
   }
 
-  function render() {
-    const tbody = document.querySelector('tbody');
-    if (!tbody) return;
-    if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-cell">No hay pedidos</td></tr>';
-    } else {
-      tbody.innerHTML = items.map((o: any) => `<tr>
-        <td data-label="ID"><code class="id-badge">${escapeHtml(shortId(o.id))}</code></td>
-        <td data-label="Cliente"><strong>${escapeHtml(o.customer_name)}</strong></td>
-        <td data-label="Teléfono">${escapeHtml(o.customer_phone)}</td>
-        <td data-label="Sucursal">${escapeHtml(o.branch_name) || '—'}</td>
-        <td data-label="Total">${formatPrice(o.total)}</td>
-        <td data-label="Estado">${statusBadge(o.status)}</td>
-        <td data-label="Creado">${new Date(o.created_at * 1000).toLocaleDateString('es-PY')}</td>
-        <td data-label="Acciones"><div class="cell-actions"><button class="ta-btn" onclick="viewOrder('${escapeHtml(o.id)}')" title="Ver">👁️</button></div></td>
-      </tr>`).join('');
+  function renderOrderCell(col: any, o: any): string {
+    switch (col.key) {
+      case 'id':
+        return `<code class="id-badge">${escapeHtml(shortId(o.id))}</code>`;
+      case 'customer':
+        return `<strong>${escapeHtml(o.customer_name)}</strong>`;
+      case 'phone':
+        return escapeHtml(o.customer_phone);
+      case 'branch':
+        return escapeHtml(o.branch_name) || '—';
+      case 'total':
+        return formatPrice(o.total);
+      case 'status':
+        return statusBadge(o.status);
+      case 'created':
+        return new Date(o.created_at * 1000).toLocaleDateString('es-PY');
+      case 'actions':
+        return `<div class="cell-actions"><button class="ta-btn" onclick="viewOrder('${escapeHtml(o.id)}')" title="Ver">👁️</button></div>`;
+      default:
+        return '';
     }
-    updatePagination();
   }
 
-  function updatePagination() {
-    const start = totalItems === 0 ? 0 : (currentPage - 1) * limit + 1;
-    const end = Math.min(currentPage * limit, totalItems);
-    $('showing')!.textContent = `Mostrando ${start}–${end} de ${totalItems}`;
-    $('page-info')!.textContent = `Página ${currentPage} de ${totalPages}`;
-    ($('prev') as HTMLButtonElement).disabled = currentPage <= 1;
-    ($('next') as HTMLButtonElement).disabled = currentPage >= totalPages;
-  }
+  const ordersTable = createDataTable({
+    container: $('orders-table')!,
+    renderCell: renderOrderCell,
+    emptyMessage: 'No hay pedidos',
+    onPageChange: (page: number) => { currentPage = page; loadOrders(); },
+    onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadOrders(); },
+  });
 
   async function viewOrder(id: string) {
     currentOrderId = id;
@@ -227,9 +212,6 @@ const columns = [
     $('search')?.addEventListener('input', (e) => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadOrders(); }, 300); });
     $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadOrders(); });
     $('branch-filter')?.addEventListener('change', (e) => { currentBranch = (e.target as HTMLSelectElement).value; currentPage = 1; loadOrders(); });
-    $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadOrders(); });
-    $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadOrders(); } });
-    $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadOrders(); } });
 
     $('status-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
