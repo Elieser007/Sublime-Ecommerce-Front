@@ -114,12 +114,11 @@ describe("sanitizePromoUrl", () => {
     expect(sanitizePromoUrl("google.com")).toBe("#");
   });
 
-  it("rejects /google.com style junk", () => {
-    expect(sanitizePromoUrl("/google.com")).toBe("#");
-  });
-
-  it("rejects relative paths", () => {
-    expect(sanitizePromoUrl("/promo")).toBe("#");
+  it("allows root-relative paths (backend rule: '/' prefix or http(s) only)", () => {
+    expect(sanitizePromoUrl("/products/remera-sublime-basica-algodon")).toBe(
+      "/products/remera-sublime-basica-algodon"
+    );
+    expect(sanitizePromoUrl("/promo")).toBe("/promo");
   });
 
   it("rejects null and empty values", () => {

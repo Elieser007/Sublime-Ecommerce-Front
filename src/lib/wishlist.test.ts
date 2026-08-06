@@ -74,6 +74,11 @@ describe('wishlist', () => {
       localStorageMock.setItem('wishlist', 'not-json');
       expect(getWishlist()).toEqual([]);
     });
+
+    it('returns empty array when JSON is valid but not an array', () => {
+      localStorageMock.setItem('wishlist', '{}');
+      expect(getWishlist()).toEqual([]);
+    });
   });
 
   describe('addToWishlist', () => {

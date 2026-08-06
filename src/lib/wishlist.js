@@ -2,7 +2,8 @@ const WISHLIST_KEY = 'wishlist';
 
 export function getWishlist() {
   try {
-    return JSON.parse(localStorage.getItem(WISHLIST_KEY) || '[]');
+    const parsed = JSON.parse(localStorage.getItem(WISHLIST_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }

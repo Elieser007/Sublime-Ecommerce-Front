@@ -49,13 +49,14 @@ export function sanitizeUrl(url: string | null | undefined): string {
 
 /**
  * Sanitize a promotion link for use in an href attribute.
- * Promotions are campaign links, so only absolute http/https URLs
- * are valid; bare domains ("google.com"), relative paths and other
+ * Promotions are campaign links; the backend rule accepts a root-relative
+ * path ("/products/...") or an absolute http/https URL. Bare domains
+ * ("google.com"), relative paths without the leading slash and other
  * protocols are dropped (returns "#").
  */
 export function sanitizePromoUrl(url: string | null | undefined): string {
   if (!url) return "#";
   const trimmed = url.trim();
-  if (/^https?:\/\/\S+$/.test(trimmed)) return trimmed;
+  if (/^(\/|https?:\/\/)\S+$/.test(trimmed)) return trimmed;
   return "#";
 }
