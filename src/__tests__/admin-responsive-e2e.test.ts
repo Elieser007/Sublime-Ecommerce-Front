@@ -18,7 +18,7 @@ function readPage(name: string): string {
 const ADMIN_PAGES = [
   'index', 'products', 'orders', 'users',
   'promotions', 'categories', 'branches',
-  'attribute-modules', 'nuevo',
+  'attribute-modules', 'new',
 ];
 
 const VIEWPORTS = [

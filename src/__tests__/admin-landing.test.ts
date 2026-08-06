@@ -18,7 +18,7 @@ const sidebar = readFileSync(resolve(__dirname, '../components/AdminSidebar.astr
 const ADMIN_PAGES = [
   'index',
   'products',
-  'nuevo',
+  'new',
   'categories',
   'users',
   'orders',

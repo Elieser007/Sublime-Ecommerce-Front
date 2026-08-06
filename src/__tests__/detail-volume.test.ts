@@ -14,7 +14,7 @@ const tierListSource = readFileSync(
   "utf-8"
 );
 const detailSource = readFileSync(
-  resolve(__dirname, "../pages/producto/[slug].astro"),
+  resolve(__dirname, "../pages/products/[slug].astro"),
   "utf-8"
 );
 const modalSource = readFileSync(

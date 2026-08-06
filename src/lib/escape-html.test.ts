@@ -53,7 +53,7 @@ describe("sanitizeUrl", () => {
   });
 
   it("allows relative paths", () => {
-    expect(sanitizeUrl("/catalogo/producto-1")).toBe("/catalogo/producto-1");
+    expect(sanitizeUrl("/products/producto-1")).toBe("/products/producto-1");
   });
 
   it("blocks javascript: protocol", () => {

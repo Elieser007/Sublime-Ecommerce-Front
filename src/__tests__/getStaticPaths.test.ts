@@ -17,7 +17,7 @@ vi.stubGlobal("fetch", mockFetch);
 const API_URL = "http://localhost:8787";
 
 const detailSource = readFileSync(
-  resolve(__dirname, "../pages/producto/[slug].astro"),
+  resolve(__dirname, "../pages/products/[slug].astro"),
   "utf-8"
 );
 
