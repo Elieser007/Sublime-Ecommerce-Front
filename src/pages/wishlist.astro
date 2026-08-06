@@ -1,0 +1,467 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Lista de deseos — Sublime E-commerce">
+  <section class="wishlist-page">
+    <div class="container">
+      <h1 class="wishlist-title headline-lg-mobile">Lista de deseos</h1>
+
+      <div class="wishlist-items" id="wishlist-items">
+        <div class="skeleton-item">
+          <div class="skeleton-img skeleton-shimmer"></div>
+          <div class="skeleton-text">
+            <div class="skeleton-line skeleton-line--lg skeleton-shimmer"></div>
+            <div class="skeleton-line skeleton-line--sm skeleton-shimmer"></div>
+          </div>
+          <div class="skeleton-action skeleton-shimmer"></div>
+          <div class="skeleton-remove skeleton-shimmer"></div>
+        </div>
+        <div class="skeleton-item">
+          <div class="skeleton-img skeleton-shimmer"></div>
+          <div class="skeleton-text">
+            <div class="skeleton-line skeleton-line--lg skeleton-shimmer"></div>
+            <div class="skeleton-line skeleton-line--sm skeleton-shimmer"></div>
+          </div>
+          <div class="skeleton-action skeleton-shimmer"></div>
+          <div class="skeleton-remove skeleton-shimmer"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .wishlist-page {
+    padding: var(--space-3xl) 0;
+  }
+
+  .wishlist-title {
+    color: var(--on-surface);
+    margin-bottom: var(--space-2xl);
+  }
+
+  .wishlist-items {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .skeleton-item {
+    display: grid;
+    grid-template-columns: 80px 1fr 140px 40px;
+    gap: var(--space-md);
+    align-items: center;
+    padding: var(--space-lg) 0;
+    border-bottom: var(--border-width) solid var(--outline-variant);
+  }
+
+  .skeleton-img {
+    width: 80px;
+    height: 80px;
+    background-color: var(--surface-container);
+  }
+
+  .skeleton-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .skeleton-line {
+    height: 14px;
+    background-color: var(--surface-container);
+    border-radius: 2px;
+  }
+
+  .skeleton-line--lg { width: 180px; }
+  .skeleton-line--sm { width: 120px; }
+
+  .skeleton-action {
+    width: 140px;
+    height: 40px;
+    background-color: var(--surface-container);
+  }
+
+  .skeleton-remove {
+    width: 40px;
+    height: 40px;
+    background-color: var(--surface-container);
+  }
+
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .skeleton-shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      transparent 100%
+    );
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  :global(.wishlist-item) {
+    display: grid;
+    grid-template-columns: 80px 1fr 140px 40px;
+    gap: var(--space-md) var(--space-xl);
+    align-items: center;
+    padding: var(--space-lg) 0;
+    border-bottom: var(--border-width) solid var(--outline-variant);
+    opacity: 0;
+    animation: fadeInUp 0.3s ease-out forwards;
+    transition: background-color 0.2s ease;
+  }
+
+  :global(.wishlist-item:hover) {
+    background-color: rgba(31, 31, 31, 0.5);
+  }
+
+  :global(.wishlist-item.removing) {
+    animation: slideOutLeft 0.3s ease-in forwards;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideOutLeft {
+    to {
+      opacity: 0;
+      transform: translateX(-40px);
+    }
+  }
+
+  :global(.wishlist-item:nth-child(1)) { animation-delay: 0ms; }
+  :global(.wishlist-item:nth-child(2)) { animation-delay: 60ms; }
+  :global(.wishlist-item:nth-child(3)) { animation-delay: 120ms; }
+  :global(.wishlist-item:nth-child(4)) { animation-delay: 180ms; }
+  :global(.wishlist-item:nth-child(5)) { animation-delay: 240ms; }
+
+  :global(.wishlist-item-image) {
+    width: 80px;
+    height: 80px;
+    overflow: hidden;
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+  }
+
+  :global(.wishlist-item-image img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  :global(.wishlist-item-info) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    min-width: 0;
+  }
+
+  :global(.wishlist-item-name) {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.2;
+    color: var(--on-surface);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :global(.wishlist-item-price) {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--on-surface-variant);
+    letter-spacing: 0.05em;
+  }
+
+  :global(.wishlist-add-to-cart) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    min-height: 40px;
+    padding: 0 var(--space-lg);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--on-primary);
+    background-color: var(--primary);
+    border: var(--border-width) solid var(--primary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  :global(.wishlist-add-to-cart:hover) {
+    background-color: var(--primary-container);
+    border-color: var(--primary-container);
+  }
+
+  :global(.wishlist-add-to-cart:active) {
+    transform: scale(0.97);
+  }
+
+  :global(.wishlist-item-remove) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: none;
+    color: var(--outline);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  :global(.wishlist-item-remove:hover) {
+    color: var(--error);
+    background-color: rgba(255, 180, 171, 0.08);
+  }
+
+  :global(.wishlist-item-remove:active) {
+    transform: scale(0.9);
+  }
+
+  :global(.empty-state) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: var(--space-4xl) var(--space-lg);
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  :global(.empty-state-icon) {
+    width: 80px;
+    height: 80px;
+    color: var(--outline);
+    margin-bottom: var(--space-xl);
+    opacity: 0.6;
+  }
+
+  :global(.empty-state h2) {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 400;
+    color: var(--on-surface);
+    text-transform: uppercase;
+    margin-bottom: var(--space-sm);
+  }
+
+  :global(.empty-state p) {
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--on-surface-variant);
+    margin-bottom: var(--space-xl);
+    max-width: 320px;
+    line-height: 1.5;
+  }
+
+  :global(.empty-state .btn) {
+    margin-bottom: var(--space-lg);
+  }
+
+  :global(.continue-shopping) {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--on-surface-variant);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: color 0.15s ease;
+  }
+
+  :global(.continue-shopping:hover) {
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  @media (max-width: 639px) {
+    :global(.wishlist-item) {
+      grid-template-columns: 60px 1fr 44px;
+      grid-template-rows: auto auto;
+      gap: var(--space-sm);
+      padding: var(--space-md) 0;
+    }
+
+    :global(.wishlist-item-image) {
+      width: 60px;
+      height: 60px;
+      grid-row: 1 / 3;
+      grid-column: 1;
+    }
+
+    :global(.wishlist-item-info) {
+      grid-column: 2 / 4;
+      grid-row: 1;
+    }
+
+    :global(.wishlist-item-name) {
+      font-size: 15px;
+    }
+
+    :global(.wishlist-add-to-cart) {
+      grid-column: 2;
+      grid-row: 2;
+      min-height: 44px;
+      justify-self: start;
+    }
+
+    :global(.wishlist-item-remove) {
+      grid-column: 3;
+      grid-row: 1;
+      width: 44px;
+      height: 44px;
+      align-self: start;
+    }
+
+    .skeleton-item {
+      grid-template-columns: 60px 1fr 44px;
+      grid-template-rows: auto auto;
+    }
+
+    .skeleton-img { grid-row: 1 / 3; }
+    .skeleton-item > .skeleton-text:first-of-type { grid-column: 2 / 4; }
+    .skeleton-remove { grid-column: 3; grid-row: 1; }
+    .skeleton-action { grid-column: 2; grid-row: 2; }
+  }
+</style>
+
+<script>
+  import { getWishlist, removeFromWishlist } from '../lib/wishlist.js';
+  import { addToCart } from '../lib/cart.js';
+  import { formatPrice } from '../lib/format';
+  import { getProductImageUrl } from '../lib/public-api';
+  import { escapeHtml } from '../lib/escape-html';
+
+  function renderEmptyState(container: HTMLElement) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        <h2>Tu lista de deseos está vacía</h2>
+        <p>Guardá tus productos favoritos y encontrálos acá</p>
+        <a href="/" class="btn btn--primary" style="display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; text-decoration: none; background-color: rgba(130, 207, 255, 0.1); color: #ffffff; border: 1px solid rgba(130, 207, 255, 0.5); cursor: pointer; transition: all 0.2s ease;">Ir a la tienda</a>
+        <a href="/" class="continue-shopping">← Seguir comprando</a>
+      </div>
+    `;
+  }
+
+  function renderItem(item: any): string {
+    const safeId = escapeHtml(String(item.id));
+    const safeName = escapeHtml(item.name);
+    const safeImage = escapeHtml(getProductImageUrl(item.image));
+    return `
+      <div class="wishlist-item" data-product-id="${safeId}">
+        <div class="wishlist-item-image">
+          <img src="${safeImage}" alt="${safeName}" width="80" height="80" loading="lazy" />
+        </div>
+        <div class="wishlist-item-info">
+          <h3 class="wishlist-item-name">${safeName}</h3>
+          <p class="wishlist-item-price">Gs. ${formatPrice(item.price)}</p>
+        </div>
+        <button class="wishlist-add-to-cart" data-add-to-cart-id="${safeId}" aria-label="Agregar ${safeName} al carrito">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+          </svg>
+          <span>Agregar</span>
+        </button>
+        <button class="wishlist-item-remove" data-remove-id="${safeId}" aria-label="Eliminar ${safeName}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    `;
+  }
+
+  function attachWishlistListeners() {
+    document.querySelectorAll('[data-remove-id]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const el = btn as HTMLElement;
+        const productId = el.dataset.removeId;
+        const row = el.closest('.wishlist-item') as HTMLElement;
+
+        if (row) {
+          row.classList.add('removing');
+          row.addEventListener('animationend', () => {
+            const updated = removeFromWishlist(productId!);
+            row.remove();
+            window.dispatchEvent(new CustomEvent('wishlist-updated'));
+
+            if (updated.length === 0) {
+              const container = document.getElementById('wishlist-items');
+              if (container) renderEmptyState(container);
+            }
+          }, { once: true });
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-add-to-cart-id]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const productId = (btn as HTMLElement).dataset.addToCartId;
+        const item = getWishlist().find((i: any) => String(i.id) === productId);
+        if (item) {
+          addToCart({ id: item.id, name: item.name, price: item.price, image: item.image });
+          window.dispatchEvent(new CustomEvent('cart-updated'));
+        }
+      });
+    });
+  }
+
+  function renderWishlist() {
+    const container = document.getElementById('wishlist-items');
+    if (!container) return;
+
+    const wishlist = getWishlist();
+
+    if (wishlist.length === 0) {
+      renderEmptyState(container);
+      return;
+    }
+
+    container.innerHTML = wishlist.map((item: any) => renderItem(item)).join('');
+    attachWishlistListeners();
+  }
+
+  window.addEventListener("storage", renderWishlist);
+  window.addEventListener("wishlist-updated", renderWishlist);
+
+  document.addEventListener('astro:page-load', () => {
+    renderWishlist();
+  });
+</script>
