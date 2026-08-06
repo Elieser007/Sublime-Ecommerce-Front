@@ -134,8 +134,8 @@ const columns = [
       if (!res.ok) throw new Error('Error');
       const data = await res.json();
       items = data.data || [];
-      totalItems = data.total || 0;
-      totalPages = data.pages || 1;
+      totalItems = data.total ?? items.length;
+      totalPages = data.pages ?? Math.max(1, Math.ceil(items.length / 25));
       ordersTable.setRows(items, { total: totalItems, totalPages });
     } catch (err) {
       ordersTable.setError('Error al cargar');

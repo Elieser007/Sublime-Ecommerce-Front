@@ -68,6 +68,28 @@ describe('DataTable.astro — Source Structure', () => {
     });
   });
 
+  describe('Table Styling', () => {
+    it('styles table cells with design-system tokens', () => {
+      expect(dataTableSource).toContain('.dt-table th');
+      expect(dataTableSource).toContain('.dt-table td');
+      expect(dataTableSource).toContain('padding: var(--space-md)');
+      expect(dataTableSource).toContain('border-bottom: 1px solid var(--outline-variant)');
+      expect(dataTableSource).toContain('color: var(--on-surface)');
+    });
+
+    it('styles headers with mono labels and outline border', () => {
+      expect(dataTableSource).toContain('font-family: var(--font-mono)');
+      expect(dataTableSource).toContain('color: var(--on-surface-variant)');
+      expect(dataTableSource).toContain('border-bottom: 2px solid var(--outline-variant)');
+    });
+
+    it('keeps hover and inactive-row feedback', () => {
+      expect(dataTableSource).toContain('tbody tr:hover');
+      expect(dataTableSource).toContain('background-color: var(--surface-container)');
+      expect(dataTableSource).toContain('row--inactive');
+    });
+  });
+
   describe('Pagination Footer', () => {
     it('renders a page-size select with options', () => {
       expect(dataTableSource).toContain('-page-size`');

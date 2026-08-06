@@ -99,6 +99,38 @@ const alignClass = (align?: string) =>
     background-color: var(--surface-container);
   }
 
+  :global(.dt-table) {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  :global(.dt-table th),
+  :global(.dt-table td) {
+    padding: var(--space-md);
+    text-align: left;
+    border-bottom: 1px solid var(--outline-variant);
+    color: var(--on-surface);
+    font-size: 14px;
+    vertical-align: middle;
+  }
+
+  :global(.dt-table th) {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--on-surface-variant);
+    border-bottom: 2px solid var(--outline-variant);
+    white-space: nowrap;
+  }
+
+  :global(.dt-table tbody tr:hover) {
+    background-color: var(--surface-container);
+  }
+
+  :global(.dt-table tbody tr.row--inactive) {
+    opacity: 0.55;
+  }
+
   .dt-footer {
     margin-top: 0;
     border-top: 1px solid var(--outline-variant);

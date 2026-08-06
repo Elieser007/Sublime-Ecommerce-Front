@@ -101,30 +101,26 @@ test("adds and deletes a volume price tier in the pricing modal", async ({ page 
   await row.getByTitle("Precios").click();
   const modal = page.locator("#price-overlay");
   await expect(modal).toBeVisible();
-  // The backend may pre-seed a default volume tier (10+ units at basePrice)
-  // on product creation, so the modal's initial state is not guaranteed
-  // empty. Exercise the add/delete cycle with a distinct quantity, which is
-  // independent of any pre-seeded tier.
+  // Fresh product → empty tier state (product creation seeds no tiers).
+  await expect(modal.locator("#prices-tbody")).toContainText("Sin precios configurados");
 
-  // POST /api/products/:id/prices → row appears with es-PY formatting.
-  // Backend contract: new tiers are created disabled (no delete button).
+  // POST /api/products/:id/prices → row appears, active, es-PY formatted.
   await modal.locator("#price-min-qty").fill("20");
   await modal.locator("#price-value").fill("50000");
   await modal.locator("#add-price-btn").click();
   const tierRow = modal.locator("#prices-tbody tr", { hasText: "20+ unds" });
   await expect(tierRow).toContainText("₲ 50.000");
 
-  // Backend contract varies per environment state: new tiers may arrive
-  // disabled (no delete button) or active. Reactivate only when the
-  // reactivate button is present, then DELETE the tier (native confirm) →
-  // its row disappears.
-  const reactivateBtn = tierRow.getByTitle("Reactivar");
-  if ((await reactivateBtn.count()) > 0) {
-    await reactivateBtn.click();
-  }
+  // DELETE is a backend SOFT delete (is_active=0): the row stays visible,
+  // re-rendered as disabled with a reactivate button.
   page.once("dialog", (dialog) => void dialog.accept());
   await tierRow.getByTitle("Eliminar").click();
-  await expect(tierRow).toHaveCount(0);
+  await expect(tierRow).toContainText("Deshabilitado");
+
+  // Reactivate → the tier returns to the active state.
+  page.once("dialog", (dialog) => void dialog.accept());
+  await tierRow.getByTitle("Reactivar").click();
+  await expect(tierRow).not.toContainText("Deshabilitado");
 
   await modal.locator("#price-modal-close").click();
   await expect(modal).toBeHidden();
