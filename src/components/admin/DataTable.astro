@@ -1,92 +1,222 @@
 ---
 /**
- * DataTable — Reusable Table Component
- * 
- * Matching Chromatic High-Contrast admin panel design.
- * Semi-transparent backgrounds, backdrop-blur, subtle borders.
+ * DataTable — Standard admin data table.
+ *
+ * Static shell only: the client controller lives in lib/data-table-widget.ts
+ * (createDataTable) and each page wires its own renderCell + fetch callbacks.
+ * Pagination, sorting, and loading/error/empty states are rendered by the
+ * widget into the ids/hooks declared here.
  */
 
-interface Column {
+interface DataTableColumn {
   key: string;
   label: string;
   width?: string;
+  sortable?: boolean;
+  align?: 'left' | 'center' | 'right';
 }
 
 interface Props {
-  columns: Column[];
+  id: string;
+  columns: DataTableColumn[];
   emptyMessage?: string;
+  pageSize?: number;
+  pageSizeOptions?: number[];
+  ariaLabel?: string;
 }
 
-const { columns, emptyMessage = 'No hay datos' } = Astro.props;
+const {
+  id,
+  columns,
+  emptyMessage = 'No hay datos',
+  pageSize = 25,
+  pageSizeOptions = [10, 25, 50],
+  ariaLabel,
+} = Astro.props;
+
+const alignClass = (align?: string) =>
+  align === 'center' ? 'dt-th--center' : align === 'right' ? 'dt-th--right' : '';
 ---
 
-<div class="dt-container">
-  <table class="dt-table">
+<div class="dt-scroll" id={id}>
+  <table class="dt-table" aria-label={ariaLabel}>
     <thead>
       <tr>
         {columns.map((col) => (
-          <th class="label-sm" style={col.width ? `width: ${col.width}` : ''}>
-            {col.label}
+          <th
+            scope="col"
+            data-sort-key={col.sortable ? col.key : undefined}
+            aria-sort={col.sortable ? 'none' : undefined}
+            class:list={['dt-th', alignClass(col.align)]}
+            style={col.width ? `width: ${col.width}` : undefined}
+          >
+            {col.sortable ? (
+              <button type="button" class="dt-sort-btn" aria-label={`Ordenar por ${col.label}`}>
+                {col.label}
+                <span class="dt-sort-icon" aria-hidden="true"></span>
+              </button>
+            ) : (
+              col.label
+            )}
           </th>
         ))}
       </tr>
     </thead>
-    <tbody>
-      <slot />
+    <tbody id={`${id}-body`} data-table-body>
+      <tr class="dt-state-row">
+        <td colspan={columns.length} class="empty-cell">Cargando...</td>
+      </tr>
     </tbody>
   </table>
-  <slot name="empty" />
+  <div class="pagination-bar dt-footer" data-table-footer hidden>
+    <label class="dt-page-size label-sm" for={`${id}-page-size`}>
+      Mostrar
+      <select
+        id={`${id}-page-size`}
+        data-page-size
+        class="form-select body-md"
+        aria-label="Filas por página"
+      >
+        {pageSizeOptions.map((size) => (
+          <option value={size} selected={size === pageSize}>{size}</option>
+        ))}
+      </select>
+    </label>
+    <span class="body-md dt-showing" data-showing>Mostrando 0–0 de 0</span>
+    <nav class="page-nav" aria-label="Paginación de tabla">
+      <button type="button" class="dt-page-btn dt-page-btn--nav" data-prev aria-label="Página anterior" disabled>‹</button>
+      <div class="dt-page-numbers" data-pages></div>
+      <button type="button" class="dt-page-btn dt-page-btn--nav" data-next aria-label="Página siguiente" disabled>›</button>
+    </nav>
+  </div>
 </div>
 
 <style>
-  .dt-container {
-    background-color: var(--surface-container);
-    backdrop-filter: blur(16px);
-    border-radius: 0px;
-    border: 1px solid var(--outline-variant);
-    padding: 24px;
+  .dt-scroll {
     overflow-x: auto;
+    border: 1px solid var(--outline-variant);
+    background-color: var(--surface-container);
   }
 
-  .dt-table {
-    width: 100%;
-    text-align: left;
-    border-collapse: collapse;
+  .dt-footer {
+    margin-top: 0;
+    border-top: 1px solid var(--outline-variant);
+    padding: 12px 16px;
+    background-color: rgba(31, 31, 31, 0.3);
   }
 
-  :global(thead) {
-    border-bottom: 1px solid var(--outline-variant);
-  }
-
-  :global(th) {
-    padding: 0 16px 16px 0;
+  .dt-page-size {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
     color: var(--on-surface-variant);
+  }
+
+  .dt-page-size select {
+    min-width: 72px;
+  }
+
+  .dt-showing {
+    color: var(--on-surface-variant);
+  }
+
+  .dt-page-numbers {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  :global(.dt-page-btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    background-color: transparent;
+    border: 1px solid var(--outline-variant);
+    color: var(--on-surface);
     font-family: var(--font-mono);
     font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s ease;
   }
 
-  :global(td) {
-    padding: 16px 16px 16px 0;
-    vertical-align: middle;
-    font-family: var(--font-body);
-    font-size: 16px;
-    line-height: 24px;
-    color: var(--on-surface);
+  :global(.dt-page-btn:hover:not(:disabled)) {
+    border-color: var(--primary);
+    color: var(--primary);
   }
 
-  :global(tr) {
-    border-bottom: 1px solid var(--outline-variant);
-    transition: background-color 0.15s ease;
+  :global(.dt-page-btn[aria-current='page']) {
+    background-color: rgba(130, 207, 255, 0.12);
+    border-color: var(--primary);
+    color: var(--primary);
   }
 
-  :global(tr:hover) {
-    background-color: rgba(255, 255, 255, 0.03);
+  :global(.dt-page-btn:disabled) {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
-  :global(tr:last-child) {
-    border-bottom: none;
+  :global(.dt-page-btn:focus-visible),
+  .dt-sort-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  :global(.dt-page-ellipsis) {
+    color: var(--on-surface-variant);
+    padding: 0 4px;
+  }
+
+  :global(.dt-cell--center) {
+    text-align: center;
+  }
+
+  :global(.dt-cell--right) {
+    text-align: right;
+  }
+
+  .dt-th--center {
+    text-align: center;
+  }
+
+  .dt-th--right {
+    text-align: right;
+  }
+
+  .dt-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+  }
+
+  .dt-sort-btn:hover {
+    color: var(--primary);
+  }
+
+  .dt-sort-icon::after {
+    content: '↕';
+    font-size: 11px;
+    opacity: 0.5;
+  }
+
+  .dt-sort-btn[data-dir='asc'] .dt-sort-icon::after {
+    content: '↑';
+    opacity: 1;
+  }
+
+  .dt-sort-btn[data-dir='desc'] .dt-sort-icon::after {
+    content: '↓';
+    opacity: 1;
   }
 </style>

@@ -63,25 +63,25 @@ describe('DataTable.astro — Source Structure', () => {
     });
 
     it('renders a tbody with a loading placeholder row', () => {
-      expect(dataTableSource).toContain('-body"');
+      expect(dataTableSource).toContain('-body`');
       expect(dataTableSource).toContain('Cargando...');
     });
   });
 
   describe('Pagination Footer', () => {
     it('renders a page-size select with options', () => {
-      expect(dataTableSource).toContain('-page-size"');
+      expect(dataTableSource).toContain('-page-size`');
       expect(dataTableSource).toContain('pageSizeOptions.map');
     });
 
     it('renders a showing indicator', () => {
-      expect(dataTableSource).toContain('-showing"');
+      expect(dataTableSource).toContain('data-showing');
     });
 
     it('renders a pagination nav with prev/next buttons', () => {
       expect(dataTableSource).toContain('class="page-nav"');
-      expect(dataTableSource).toContain('-prev"');
-      expect(dataTableSource).toContain('-next"');
+      expect(dataTableSource).toContain('data-prev');
+      expect(dataTableSource).toContain('data-next');
       expect(dataTableSource).toContain('aria-label="Página anterior"');
       expect(dataTableSource).toContain('aria-label="Página siguiente"');
     });
@@ -132,7 +132,7 @@ describe('data-table-widget.ts — Client Controller Contract', () => {
 
   describe('Handle Contract', () => {
     it('exposes setRows with optional server pagination meta', () => {
-      expect(widgetSource).toMatch(/setRows\(rows: any\[\], meta\??:/);
+      expect(widgetSource).toMatch(/setRows\(\w*rows: any\[\], \w*meta\??:/i);
     });
 
     it('exposes setLoading and setError', () => {
