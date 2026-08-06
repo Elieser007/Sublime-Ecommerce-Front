@@ -41,17 +41,22 @@ describe('Responsive table CSS', () => {
 });
 
 describe('data-label in admin pages', () => {
-  const pages = [
-    { name: 'products', label: 'data-label' },
-    { name: 'orders', label: 'data-label' },
-    { name: 'users', label: 'data-label' },
-    { name: 'branches', label: 'data-label' },
-    { name: 'categories', label: 'data-label' },
-    { name: 'attribute-modules', label: 'data-label' },
-  ];
+  const widget = readFileSync(resolve(__dirname, '../lib/data-table-widget.ts'), 'utf-8');
 
+  it('the data-table widget emits data-label on every cell', () => {
+    expect(widget).toContain('data-label=');
+  });
+
+  const pages = [
+    { name: 'products', label: 'products-table' },
+    { name: 'orders', label: 'orders-table' },
+    { name: 'users', label: 'users-table' },
+    { name: 'branches', label: 'branches-table' },
+    { name: 'categories', label: 'createDataTable' },
+    { name: 'attribute-modules', label: 'createDataTable' },
+  ];
   for (const page of pages) {
-    it(`${page.name}.astro contains data-label attributes`, () => {
+    it(`${page.name}.astro wires the standard DataTable`, () => {
       const content = readPage(page.name);
       expect(content).toContain(page.label);
     });

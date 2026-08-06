@@ -11,12 +11,12 @@ import AttributeManager from '../../components/admin/AttributeManager.astro';
 import Button from '../../components/Button.astro';
 
 const columns = [
-  { key: 'name', label: 'Nombre' },
-  { key: 'slug', label: 'Slug' },
+  { key: 'name', label: 'Nombre', sortable: true },
+  { key: 'slug', label: 'Slug', sortable: true },
   { key: 'section', label: 'Sección' },
   { key: 'category', label: 'Categoría' },
   { key: 'subcategory', label: 'Subcategoría' },
-  { key: 'price', label: 'Precio Base' },
+  { key: 'price', label: 'Precio Base', sortable: true, align: 'right' },
   { key: 'attributes', label: 'Atributos' },
   { key: 'status', label: 'Estado' },
   { key: 'actions', label: 'Acciones', width: '150px' },
@@ -37,9 +37,6 @@ const columns = [
         <select id="section-filter" class="form-select body-md"><option value="">Todas las secciones</option></select>
         <select id="category-filter" class="form-select body-md"><option value="">Todas las categorías</option></select>
         <select id="subcategory-filter" class="form-select body-md"><option value="">Todas las subcategorías</option></select>
-        <select id="limit" class="form-select body-md">
-          <option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option>
-        </select>
         <select id="status-filter" class="form-select body-md">
           <option value="">Todos</option><option value="1">Activos</option><option value="0">Inactivos</option>
         </select>
@@ -47,18 +44,12 @@ const columns = [
       <Button variant="primary" id="add-product">+ Nuevo</Button>
     </div>
 
-    <DataTable columns={columns}>
-      <tr><td colspan="9" class="empty-cell">Cargando...</td></tr>
-    </DataTable>
-
-    <div class="pagination-bar">
-      <span class="body-md" id="showing">Mostrando 0 de 0</span>
-      <div class="page-nav">
-        <Button variant="secondary" id="prev" disabled>Anterior</Button>
-        <span class="body-md" id="page-info">Página 1 de 1</span>
-        <Button variant="secondary" id="next" disabled>Siguiente</Button>
-      </div>
-    </div>
+    <DataTable
+      id="products-table"
+      columns={columns}
+      emptyMessage="No hay productos"
+      ariaLabel="Lista de productos"
+    />
   </main>
 
 <!-- Product Modal -->
@@ -216,6 +207,7 @@ const columns = [
   import { getImageById, getImageCount } from '../../lib/gallery-utils';
   import { deleteImage, associateImage, uploadImageBlob, deleteUploadedFile } from '../../lib/image-utils';
   import { loadProductList, uploadGalleryImages } from '../../lib/admin-products';
+  import { createDataTable } from '../../lib/data-table-widget';
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
   import { escapeHtml } from '../../lib/escape-html';
@@ -580,8 +572,7 @@ const columns = [
   // LOAD PRODUCTS
   // ═══════════════════════════════════════════════════════════
   async function loadProducts() {
-    const tbody = document.querySelector('tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Cargando...</td></tr>';
+    productsTable.setLoading();
     try {
       const result = await loadProductList(API_URL, {
         page: currentPage,
@@ -595,54 +586,56 @@ const columns = [
       items = result.items;
       totalItems = result.total;
       totalPages = result.totalPages;
-      render();
+      productsTable.setRows(items, { total: totalItems, totalPages });
     } catch (err: any) {
       if (err?.status === 401) { window.location.href = '/login'; return; }
-      if (err?.status === 403) { if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Sin autorización</td></tr>'; return; }
-      if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">Error</td></tr>';
+      if (err?.status === 403) { productsTable.setError('Sin autorización'); return; }
+      productsTable.setError('Error al cargar los productos');
     }
   }
 
-  function render() {
-    const tbody = document.querySelector('tbody');
-    if (!tbody) return;
-    if (items.length === 0) { tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">No hay productos</td></tr>'; }
-    else {
-      tbody.innerHTML = items.map((p: any) => {
-        const isActive = !!p.is_active;
-        const rowClass = isActive ? '' : 'row--inactive';
-        const statusAction = isActive
-          ? `<button class="ta-btn ta-btn--delete" onclick="confirmToggleStatus('${escapeHtml(p.id)}', false)" title="Desactivar">🗑️</button>`
-          : `<button class="ta-btn ta-btn--warning" onclick="confirmToggleStatus('${escapeHtml(p.id)}', true)" title="Reactivar">🔄</button>`;
-        return `<tr class="${rowClass}">
-          <td data-label="Nombre"><strong>${escapeHtml(p.name)}</strong></td>
-          <td data-label="Slug"><code class="slug-display">${escapeHtml(p.slug) || '—'}</code></td>
-          <td data-label="Sección"><span class="tag tag--section">${escapeHtml(p.section_name) || '—'}</span></td>
-          <td data-label="Categoría">${escapeHtml(p.category_name) || '—'}</td>
-          <td data-label="Subcategoría">${escapeHtml(p.subcategory_name) || '—'}</td>
-          <td data-label="Precio Base">${fmt(p.base_price)}</td>
-          <td data-label="Atributos"><span class="attr-badge">${p.attribute_count || 0} módulos</span></td>
-          <td data-label="Estado"><span class="badge ${isActive ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${isActive ? 'Activo' : 'Inactivo'}</span></td>
-          <td data-label="Acciones"><div class="cell-actions">
-            <button class="ta-btn ta-btn--attr" onclick="openAttributeManager('${escapeHtml(p.id)}')" title="Atributos">🏷️</button>
-            <button class="ta-btn" onclick="editProduct('${escapeHtml(p.id)}')" title="Editar">✏️</button>
-            <button class="ta-btn ta-btn--price" onclick="openPricing('${escapeHtml(p.id)}')" title="Precios">💰</button>
-            ${statusAction}
-          </div></td>
-        </tr>`;
-      }).join('');
+  function renderProductCell(col: any, p: any): string {
+    const isActive = !!p.is_active;
+    switch (col.key) {
+      case 'name':
+        return `<strong>${escapeHtml(p.name)}</strong>`;
+      case 'slug':
+        return `<code class="slug-display">${escapeHtml(p.slug) || '—'}</code>`;
+      case 'section':
+        return `<span class="tag tag--section">${escapeHtml(p.section_name) || '—'}</span>`;
+      case 'category':
+        return escapeHtml(p.category_name) || '—';
+      case 'subcategory':
+        return escapeHtml(p.subcategory_name) || '—';
+      case 'price':
+        return fmt(p.base_price);
+      case 'attributes':
+        return `<span class="attr-badge">${p.attribute_count || 0} módulos</span>`;
+      case 'status':
+        return `<span class="badge ${isActive ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${isActive ? 'Activo' : 'Inactivo'}</span>`;
+      case 'actions':
+        return `<div class="cell-actions">
+          <button class="ta-btn ta-btn--attr" onclick="openAttributeManager('${escapeHtml(p.id)}')" title="Atributos">🏷️</button>
+          <button class="ta-btn" onclick="editProduct('${escapeHtml(p.id)}')" title="Editar">✏️</button>
+          <button class="ta-btn ta-btn--price" onclick="openPricing('${escapeHtml(p.id)}')" title="Precios">💰</button>
+          ${isActive
+            ? `<button class="ta-btn ta-btn--delete" onclick="confirmToggleStatus('${escapeHtml(p.id)}', false)" title="Desactivar">🗑️</button>`
+            : `<button class="ta-btn ta-btn--warning" onclick="confirmToggleStatus('${escapeHtml(p.id)}', true)" title="Reactivar">🔄</button>`}
+        </div>`;
+      default:
+        return '';
     }
-    updatePagination();
   }
 
-  function updatePagination() {
-    const start = totalItems === 0 ? 0 : (currentPage - 1) * limit + 1;
-    const end = Math.min(currentPage * limit, totalItems);
-    $('showing')!.textContent = `Mostrando ${start}–${end} de ${totalItems}`;
-    $('page-info')!.textContent = `Página ${currentPage} de ${totalPages}`;
-    ($('prev') as HTMLButtonElement).disabled = currentPage <= 1;
-    ($('next') as HTMLButtonElement).disabled = currentPage >= totalPages;
-  }
+  const productsTable = createDataTable({
+    container: $('products-table')!,
+    renderCell: renderProductCell,
+    rowClass: (p: any) => (p.is_active ? '' : 'row--inactive'),
+    emptyMessage: 'No hay productos',
+    emptyAction: { label: '+ Crear producto', onClick: () => openModal(false) },
+    onPageChange: (page: number) => { currentPage = page; loadProducts(); },
+    onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadProducts(); },
+  });
 
   // ═══════════════════════════════════════════════════════════
   // PRODUCT MODAL
@@ -915,10 +908,7 @@ const columns = [
     $('section-filter')?.addEventListener('change', onSectionFilterChange);
     $('category-filter')?.addEventListener('change', onCategoryFilterChange);
     $('subcategory-filter')?.addEventListener('change', (e) => { currentSubcategory = (e.target as HTMLSelectElement).value; currentPage = 1; loadProducts(); });
-    $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadProducts(); });
     $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadProducts(); });
-    $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadProducts(); } });
-    $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadProducts(); } });
 
     $('section-select')?.addEventListener('change', onSectionSelectChange);
     $('category-select')?.addEventListener('change', onCategorySelectChange);
