@@ -8,7 +8,7 @@
  * - Right: Wishlist, Cart, User
  *
  * Dynamic icon logic:
- * - On catalog (`/` or `/producto/*`) → home icon → links to `/home`
+ * - On catalog (`/` or `/products/*`) → home icon → links to `/home`
  * - Everywhere else → storefront icon → links to `/`
  */
 
@@ -20,7 +20,7 @@ const { cartCount = 0 } = Astro.props;
 import Logo from "./Logo.astro";
 
 const currentPath = Astro.url.pathname;
-const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
+const isCatalog = currentPath === '/' || currentPath.startsWith('/products');
 ---
 
 <header class="header">
@@ -81,7 +81,7 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
     <div class="header-actions">
       <!-- Wishlist -->
       <a
-        href="/deseos"
+        href="/wishlist"
         class="action-btn"
         aria-label="Lista de deseos"
         id="wishlist-btn"
@@ -192,10 +192,13 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 
 <script>
   import { updateCartBadge } from '../lib/cart.js';
+  import { updateWishlistBadge } from '../lib/wishlist.js';
   import { getApiUrl } from '../lib/api-url';
 
   window.addEventListener("storage", updateCartBadge);
   window.addEventListener("cart-updated", updateCartBadge);
+  window.addEventListener("storage", updateWishlistBadge);
+  window.addEventListener("wishlist-updated", updateWishlistBadge);
 
   document.addEventListener('astro:page-load', () => {
     // Mobile menu toggle
@@ -209,6 +212,8 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/producto');
 
     // Cart badge — single source of truth in cart.js
     updateCartBadge();
+    // Wishlist badge — single source of truth in wishlist.js
+    updateWishlistBadge();
 
     // PWA Install Prompt
     let deferredPrompt: any = null;
