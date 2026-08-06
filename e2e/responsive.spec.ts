@@ -347,18 +347,18 @@ test.describe("Product Detail — Responsive", () => {
       test("product detail page loads", async ({ page }) => {
         // Navigate to catalog first, then click a product
         await page.goto("/");
-        const productLink = page.locator('a[href*="/producto/"]').first();
+        const productLink = page.locator('a[href*="/products/"]').first();
         if (await productLink.isVisible()) {
           await productLink.click();
           // Retrying wait — navigation completes asynchronously after the
           // click, so a single page.url() sample is racy.
-          await page.waitForURL(/\/producto\//);
+          await page.waitForURL(/\/products\//);
         }
       });
 
       test("no horizontal overflow on product detail", async ({ page }) => {
         await page.goto("/");
-        const productLink = page.locator('a[href*="/producto/"]').first();
+        const productLink = page.locator('a[href*="/products/"]').first();
         if (await productLink.isVisible()) {
           await productLink.click();
           const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
@@ -374,7 +374,7 @@ test.describe("Product Detail — Responsive", () => {
 
     test("add to cart button is full width and touch-friendly", async ({ page }) => {
       await page.goto("/");
-      const productLink = page.locator('a[href*="/producto/"]').first();
+      const productLink = page.locator('a[href*="/products/"]').first();
       if (await productLink.isVisible()) {
         await productLink.click();
         const btn = page.locator("#detail-add-cart");
@@ -387,7 +387,7 @@ test.describe("Product Detail — Responsive", () => {
 
     test("whatsapp button is full width and touch-friendly", async ({ page }) => {
       await page.goto("/");
-      const productLink = page.locator('a[href*="/producto/"]').first();
+      const productLink = page.locator('a[href*="/products/"]').first();
       if (await productLink.isVisible()) {
         await productLink.click();
         const btn = page.locator("#detail-whatsapp");

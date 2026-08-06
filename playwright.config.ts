@@ -69,7 +69,7 @@ export default defineConfig({
       //
       // Readiness gate (verify F3): `astro dev` compiles product pages on
       // first request; if the backend isn't up yet, getStaticPaths caches an
-      // EMPTY catalog and every /producto/:slug 404s for the whole run. The
+      // EMPTY catalog and every /products/:slug 404s for the whole run. The
       // wrapper waits for the public products API before booting Astro.
       command:
         `bash -c 'npx astro dev stop >/dev/null 2>&1; until curl -sf "http://localhost:8787/api/public/products?limit=1" -o /dev/null; do sleep 1; done; trap "npx astro dev stop >/dev/null 2>&1" EXIT TERM INT; npx astro dev >/dev/null 2>&1; while curl -sf http://localhost:4321 -o /dev/null; do sleep 2; done'`,

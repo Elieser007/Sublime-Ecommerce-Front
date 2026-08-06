@@ -24,7 +24,7 @@ test.describe.configure({ mode: "serial" });
 const SEEDED_PROMO_TITLE = "E2E Promo Test";
 const SEEDED_PROMO_SUBTITLE = "Promoción fija para los flujos e2e del panel admin";
 /** Valid relative link (backend rule: "/" prefix or http(s) only). */
-const VALID_PROMO_LINK = "/producto/remera-sublime-basica-algodon";
+const VALID_PROMO_LINK = "/products/remera-sublime-basica-algodon";
 
 /** 1×1 PNG — the promo image pipeline resizes ≤1000px and re-encodes to WebP. */
 const PNG_1X1 = Buffer.from(

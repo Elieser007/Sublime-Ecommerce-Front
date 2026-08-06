@@ -43,7 +43,7 @@ export const ADMIN_URLS = {
   dashboard: "/dashboard",
   index: "/admin",
   products: "/admin/products",
-  productCreate: "/admin/nuevo",
+  productCreate: "/admin/new",
   categories: "/admin/categories",
   users: "/admin/users",
   orders: "/admin/orders",
