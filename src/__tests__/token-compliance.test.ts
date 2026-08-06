@@ -35,8 +35,6 @@ const EXEMPT_FILES = [
   'src/components/admin/Badge.astro',
   // Admin table action — undocumented rgba variants
   'src/components/admin/TableAction.astro',
-  // Admin data table — one rgba leftover
-  'src/components/admin/DataTable.astro',
   // Admin attribute manager — undocumented rgba and hex (Phase 5)
   'src/components/admin/AttributeManager.astro',
   // Admin dependency form — undocumented rgba and hex (Phase 5)

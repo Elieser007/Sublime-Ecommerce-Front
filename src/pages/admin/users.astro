@@ -10,11 +10,11 @@ import Button from '../../components/Button.astro';
 
 const columns = [
   { key: 'avatar', label: '', width: '48px' },
-  { key: 'name', label: 'Nombre' },
-  { key: 'email', label: 'Email' },
+  { key: 'name', label: 'Nombre', sortable: true },
+  { key: 'email', label: 'Email', sortable: true },
   { key: 'role', label: 'Rol' },
   { key: 'branches', label: 'Sucursal(es)' },
-  { key: 'created', label: 'Creado' },
+  { key: 'created', label: 'Creado', sortable: true },
   { key: 'actions', label: 'Acciones', width: '100px' },
 ];
 ---
@@ -35,28 +35,11 @@ const columns = [
           <option value="admin">Admin</option>
           <option value="client">Cliente</option>
         </select>
-        <select id="limit" class="form-select body-md">
-          <option value="10">10</option>
-          <option value="25" selected>25</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
       </div>
       <Button variant="primary" id="add-user">+ Nuevo</Button>
     </div>
 
-    <DataTable columns={columns}>
-      <tr><td colspan="7" class="empty-cell">Cargando...</td></tr>
-    </DataTable>
-
-    <div class="pagination-bar">
-      <span class="body-md" id="showing">Mostrando 0 de 0</span>
-      <div class="page-nav">
-        <Button variant="secondary" id="prev" disabled>Anterior</Button>
-        <span class="body-md" id="page-info">Página 1 de 1</span>
-        <Button variant="secondary" id="next" disabled>Siguiente</Button>
-      </div>
-    </div>
+    <DataTable id="users-table" columns={columns} emptyMessage="No hay usuarios" ariaLabel="Lista de usuarios" />
   </main>
 
 <div class="modal-overlay" id="modal-overlay" style="display: none;">
@@ -130,6 +113,7 @@ const columns = [
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
   import { escapeHtml } from '../../lib/escape-html';
+  import { createDataTable } from '../../lib/data-table-widget';
   const userModal = wrapModal('modal-overlay');
   import {
     createEmptyAvatarState,
@@ -165,8 +149,7 @@ const columns = [
   }
 
   async function loadUsers() {
-    const tbody = document.querySelector('tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">Cargando...</td></tr>';
+    usersTable.setLoading();
     const params = new URLSearchParams();
     params.set('page', String(currentPage));
     params.set('limit', String(limit));
@@ -180,48 +163,47 @@ const columns = [
       items = data.data || [];
       totalItems = data.total || 0;
       totalPages = data.pages || 1;
-      render();
+      usersTable.setRows(items, { total: totalItems, totalPages });
     } catch (err) {
-      if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">Error al cargar</td></tr>';
+      usersTable.setError('Error al cargar');
     }
   }
 
-  function render() {
-    const tbody = document.querySelector('tbody');
-    if (!tbody) return;
-    if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No hay usuarios</td></tr>';
-    } else {
-      tbody.innerHTML = items.map((u: any) => {
-        const isSelf = u.id === currentUserId;
-        const avatarHtml = u.image
+  function renderUserCell(col: any, u: any): string {
+    const isSelf = u.id === currentUserId;
+    switch (col.key) {
+      case 'avatar': {
+        return u.image
           ? `<img src="${escapeHtml(u.image)}" alt="${escapeHtml(u.name)}" class="user-avatar" />`
           : `<div class="user-avatar user-avatar--placeholder">${escapeHtml(u.name?.charAt(0)?.toUpperCase() || '?')}</div>`;
-        return `<tr>
-          <td data-label="Avatar">${avatarHtml}</td>
-          <td data-label="Nombre"><strong>${escapeHtml(u.name)}</strong></td>
-          <td data-label="Email">${escapeHtml(u.email)}</td>
-          <td data-label="Rol"><span class="badge ${u.role === 'admin' ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${u.role === 'admin' ? 'Admin' : 'Cliente'}</span></td>
-          <td data-label="Sucursal">${escapeHtml(u.branch_names) || '—'}</td>
-          <td data-label="Creado">${new Date(u.created_at * 1000).toLocaleDateString('es-PY')}</td>
-          <td data-label="Acciones"><div class="cell-actions">
-            <button class="ta-btn" onclick="editUser('${escapeHtml(u.id)}')" title="Editar">✏️</button>
-            ${isSelf ? '<span class="self-tag">Tú</span>' : `<button class="ta-btn ta-btn--delete" onclick="deleteUser('${escapeHtml(u.id)}')" title="Eliminar">🗑️</button>`}
-          </div></td>
-        </tr>`;
-      }).join('');
+      }
+      case 'name':
+        return `<strong>${escapeHtml(u.name)}</strong>`;
+      case 'email':
+        return escapeHtml(u.email);
+      case 'role':
+        return `<span class="badge ${u.role === 'admin' ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${u.role === 'admin' ? 'Admin' : 'Cliente'}</span>`;
+      case 'branches':
+        return escapeHtml(u.branch_names) || '—';
+      case 'created':
+        return new Date(u.created_at * 1000).toLocaleDateString('es-PY');
+      case 'actions':
+        return `<div class="cell-actions">
+          <button class="ta-btn" onclick="editUser('${escapeHtml(u.id)}')" title="Editar">✏️</button>
+          ${isSelf ? '<span class="self-tag">Tú</span>' : `<button class="ta-btn ta-btn--delete" onclick="deleteUser('${escapeHtml(u.id)}')" title="Eliminar">🗑️</button>`}
+        </div>`;
+      default:
+        return '';
     }
-    updatePagination();
   }
 
-  function updatePagination() {
-    const start = totalItems === 0 ? 0 : (currentPage - 1) * limit + 1;
-    const end = Math.min(currentPage * limit, totalItems);
-    $('showing')!.textContent = `Mostrando ${start}–${end} de ${totalItems}`;
-    $('page-info')!.textContent = `Página ${currentPage} de ${totalPages}`;
-    ($('prev') as HTMLButtonElement).disabled = currentPage <= 1;
-    ($('next') as HTMLButtonElement).disabled = currentPage >= totalPages;
-  }
+  const usersTable = createDataTable({
+    container: $('users-table')!,
+    renderCell: renderUserCell,
+    emptyMessage: 'No hay usuarios',
+    onPageChange: (page: number) => { currentPage = page; loadUsers(); },
+    onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadUsers(); },
+  });
 
   // ─── AVATAR UPLOAD ──────────────────────────────────────
   const avatarUploadArea = $('avatar-upload-area');
@@ -358,9 +340,6 @@ const columns = [
       searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadUsers(); }, 300);
     });
     $('role-filter')?.addEventListener('change', (e) => { currentRole = (e.target as HTMLSelectElement).value; currentPage = 1; loadUsers(); });
-    $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadUsers(); });
-    $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadUsers(); } });
-    $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadUsers(); } });
 
     $('modal-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();

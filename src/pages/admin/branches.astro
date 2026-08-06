@@ -9,8 +9,8 @@ import DataTable from '../../components/admin/DataTable.astro';
 import Button from '../../components/Button.astro';
 
 const columns = [
-  { key: 'name', label: 'Nombre' },
-  { key: 'slug', label: 'Slug' },
+  { key: 'name', label: 'Nombre', sortable: true },
+  { key: 'slug', label: 'Slug', sortable: true },
   { key: 'address', label: 'Dirección' },
   { key: 'phone', label: 'Teléfono' },
   { key: 'status', label: 'Estado' },
@@ -34,28 +34,11 @@ const columns = [
           <option value="1">Activas</option>
           <option value="0">Inactivas</option>
         </select>
-        <select id="limit" class="form-select body-md">
-          <option value="10">10</option>
-          <option value="25" selected>25</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
       </div>
       <Button variant="primary" id="add-branch">+ Nueva</Button>
     </div>
 
-    <DataTable columns={columns}>
-      <tr><td colspan="6" class="empty-cell">Cargando...</td></tr>
-    </DataTable>
-
-    <div class="pagination-bar">
-      <span class="body-md" id="showing">Mostrando 0 de 0</span>
-      <div class="page-nav">
-        <Button variant="secondary" id="prev" disabled>Anterior</Button>
-        <span class="body-md" id="page-info">Página 1 de 1</span>
-        <Button variant="secondary" id="next" disabled>Siguiente</Button>
-      </div>
-    </div>
+    <DataTable id="branches-table" columns={columns} emptyMessage="No hay sucursales" ariaLabel="Lista de sucursales" />
   </main>
 
 <div class="modal-overlay" id="modal-overlay" style="display: none;">
@@ -96,6 +79,7 @@ const columns = [
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
   import { escapeHtml } from '../../lib/escape-html';
+  import { createDataTable } from '../../lib/data-table-widget';
   const branchModal = wrapModal('modal-overlay');
 
   const API_URL = getApiUrl();
@@ -110,8 +94,7 @@ const columns = [
   const $ = (id: string) => document.getElementById(id);
 
   async function loadBranches() {
-    const tbody = document.querySelector('tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Cargando...</td></tr>';
+    branchesTable.setLoading();
     const params = new URLSearchParams();
     params.set('page', String(currentPage));
     params.set('limit', String(limit));
@@ -125,41 +108,43 @@ const columns = [
       items = data.data || [];
       totalItems = data.total || 0;
       totalPages = data.pages || 1;
-      render();
+      branchesTable.setRows(items, { total: totalItems, totalPages });
     } catch (err) {
-      if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Error al cargar</td></tr>';
+      branchesTable.setError('Error al cargar');
     }
   }
 
-  function render() {
-    const tbody = document.querySelector('tbody');
-    if (!tbody) return;
-    if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">No hay sucursales</td></tr>';
-    } else {
-      tbody.innerHTML = items.map((b: any) => `<tr>
-        <td data-label="Nombre"><strong>${escapeHtml(b.name)}</strong></td>
-        <td data-label="Slug"><code class="slug-badge">${escapeHtml(b.slug)}</code></td>
-        <td data-label="Dirección">${escapeHtml(b.address) || '—'}</td>
-        <td data-label="Teléfono">${escapeHtml(b.phone) || '—'}</td>
-        <td data-label="Estado"><span class="badge ${b.is_active ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${b.is_active ? 'Activo' : 'Inactivo'}</span></td>
-        <td data-label="Acciones"><div class="cell-actions">
+  function renderBranchCell(col: any, b: any): string {
+    const isActive = !!b.is_active;
+    switch (col.key) {
+      case 'name':
+        return `<strong>${escapeHtml(b.name)}</strong>`;
+      case 'slug':
+        return `<code class="slug-badge">${escapeHtml(b.slug)}</code>`;
+      case 'address':
+        return escapeHtml(b.address) || '—';
+      case 'phone':
+        return escapeHtml(b.phone) || '—';
+      case 'status':
+        return `<span class="badge ${isActive ? 'badge--active' : 'badge--inactive'}"><span class="badge-dot"></span>${isActive ? 'Activo' : 'Inactivo'}</span>`;
+      case 'actions':
+        return `<div class="cell-actions">
           <button class="ta-btn" onclick="editBranch('${escapeHtml(b.id)}')" title="Editar">✏️</button>
           <button class="ta-btn ta-btn--delete" onclick="deleteBranch('${escapeHtml(b.id)}')" title="Desactivar">🗑️</button>
-        </div></td>
-      </tr>`).join('');
+        </div>`;
+      default:
+        return '';
     }
-    updatePagination();
   }
 
-  function updatePagination() {
-    const start = totalItems === 0 ? 0 : (currentPage - 1) * limit + 1;
-    const end = Math.min(currentPage * limit, totalItems);
-    $('showing')!.textContent = `Mostrando ${start}–${end} de ${totalItems}`;
-    $('page-info')!.textContent = `Página ${currentPage} de ${totalPages}`;
-    ($('prev') as HTMLButtonElement).disabled = currentPage <= 1;
-    ($('next') as HTMLButtonElement).disabled = currentPage >= totalPages;
-  }
+  const branchesTable = createDataTable({
+    container: $('branches-table')!,
+    renderCell: renderBranchCell,
+    rowClass: (b: any) => (b.is_active ? '' : 'row--inactive'),
+    emptyMessage: 'No hay sucursales',
+    onPageChange: (page: number) => { currentPage = page; loadBranches(); },
+    onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadBranches(); },
+  });
 
   function openModal(isEdit: boolean, branch?: any) {
     const form = $('modal-form') as HTMLFormElement;
@@ -198,9 +183,6 @@ const columns = [
       searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadBranches(); }, 300);
     });
     $('status-filter')?.addEventListener('change', (e) => { currentStatus = (e.target as HTMLSelectElement).value; currentPage = 1; loadBranches(); });
-    $('limit')?.addEventListener('change', (e) => { limit = parseInt((e.target as HTMLSelectElement).value); currentPage = 1; loadBranches(); });
-    $('prev')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadBranches(); } });
-    $('next')?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadBranches(); } });
 
     $('modal-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();

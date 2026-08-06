@@ -153,12 +153,19 @@ describe('Admin Responsive — Component Structure', () => {
   });
 
   describe('Data tables have data-label', () => {
-    // Pages that use DataTable component (have data-label in render functions)
+    // data-label is emitted by the standard DataTable widget (lib/data-table-widget.ts);
+    // pages wire the widget via createDataTable.
+    const widget = readFileSync(resolve(__dirname, '../lib/data-table-widget.ts'), 'utf-8');
+    it('data-table-widget.ts emits data-label on cells', () => {
+      expect(widget).toContain('data-label=');
+    });
+
+    // Pages that use the standard DataTable (server or client mode)
     const tablePages = ['products', 'orders', 'users', 'branches', 'categories', 'attribute-modules'];
     for (const page of tablePages) {
-      it(`${page}.astro has data-label attributes`, () => {
+      it(`${page}.astro wires the standard DataTable widget`, () => {
         const content = readPage(page);
-        expect(content).toContain('data-label');
+        expect(content).toContain('createDataTable');
       });
     }
   });
