@@ -12,25 +12,25 @@ import Button from '../../components/Button.astro';
 
 
 const sectionColumns = [
-  { key: 'name', label: 'Nombre' },
-  { key: 'slug', label: 'Slug' },
+  { key: 'name', label: 'Nombre', sortable: true },
+  { key: 'slug', label: 'Slug', sortable: true },
   { key: 'description', label: 'Descripción' },
   { key: 'status', label: 'Estado' },
   { key: 'actions', label: 'Acciones', width: '100px' },
 ];
 
 const categoryColumns = [
-  { key: 'name', label: 'Nombre' },
+  { key: 'name', label: 'Nombre', sortable: true },
   { key: 'section', label: 'Sección' },
-  { key: 'slug', label: 'Slug' },
+  { key: 'slug', label: 'Slug', sortable: true },
   { key: 'status', label: 'Estado' },
   { key: 'actions', label: 'Acciones', width: '100px' },
 ];
 
 const subcategoryColumns = [
-  { key: 'name', label: 'Nombre' },
+  { key: 'name', label: 'Nombre', sortable: true },
   { key: 'category', label: 'Categoría' },
-  { key: 'slug', label: 'Slug' },
+  { key: 'slug', label: 'Slug', sortable: true },
   { key: 'status', label: 'Estado' },
   { key: 'actions', label: 'Acciones', width: '100px' },
 ];
@@ -63,9 +63,7 @@ const subcategoryColumns = [
       <p class="body-md examples">
         Ej: <span class="example-tag">Indumentaria</span> <span class="example-tag">Accesorios</span> <span class="example-tag">Papelería</span>
       </p>
-      <DataTable columns={sectionColumns}>
-        <tr id="sections-loading"><td colspan="5" class="empty-cell">Cargando...</td></tr>
-      </DataTable>
+      <DataTable id="sections-table" columns={sectionColumns} emptyMessage="No hay secciones" ariaLabel="Lista de secciones" />
     </div>
 
     <!-- Categories Tab -->
@@ -80,9 +78,7 @@ const subcategoryColumns = [
       <p class="body-md examples">
         Ej: <span class="example-tag">Remeras</span> <span class="example-tag">Tazas</span> <span class="example-tag">Termos</span>
       </p>
-      <DataTable columns={categoryColumns}>
-        <tr id="categories-loading"><td colspan="5" class="empty-cell">Cargando...</td></tr>
-      </DataTable>
+      <DataTable id="categories-table" columns={categoryColumns} emptyMessage="No hay categorías" ariaLabel="Lista de categorías" />
     </div>
 
     <!-- Subcategories Tab -->
@@ -97,9 +93,7 @@ const subcategoryColumns = [
       <p class="body-md examples">
         Ej: <span class="example-tag">Anime</span> <span class="example-tag">Frases</span> <span class="example-tag">Tazas Mágicas</span>
       </p>
-      <DataTable columns={subcategoryColumns}>
-        <tr id="subcategories-loading"><td colspan="5" class="empty-cell">Cargando...</td></tr>
-      </DataTable>
+      <DataTable id="subcategories-table" columns={subcategoryColumns} emptyMessage="No hay subcategorías" ariaLabel="Lista de subcategorías" />
     </div>
 
     <!-- Modal -->
@@ -149,6 +143,7 @@ const subcategoryColumns = [
   import { wrapModal } from '../../lib/modalHelper';
   import { escapeHtml } from '../../lib/escape-html';
   import { getApiUrl } from '../../lib/api-url';
+  import { createDataTable } from '../../lib/data-table-widget';
   const catModal = wrapModal('modal-overlay');
 
   const API_URL = getApiUrl();
@@ -164,18 +159,21 @@ const subcategoryColumns = [
   }
 
   async function loadSections() {
+    sectionsTable.setLoading();
     const res = await fetch(`${API_URL}/api/admin/sections`, { credentials: 'include' });
     if (res.status === 401) { window.location.href = '/login'; return; }
     if (res.ok) { const data = await res.json(); sections = data.sections || []; renderSections(); }
   }
 
   async function loadCategories() {
+    categoriesTable.setLoading();
     const res = await fetch(`${API_URL}/api/admin/categories`, { credentials: 'include' });
     if (res.status === 401) { window.location.href = '/login'; return; }
     if (res.ok) { const data = await res.json(); categories = data.categories || []; renderCategories(); }
   }
 
   async function loadSubcategories() {
+    subcategoriesTable.setLoading();
     const res = await fetch(`${API_URL}/api/admin/subcategories`, { credentials: 'include' });
     if (res.status === 401) { window.location.href = '/login'; return; }
     if (res.ok) { const data = await res.json(); subcategories = data.subcategories || []; renderSubcategories(); }
@@ -201,89 +199,120 @@ const subcategoryColumns = [
   }
 
   function renderSections() {
-    const tbody = document.querySelector('#tab-sections tbody');
-    if (!tbody) return;
-    if (sections.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No hay secciones</td></tr>'; return; }
-    tbody.innerHTML = sections.map((s) => {
-      const isActive = !!s.is_active;
-      const statusBadge = isActive
-        ? `<span class="badge badge--active"><span class="badge-dot"></span>Activo</span>`
-        : `<span class="badge badge--inactive"><span class="badge-dot"></span>Inactivo</span>`;
-      const actionBtn = isActive
-        ? `<button class="ta-btn ta-btn--delete" onclick="deleteItem('section','${escapeHtml(s.id)}')" title="Desactivar">🗑️</button>`
-        : `<button class="ta-btn ta-btn--warning" onclick="toggleStatus('${escapeHtml(s.id)}', true, 'section')" title="Reactivar">🔄</button>`;
-      return `<tr class="${isActive ? '' : 'row--inactive'}">
-        <td data-label="Nombre"><strong>${escapeHtml(s.name)}</strong></td>
-        <td data-label="Slug"><code class="slug-badge">${escapeHtml(s.slug)}</code></td>
-        <td data-label="Descripción">${escapeHtml(s.description) || '—'}</td>
-        <td data-label="Estado">${statusBadge}</td>
-        <td data-label="Acciones">
-          <div class="cell-actions">
-            <button class="ta-btn" onclick="editItem('section','${escapeHtml(s.id)}')" title="Editar">✏️</button>
-            ${actionBtn}
-          </div>
-        </td>
-      </tr>`;
-    }).join('');
+    sectionsTable.setRows(sections);
   }
 
   function renderCategories() {
-    const tbody = document.querySelector('#tab-categories tbody');
-    if (!tbody) return;
-    if (categories.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No hay categorías</td></tr>'; return; }
-    tbody.innerHTML = categories.map((c) => {
-      const sec = sections.find((s) => s.id === c.section_id);
-      const parentInactive = !!sec && sec.is_active === 0;
-      const isActive = !!c.is_active;
-      const statusBadge = parentInactive
-        ? `<span class="badge badge--inactive"><span class="badge-dot"></span>Padre inactivo</span>`
-        : isActive
-          ? `<span class="badge badge--active"><span class="badge-dot"></span>Activo</span>`
-          : `<span class="badge badge--inactive"><span class="badge-dot"></span>Inactivo</span>`;
-      const actionBtn = parentInactive || !isActive
-        ? `<button class="ta-btn ta-btn--warning" onclick="toggleStatus('${escapeHtml(c.id)}', true, 'category')" title="Reactivar">🔄</button>`
-        : `<button class="ta-btn ta-btn--delete" onclick="deleteItem('category','${escapeHtml(c.id)}')" title="Desactivar">🗑️</button>`;
-      return `<tr class="${parentInactive || !isActive ? 'row--inactive' : ''}">
-        <td data-label="Nombre"><strong>${escapeHtml(c.name)}</strong></td>
-        <td data-label="Sección"><span class="parent-badge">${escapeHtml(sec?.name) || '—'}</span></td>
-        <td data-label="Slug"><code class="slug-badge">${escapeHtml(c.slug)}</code></td>
-        <td data-label="Estado">${statusBadge}</td>
-        <td data-label="Acciones"><div class="cell-actions">
-          <button class="ta-btn" onclick="editItem('category','${escapeHtml(c.id)}')" title="Editar">✏️</button>
-          ${actionBtn}
-        </div></td>
-      </tr>`;
-    }).join('');
+    categoriesTable.setRows(categories);
   }
 
   function renderSubcategories() {
-    const tbody = document.querySelector('#tab-subcategories tbody');
-    if (!tbody) return;
-    if (subcategories.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No hay subcategorías</td></tr>'; return; }
-    tbody.innerHTML = subcategories.map((s) => {
-      const cat = categories.find((c) => c.id === s.category_id);
-      const parentInactive = !!cat && cat.is_active === 0;
-      const isActive = !!s.is_active;
-      const statusBadge = parentInactive
-        ? `<span class="badge badge--inactive"><span class="badge-dot"></span>Padre inactivo</span>`
-        : isActive
-          ? `<span class="badge badge--active"><span class="badge-dot"></span>Activo</span>`
-          : `<span class="badge badge--inactive"><span class="badge-dot"></span>Inactivo</span>`;
-      const actionBtn = parentInactive || !isActive
-        ? `<button class="ta-btn ta-btn--warning" onclick="toggleStatus('${escapeHtml(s.id)}', true, 'subcategory')" title="Reactivar">🔄</button>`
-        : `<button class="ta-btn ta-btn--delete" onclick="deleteItem('subcategory','${escapeHtml(s.id)}')" title="Desactivar">🗑️</button>`;
-      return `<tr class="${parentInactive || !isActive ? 'row--inactive' : ''}">
-        <td data-label="Nombre"><strong>${escapeHtml(s.name)}</strong></td>
-        <td data-label="Categoría"><span class="parent-badge">${escapeHtml(cat?.name) || '—'}</span></td>
-        <td data-label="Slug"><code class="slug-badge">${escapeHtml(s.slug)}</code></td>
-        <td data-label="Estado">${statusBadge}</td>
-        <td data-label="Acciones"><div class="cell-actions">
-          <button class="ta-btn" onclick="editItem('subcategory','${escapeHtml(s.id)}')" title="Editar">✏️</button>
-          ${actionBtn}
-        </div></td>
-      </tr>`;
-    }).join('');
+    subcategoriesTable.setRows(subcategories);
   }
+
+  const activeBadge = `<span class="badge badge--active"><span class="badge-dot"></span>Activo</span>`;
+  const inactiveBadge = `<span class="badge badge--inactive"><span class="badge-dot"></span>Inactivo</span>`;
+  const parentInactiveBadge = `<span class="badge badge--inactive"><span class="badge-dot"></span>Padre inactivo</span>`;
+
+  function renderSectionCell(col: any, s: any): string {
+    const isActive = !!s.is_active;
+    switch (col.key) {
+      case 'name':
+        return `<strong>${escapeHtml(s.name)}</strong>`;
+      case 'slug':
+        return `<code class="slug-badge">${escapeHtml(s.slug)}</code>`;
+      case 'description':
+        return escapeHtml(s.description) || '—';
+      case 'status':
+        return isActive ? activeBadge : inactiveBadge;
+      case 'actions':
+        return `<div class="cell-actions">
+          <button class="ta-btn" onclick="editItem('section','${escapeHtml(s.id)}')" title="Editar">✏️</button>
+          ${isActive
+            ? `<button class="ta-btn ta-btn--delete" onclick="deleteItem('section','${escapeHtml(s.id)}')" title="Desactivar">🗑️</button>`
+            : `<button class="ta-btn ta-btn--warning" onclick="toggleStatus('${escapeHtml(s.id)}', true, 'section')" title="Reactivar">🔄</button>`}
+        </div>`;
+      default:
+        return '';
+    }
+  }
+
+  function renderCategoryCell(col: any, c: any): string {
+    const isActive = !!c.is_active;
+    const sec = sections.find((s: any) => s.id === c.section_id);
+    const parentInactive = !!sec && sec.is_active === 0;
+    switch (col.key) {
+      case 'name':
+        return `<strong>${escapeHtml(c.name)}</strong>`;
+      case 'section':
+        return `<span class="parent-badge">${escapeHtml(sec?.name) || '—'}</span>`;
+      case 'slug':
+        return `<code class="slug-badge">${escapeHtml(c.slug)}</code>`;
+      case 'status':
+        return parentInactive ? parentInactiveBadge : isActive ? activeBadge : inactiveBadge;
+      case 'actions':
+        return `<div class="cell-actions">
+          <button class="ta-btn" onclick="editItem('category','${escapeHtml(c.id)}')" title="Editar">✏️</button>
+          ${parentInactive || !isActive
+            ? `<button class="ta-btn ta-btn--warning" onclick="toggleStatus('${escapeHtml(c.id)}', true, 'category')" title="Reactivar">🔄</button>`
+            : `<button class="ta-btn ta-btn--delete" onclick="deleteItem('category','${escapeHtml(c.id)}')" title="Desactivar">🗑️</button>`}
+        </div>`;
+      default:
+        return '';
+    }
+  }
+
+  function renderSubcategoryCell(col: any, s: any): string {
+    const isActive = !!s.is_active;
+    const cat = categories.find((c: any) => c.id === s.category_id);
+    const parentInactive = !!cat && cat.is_active === 0;
+    switch (col.key) {
+      case 'name':
+        return `<strong>${escapeHtml(s.name)}</strong>`;
+      case 'category':
+        return `<span class="parent-badge">${escapeHtml(cat?.name) || '—'}</span>`;
+      case 'slug':
+        return `<code class="slug-badge">${escapeHtml(s.slug)}</code>`;
+      case 'status':
+        return parentInactive ? parentInactiveBadge : isActive ? activeBadge : inactiveBadge;
+      case 'actions':
+        return `<div class="cell-actions">
+          <button class="ta-btn" onclick="editItem('subcategory','${escapeHtml(s.id)}')" title="Editar">✏️</button>
+          ${parentInactive || !isActive
+            ? `<button class="ta-btn ta-btn--warning" onclick="toggleStatus('${escapeHtml(s.id)}', true, 'subcategory')" title="Reactivar">🔄</button>`
+            : `<button class="ta-btn ta-btn--delete" onclick="deleteItem('subcategory','${escapeHtml(s.id)}')" title="Desactivar">🗑️</button>`}
+        </div>`;
+      default:
+        return '';
+    }
+  }
+
+  const sectionsTable = createDataTable({
+    container: document.getElementById('sections-table')!,
+    renderCell: renderSectionCell,
+    rowClass: (s: any) => (s.is_active ? '' : 'row--inactive'),
+    emptyMessage: 'No hay secciones',
+  });
+
+  const categoriesTable = createDataTable({
+    container: document.getElementById('categories-table')!,
+    renderCell: renderCategoryCell,
+    rowClass: (c: any) => {
+      const sec = sections.find((s: any) => s.id === c.section_id);
+      return !!sec && sec.is_active === 0 || !c.is_active ? 'row--inactive' : '';
+    },
+    emptyMessage: 'No hay categorías',
+  });
+
+  const subcategoriesTable = createDataTable({
+    container: document.getElementById('subcategories-table')!,
+    renderCell: renderSubcategoryCell,
+    rowClass: (s: any) => {
+      const cat = categories.find((c: any) => c.id === s.category_id);
+      return !!cat && cat.is_active === 0 || !s.is_active ? 'row--inactive' : '';
+    },
+    emptyMessage: 'No hay subcategorías',
+  });
 
   function openModal(type: string, mode: string, data?: any) {
     const overlay = document.getElementById('modal-overlay');

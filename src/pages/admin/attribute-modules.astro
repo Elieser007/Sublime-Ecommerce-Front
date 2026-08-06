@@ -13,11 +13,11 @@ import Button from '../../components/Button.astro';
 
 
 const moduleColumns = [
-  { key: 'name', label: 'Nombre' },
-  { key: 'slug', label: 'Slug' },
+  { key: 'name', label: 'Nombre', sortable: true },
+  { key: 'slug', label: 'Slug', sortable: true },
   { key: 'component', label: 'Componente' },
-  { key: 'values', label: 'Valores', width: '80px' },
-  { key: 'order', label: 'Orden', width: '70px' },
+  { key: 'values', label: 'Valores', width: '80px', align: 'center' },
+  { key: 'order', label: 'Orden', width: '70px', align: 'center' },
   { key: 'status', label: 'Estado' },
   { key: 'actions', label: 'Acciones', width: '100px' },
 ];
@@ -54,9 +54,7 @@ const COMPONENT_OPTIONS = [
     </div>
 
     <!-- Modules Table -->
-    <DataTable columns={moduleColumns}>
-      <tr id="modules-loading"><td colspan="7" class="empty-cell">Cargando módulos...</td></tr>
-    </DataTable>
+    <DataTable id="modules-table" columns={moduleColumns} emptyMessage="No hay módulos de atributos" ariaLabel="Lista de módulos de atributos" />
 
     <!-- Module Modal -->
     <div class="modal-overlay" id="module-modal" style="display: none;">
@@ -143,6 +141,7 @@ const COMPONENT_OPTIONS = [
 <script>
   import { getApiUrl } from '../../lib/api-url';
   import { escapeHtml } from '../../lib/escape-html';
+  import { createDataTable } from '../../lib/data-table-widget';
   const API_URL = getApiUrl();
   let modules: any[] = [];
   let expandedModuleId: string | null = null;
@@ -184,9 +183,6 @@ const COMPONENT_OPTIONS = [
 
   // ─── Render modules table ────────────────────────────────
   function renderModules() {
-    const tbody = document.querySelector('#tab-modules tbody, .dt-table tbody');
-    if (!tbody) return;
-
     const search = (document.getElementById('search-input') as HTMLInputElement)?.value || '';
     let filtered = modules;
     if (search.trim()) {
@@ -198,40 +194,7 @@ const COMPONENT_OPTIONS = [
       );
     }
 
-    if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No hay módulos de atributos</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = filtered.map((m: any) => {
-      const componentLabel = COMPONENT_LABELS[m.frontend_component] || m.frontend_component;
-      const isExpanded = expandedModuleId === m.id;
-      const statusClass = m.is_active ? 'active' : 'inactive';
-      const statusLabel = m.is_active ? 'Activo' : 'Inactivo';
-
-      return `
-        <tr class="module-row ${isExpanded ? 'expanded' : ''}" data-module-id="${escapeHtml(m.id)}">
-          <td data-label="Nombre">
-            <button class="expand-btn" onclick="toggleExpand('${escapeHtml(m.id)}')" title="Ver valores">
-              <span class="expand-icon">${isExpanded ? '▼' : '▶'}</span>
-              <strong>${escapeHtml(m.name)}</strong>
-            </button>
-          </td>
-          <td data-label="Slug"><code class="slug-badge">${escapeHtml(m.slug)}</code></td>
-          <td data-label="Componente"><span class="component-badge">${escapeHtml(componentLabel)}</span></td>
-          <td data-label="Valores" class="center">${m.value_count ?? 0}</td>
-          <td data-label="Orden" class="center">${m.sort_order}</td>
-          <td data-label="Estado"><span class="badge badge--${escapeHtml(statusClass)}"><span class="badge-dot"></span>${escapeHtml(statusLabel)}</span></td>
-          <td data-label="Acciones">
-            <div class="cell-actions">
-              <button class="ta-btn" onclick="editModule('${escapeHtml(m.id)}')" title="Editar">✏️</button>
-              <button class="ta-btn ta-btn--delete" onclick="deleteModule('${escapeHtml(m.id)}')" title="Eliminar">🗑️</button>
-            </div>
-          </td>
-        </tr>
-        ${isExpanded ? `<tr class="values-row"><td colspan="7"><div class="values-panel" id="values-${escapeHtml(m.id)}"><div class="values-loading">Cargando valores...</div></div></td></tr>` : ''}
-      `;
-    }).join('');
+    modulesTable.setRows(filtered);
 
     // Load values for expanded module
     if (expandedModuleId) {
@@ -242,6 +205,48 @@ const COMPONENT_OPTIONS = [
       }
     }
   }
+
+  function renderModuleCell(col: any, m: any): string {
+    const componentLabel = COMPONENT_LABELS[m.frontend_component] || m.frontend_component;
+    const isExpanded = expandedModuleId === m.id;
+    const statusClass = m.is_active ? 'active' : 'inactive';
+    const statusLabel = m.is_active ? 'Activo' : 'Inactivo';
+    switch (col.key) {
+      case 'name':
+        return `<button class="expand-btn" onclick="toggleExpand('${escapeHtml(m.id)}')" title="Ver valores">
+          <span class="expand-icon">${isExpanded ? '▼' : '▶'}</span>
+          <strong>${escapeHtml(m.name)}</strong>
+        </button>`;
+      case 'slug':
+        return `<code class="slug-badge">${escapeHtml(m.slug)}</code>`;
+      case 'component':
+        return `<span class="component-badge">${escapeHtml(componentLabel)}</span>`;
+      case 'values':
+        return `${m.value_count ?? 0}`;
+      case 'order':
+        return `${m.sort_order}`;
+      case 'status':
+        return `<span class="badge badge--${escapeHtml(statusClass)}"><span class="badge-dot"></span>${escapeHtml(statusLabel)}</span>`;
+      case 'actions':
+        return `<div class="cell-actions">
+          <button class="ta-btn" onclick="editModule('${escapeHtml(m.id)}')" title="Editar">✏️</button>
+          <button class="ta-btn ta-btn--delete" onclick="deleteModule('${escapeHtml(m.id)}')" title="Eliminar">🗑️</button>
+        </div>`;
+      default:
+        return '';
+    }
+  }
+
+  const modulesTable = createDataTable({
+    container: document.getElementById('modules-table')!,
+    renderCell: renderModuleCell,
+    rowClass: (m: any) => `module-row${expandedModuleId === m.id ? ' expanded' : ''}`,
+    renderRowSuffix: (m: any) =>
+      expandedModuleId === m.id
+        ? `<tr class="values-row"><td colspan="7"><div class="values-panel" id="values-${escapeHtml(m.id)}"><div class="values-loading">Cargando valores...</div></div></td></tr>`
+        : '',
+    emptyMessage: 'No hay módulos de atributos',
+  });
 
   // ─── Render values panel ─────────────────────────────────
   function renderValues(moduleId: string) {
