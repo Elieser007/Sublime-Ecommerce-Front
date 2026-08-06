@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { escapeHtml, sanitizeUrl } from "./escape-html";
+import { escapeHtml, sanitizeUrl, sanitizePromoUrl } from "./escape-html";
 
 describe("escapeHtml", () => {
   it("escapes ampersands", () => {
@@ -94,5 +94,42 @@ describe("sanitizeUrl", () => {
 
   it("allows http with normal internal spaces in path", () => {
     expect(sanitizeUrl("https://example.com/path with spaces")).toBe("https://example.com/path with spaces");
+  });
+});
+
+describe("sanitizePromoUrl", () => {
+  it("keeps absolute https URLs", () => {
+    expect(sanitizePromoUrl("https://wa.me/595991969608")).toBe(
+      "https://wa.me/595991969608"
+    );
+  });
+
+  it("keeps absolute http URLs", () => {
+    expect(sanitizePromoUrl("http://example.com/campaign")).toBe(
+      "http://example.com/campaign"
+    );
+  });
+
+  it("rejects bare domains like google.com", () => {
+    expect(sanitizePromoUrl("google.com")).toBe("#");
+  });
+
+  it("rejects /google.com style junk", () => {
+    expect(sanitizePromoUrl("/google.com")).toBe("#");
+  });
+
+  it("rejects relative paths", () => {
+    expect(sanitizePromoUrl("/promo")).toBe("#");
+  });
+
+  it("rejects null and empty values", () => {
+    expect(sanitizePromoUrl(null)).toBe("#");
+    expect(sanitizePromoUrl(undefined)).toBe("#");
+    expect(sanitizePromoUrl("")).toBe("#");
+  });
+
+  it("rejects dangerous protocols", () => {
+    expect(sanitizePromoUrl("javascript:alert(1)")).toBe("#");
+    expect(sanitizePromoUrl("data:text/html,<script>alert(1)</script>")).toBe("#");
   });
 });

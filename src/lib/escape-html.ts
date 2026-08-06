@@ -46,3 +46,16 @@ export function sanitizeUrl(url: string | null | undefined): string {
   if (/^(https?:\/\/|\/)/.test(trimmed)) return trimmed;
   return "#";
 }
+
+/**
+ * Sanitize a promotion link for use in an href attribute.
+ * Promotions are campaign links, so only absolute http/https URLs
+ * are valid; bare domains ("google.com"), relative paths and other
+ * protocols are dropped (returns "#").
+ */
+export function sanitizePromoUrl(url: string | null | undefined): string {
+  if (!url) return "#";
+  const trimmed = url.trim();
+  if (/^https?:\/\/\S+/.test(trimmed)) return trimmed;
+  return "#";
+}

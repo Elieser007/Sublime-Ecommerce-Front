@@ -108,7 +108,7 @@ const basePriceFormatted = formatPrice(product.base_price);
         <!-- Volume Price Tier Table -->
         <div id="volume-price-section">
           {tiers.length > 0 && (
-            <PriceTierList priceTiers={tiers} selectedQty={1} basePrice={product.base_price} client:load />
+            <PriceTierList priceTiers={tiers} selectedQty={1} basePrice={product.base_price} />
           )}
         </div>
 

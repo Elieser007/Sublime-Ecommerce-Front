@@ -42,8 +42,8 @@ describe("[slug].astro server-rendered volume UI (D2)", () => {
     expect(detailSource).not.toContain("<VolumePriceSelector");
   });
 
-  it("hydrates the tier list island with client:load", () => {
-    expect(detailSource).toContain("client:load");
+  it("does not hydrate the Astro component with client:load", () => {
+    expect(detailSource).not.toContain("client:load");
   });
 
   it("no longer wires the volume-tier-change event", () => {

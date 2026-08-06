@@ -616,6 +616,7 @@ import CartSummary from '../components/CartSummary.astro';
   import { getCart, updateCartQuantity, removeFromCart, formatPrice } from '../lib/cart.js';
   import { getEffectivePrice, getItemTotal, getCartTierBadge } from '../lib/cart-utils';
   import { escapeHtml } from '../lib/escape-html';
+  import { getProductImageUrl } from '../lib/public-api';
 
   function renderEmptyState(container: HTMLElement) {
     container.innerHTML = `
@@ -664,7 +665,7 @@ import CartSummary from '../components/CartSummary.astro';
     return `
       <div class="cart-item" data-product-id="${safeKey}">
         <div class="cart-item-image">
-          <img src="${escapeHtml(item.image)}" alt="${safeName}" width="80" height="80" loading="lazy" />
+          <img src="${escapeHtml(getProductImageUrl(item.image))}" alt="${safeName}" width="80" height="80" loading="lazy" />
         </div>
         <div class="cart-item-info">
           <h3 class="cart-item-name">${safeName}</h3>

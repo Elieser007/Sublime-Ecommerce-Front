@@ -179,7 +179,8 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 </AdminLayout>
 
 <script>
-  import { escapeHtml } from '../../lib/escape-html';
+  import { escapeHtml, sanitizePromoUrl } from '../../lib/escape-html';
+  import { getProductImageUrl } from '../../lib/public-api';
   import { uploadImageBlob, associateImage, deleteImage, fetchEntityImages } from '../../lib/image-utils';
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
@@ -296,7 +297,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
     $('promos-list')!.innerHTML = promotions.map((p: any) => `
       <div class="promo-card" data-id="${escapeHtml(p.id)}">
         <div class="promo-card-img">
-          <img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.title || '')}" />
+          <img src="${escapeHtml(getProductImageUrl(p.imageUrl))}" alt="${escapeHtml(p.title || '')}" />
         </div>
         <div class="promo-card-info">
           <strong class="body-md">${escapeHtml(p.title || '(sin título)')}</strong>
@@ -328,7 +329,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       const col = (pt.position % gridCols) + 1;
       const row = Math.floor(pt.position / gridCols) + 1;
       const span = pt.tileCols || 1;
-      html += `<div class="tile" style="grid-column:${col}/span ${span};grid-row:${row}/span ${pt.tileRows || 1};"><div class="tile-bg" style="background-image:url('${escapeHtml(pt.imageUrl)}')"></div><div class="tile-overlay"></div><div class="tile-content">${pt.title ? `<h3 class="tile-title">${escapeHtml(pt.title)}</h3>` : ''}${pt.subtitle ? `<p class="tile-desc">${escapeHtml(pt.subtitle)}</p>` : ''}</div><a href="${escapeHtml(pt.link)}" class="tile-link" aria-label="${escapeHtml(pt.title || 'Promocion')}"></a></div>`;
+      html += `<div class="tile" style="grid-column:${col}/span ${span};grid-row:${row}/span ${pt.tileRows || 1};"><div class="tile-bg" style="background-image:url('${escapeHtml(getProductImageUrl(pt.imageUrl))}')"></div><div class="tile-overlay"></div><div class="tile-content">${pt.title ? `<h3 class="tile-title">${escapeHtml(pt.title)}</h3>` : ''}${pt.subtitle ? `<p class="tile-desc">${escapeHtml(pt.subtitle)}</p>` : ''}</div><a href="${escapeHtml(sanitizePromoUrl(pt.link))}" class="tile-link" aria-label="${escapeHtml(pt.title || 'Promocion')}"></a></div>`;
     });
     html += '</div>';
     container.innerHTML = html;
