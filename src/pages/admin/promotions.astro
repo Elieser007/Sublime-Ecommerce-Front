@@ -449,12 +449,22 @@ import PromotionWall from '../../components/PromotionWall.astro';
             <span class="body-xs">${escapeHtml(p.link)}</span>
           </div>
           <span class="badge badge--active">#${i + 1}</span>
+          <button type="button" class="strip-delete" data-action="delete" data-local-key="${escapeHtml(localKey(p))}" aria-label="Eliminar anuncio">🗑</button>
         </div>
       `;
     }).join('');
 
     strip.querySelectorAll<HTMLElement>('.strip-item').forEach((item) => {
       item.addEventListener('pointerdown', beginStripPointerSession);
+    });
+    strip.querySelectorAll<HTMLElement>('[data-action="delete"]').forEach((btn) => {
+      const key = btn.dataset.localKey;
+      if (!key) return;
+      btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        doRemove(key);
+      });
     });
   }
 
@@ -553,6 +563,14 @@ import PromotionWall from '../../components/PromotionWall.astro';
       const key = btn.dataset.localKey;
       const p = key ? state!.promotions.find((pp) => localKey(pp) === key) : undefined;
       if (p) btn.addEventListener('click', () => openModal(true, p));
+    });
+    list.querySelectorAll<HTMLElement>('[data-action="delete"]').forEach((btn) => {
+      const key = btn.dataset.localKey;
+      const p = key ? state!.promotions.find((pp) => localKey(pp) === key) : undefined;
+      if (p) btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        doRemove(key);
+      });
     });
   }
 
@@ -1502,6 +1520,13 @@ import PromotionWall from '../../components/PromotionWall.astro';
   .strip-info strong { color: var(--on-surface); }
   .strip-noimg { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 40px; background: var(--surface-container-high); color: var(--on-surface-variant); font-size: 10px; }
   .strip-hint { color: var(--on-surface-variant); }
+  .strip-delete {
+    width: 28px; height: 28px;
+    background: transparent; border: 1px solid var(--outline-variant);
+    color: var(--on-surface-variant); cursor: pointer; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .strip-delete:hover { border-color: var(--error); color: var(--error); }
 
   /* ─── Simple surface (hero/banner) ───────────────────────────── */
   .simple-list { display: flex; flex-direction: column; gap: var(--space-sm); }

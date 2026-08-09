@@ -320,6 +320,29 @@ describe("promotions.astro — per-item banner edit binding", () => {
   });
 });
 
+describe("promotions.astro — per-item delete affordances", () => {
+  it("emits a per-item delete button in the reorder strip, wired to doRemove by localKey", () => {
+    // Strip items are never selectable, so Delete-key removal is unreachable:
+    // each item carries its own 🗑 button bound to doRemove with that item's
+    // localKey. The binding must stop pointerdown propagation so the button
+    // does not start the reorder session, and stop click propagation so the
+    // tap does not open the edit modal.
+    expect(pageSource).toMatch(/class="strip-delete"[^>]*data-action="delete"[^>]*data-local-key="/);
+    expect(pageSource).toMatch(/\[data-action="delete"\]/);
+    expect(pageSource).toMatch(/btn\.addEventListener\('pointerdown', \(e\) => e\.stopPropagation\(\)\)/);
+    expect(pageSource).toMatch(/e\.stopPropagation\(\);\s*\n\s*doRemove\(key\)/);
+  });
+
+  it("emits a delete affordance per item in the hero/banner preview builder, bound to doRemove", () => {
+    expect(previewSource).toContain('data-action="delete"');
+    expect(previewSource).toContain('data-local-key="${escapeHtml(key)}"');
+    expect(previewSource).toMatch(/deleteAffordance\(first\.id\)/);
+    expect(previewSource).toMatch(/deleteAffordance\(pt\.id\)/);
+    expect(pageSource).toMatch(/\[data-action="delete"\]/);
+    expect(pageSource).toMatch(/if \(p\) btn\.addEventListener\('click', \(e\) => \{\s*\n\s*e\.stopPropagation\(\);\s*\n\s*doRemove\(key\);/);
+  });
+});
+
 describe("promotions.astro — canvas observer guard and empty-cell add", () => {
   it("guards the canvas MutationObserver against a null canvas and disconnects it on SPA teardown (FIX-1)", () => {
     // ClientRouter re-runs this script on every page-load: navigating away

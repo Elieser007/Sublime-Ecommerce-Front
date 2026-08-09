@@ -236,4 +236,19 @@ describe("buildPromoPreviewHtml editor chrome", () => {
       expect(html).toContain('data-action="edit"');
     }
   });
+
+  it("adds a key-carrying delete affordance to every hero/banner item", () => {
+    const heroHtml = buildPromoPreviewHtml("hero", [promo({ id: "h1" })], 4);
+    expect(heroHtml).toContain('class="pv-delete"');
+    expect(heroHtml).toContain('data-action="delete"');
+    expect(heroHtml).toContain('data-local-key="h1"');
+
+    const bannerHtml = buildPromoPreviewHtml("banner", [
+      promo({ id: "b1" }),
+      promo({ id: "b2" }),
+    ], 4);
+    expect(bannerHtml).toContain('data-local-key="b1"');
+    expect(bannerHtml).toContain('data-local-key="b2"');
+    expect(bannerHtml).toContain('aria-label="Eliminar anuncio"');
+  });
 });

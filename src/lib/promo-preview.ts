@@ -20,13 +20,17 @@ function editAffordance(key: string): string {
   return `<button type="button" class="pv-edit" data-action="edit" data-local-key="${escapeHtml(key)}" aria-label="Editar anuncio" style="position:absolute;top:8px;right:8px;z-index:20;">✎</button>`;
 }
 
+function deleteAffordance(key: string): string {
+  return `<button type="button" class="pv-delete" data-action="delete" data-local-key="${escapeHtml(key)}" aria-label="Eliminar anuncio" style="position:absolute;top:8px;right:44px;z-index:20;">🗑</button>`;
+}
+
 function imageAttr(p: PromoPreview): string {
   return escapeHtml(resolvePromoImage(p));
 }
 
 function buildHero(first?: PromoPreview): string {
   if (!first) return "";
-  return `<div class="hero-promo"><div class="hero-bg" style="background-image:url('${imageAttr(first)}')"></div><div class="hero-overlay"></div><div class="hero-content">${first.title ? `<h2 class="hero-title">${escapeHtml(first.title)}</h2>` : ""}${first.subtitle ? `<p class="hero-desc">${escapeHtml(first.subtitle)}</p>` : ""}<a href="${escapeHtml(sanitizePromoUrl(first.link))}" class="hero-btn">Ver más</a></div>${editAffordance(first.id)}</div>`;
+  return `<div class="hero-promo"><div class="hero-bg" style="background-image:url('${imageAttr(first)}')"></div><div class="hero-overlay"></div><div class="hero-content">${first.title ? `<h2 class="hero-title">${escapeHtml(first.title)}</h2>` : ""}${first.subtitle ? `<p class="hero-desc">${escapeHtml(first.subtitle)}</p>` : ""}<a href="${escapeHtml(sanitizePromoUrl(first.link))}" class="hero-btn">Ver más</a></div>${editAffordance(first.id)}${deleteAffordance(first.id)}</div>`;
 }
 
 function buildCarousel(promotions: PromoPreview[]): string {
@@ -80,7 +84,7 @@ function buildSplit(promotions: PromoPreview[]): string {
 function buildBanner(promotions: PromoPreview[]): string {
   let html = `<div class="banner-promo">`;
   promotions.forEach((pt) => {
-    html += `<div class="banner-item-wrap" style="position:relative;"><a href="${escapeHtml(sanitizePromoUrl(pt.link))}" class="banner-item">${pt.title ? `<span class="banner-title">${escapeHtml(pt.title)}</span>` : ""}${pt.subtitle ? `<span class="banner-desc">${escapeHtml(pt.subtitle)}</span>` : ""}</a>${editAffordance(pt.id)}</div>`;
+    html += `<div class="banner-item-wrap" style="position:relative;"><a href="${escapeHtml(sanitizePromoUrl(pt.link))}" class="banner-item">${pt.title ? `<span class="banner-title">${escapeHtml(pt.title)}</span>` : ""}${pt.subtitle ? `<span class="banner-desc">${escapeHtml(pt.subtitle)}</span>` : ""}</a>${editAffordance(pt.id)}${deleteAffordance(pt.id)}</div>`;
   });
   html += `</div>`;
   return html;
