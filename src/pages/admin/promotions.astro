@@ -432,6 +432,23 @@ import PromotionWall from '../../components/PromotionWall.astro';
     }));
 
     container.innerHTML = renderGridLines(grid(), cell) + renderTileCanvasHtml(tiles, grid(), selectedId);
+    if (selectedId) {
+      const sel = container.querySelector<HTMLElement>(`.canvas-tile[data-id="${selectedId}"]`);
+      if (sel) {
+        const dup = document.createElement('button');
+        dup.type = 'button';
+        dup.className = 'tile-dup';
+        dup.dataset.action = 'duplicate';
+        dup.setAttribute('aria-label', 'Duplicar tile');
+        dup.textContent = '⧉';
+        dup.addEventListener('pointerdown', (e) => e.stopPropagation());
+        dup.addEventListener('click', (e) => {
+          e.stopPropagation();
+          doDuplicate(selectedId);
+        });
+        sel.appendChild(dup);
+      }
+    }
   }
 
   function renderStrip() {
@@ -807,8 +824,13 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
     const isUndo = (e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z');
     const isRedo = (e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y');
+    const isDuplicate = (e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D');
     if (isUndo) { e.preventDefault(); doUndo(); return; }
     if (isRedo) { e.preventDefault(); doRedo(); return; }
+    if (isDuplicate) {
+      if (selectedId && isTiles()) { e.preventDefault(); doDuplicate(selectedId); }
+      return;
+    }
 
     if (e.key === 'Escape') {
       selectedId = null;
@@ -885,7 +907,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (state !== prev) {
       history = pushHistory(history, prev);
       const added = state.promotions.find((p) => p.id === null && !prev.promotions.includes(p));
-      selectedId = added?.id || null;
+      selectedId = added ? localKey(added) : null;
       renderAll();
     }
   }
@@ -1434,6 +1456,15 @@ import PromotionWall from '../../components/PromotionWall.astro';
     min-width: 0;
   }
   .canvas-tile.selected { border-color: var(--secondary); box-shadow: 0 0 0 2px rgba(255, 176, 204, 0.4); }
+  .tile-dup {
+    position: absolute;
+    top: 8px; right: 8px;
+    width: 28px; height: 28px;
+    background: rgba(0,0,0,0.7); border: 1px solid var(--secondary);
+    color: var(--secondary); cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; z-index: 20;
+  }
+  .tile-dup:hover { background: var(--secondary); color: var(--on-secondary); }
   .tile-title {
     position: absolute;
     bottom: 4px; left: 6px; right: 6px;

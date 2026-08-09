@@ -74,6 +74,28 @@ describe("promotions.astro — keyboard interactions", () => {
   });
 });
 
+describe("promotions.astro — duplicate action bindings", () => {
+  it("adds a duplicate button to the selected-tile overlay in the tiles canvas", () => {
+    // The overlay button lives on the SELECTED tile only (doDuplicate is
+    // otherwise dead code). pointerdown propagation stops so the canvas
+    // pointer session does not hijack the click into an edit-modal tap.
+    expect(pageSource).toMatch(/dup\.dataset\.action = 'duplicate'/);
+    expect(pageSource).toMatch(/dup\.addEventListener\('pointerdown', \(e\) => e\.stopPropagation\(\)\)/);
+    expect(pageSource).toMatch(/doDuplicate\(selectedId\)/);
+  });
+
+  it("binds Ctrl/Cmd+D to duplicate the selected tile", () => {
+    expect(pageSource).toMatch(/const isDuplicate = \(e\.ctrlKey \|\| e\.metaKey\) && \(e\.key === 'd' \|\| e\.key === 'D'\)/);
+    expect(pageSource).toMatch(/if \(isDuplicate\) \{\s*\n\s*if \(selectedId && isTiles\(\)\) \{ e\.preventDefault\(\); doDuplicate\(selectedId\); \}/);
+  });
+
+  it("selects the duplicate copy by its fresh localKey after duplicating", () => {
+    // duplicatePromotion gives the copy a new localId/localKey (id stays null),
+    // so the overlay follows the copy via localKey(added), not added.id.
+    expect(pageSource).toContain("selectedId = added ? localKey(added) : null;");
+  });
+});
+
 describe("promotions.astro — local state and single commit", () => {
   it("builds state via createEditorState and tracks dirty", () => {
     expect(pageSource).toContain("createEditorState");
