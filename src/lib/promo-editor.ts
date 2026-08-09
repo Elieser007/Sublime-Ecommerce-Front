@@ -116,15 +116,21 @@ export function clearLocalImage(promo: EditorPromotion): EditorPromotion {
 
 export function orphanedDraftUrls(
   before: Array<{ localImageUrl?: string | null }>,
-  after: Array<{ localImageUrl?: string | null }>
+  after: Array<{ localImageUrl?: string | null }>,
+  history: EditorHistory = { past: [], future: [] }
 ): string[] {
-  const afterUrls = new Set<string>();
+  const live = new Set<string>();
   for (const p of after) {
-    if (p.localImageUrl) afterUrls.add(p.localImageUrl);
+    if (p.localImageUrl) live.add(p.localImageUrl);
+  }
+  for (const snap of [...history.past, ...history.future]) {
+    for (const p of snap.promotions) {
+      if (p.localImageUrl) live.add(p.localImageUrl);
+    }
   }
   const orphaned = new Set<string>();
   for (const p of before) {
-    if (p.localImageUrl && !afterUrls.has(p.localImageUrl)) orphaned.add(p.localImageUrl);
+    if (p.localImageUrl && !live.has(p.localImageUrl)) orphaned.add(p.localImageUrl);
   }
   return [...orphaned];
 }

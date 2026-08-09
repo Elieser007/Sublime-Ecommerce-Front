@@ -8,7 +8,7 @@
  * "Batch response sync" (applySavedResponse maps server truth to state).
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   createEditorState,
   createSnapshot,
@@ -534,6 +534,82 @@ describe("orphanedDraftUrls", () => {
   it("ignores promos with no draft in the after state", () => {
     const before = [{ localImageUrl: "blob:y" }];
     expect(orphanedDraftUrls(before, [{ localImageUrl: null }])).toEqual(["blob:y"]);
+  });
+});
+
+describe("orphanedDraftUrls (history-aware)", () => {
+  const draftUrl = "blob:https://example.com/history-draft";
+
+  function stateWithDraft(): PromoEditorState {
+    let state = createEditorState(section, [
+      serverPromo({ id: "p1", position: 0, posY: 0, tileCols: 2, tileRows: 1 }),
+    ]);
+    state = updatePromotion(state, "p1", { localImageUrl: draftUrl });
+    return state;
+  }
+
+  it("keeps a draft referenced by a history snapshot (undo can restore it)", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      const history: EditorHistory = {
+        past: [createSnapshot(stateWithDraft())],
+        future: [],
+      };
+      const orphans = orphanedDraftUrls([{ localImageUrl: draftUrl }], [], history);
+      orphans.forEach((u) => URL.revokeObjectURL(u));
+      expect(orphans).toEqual([]);
+      expect(revoke).not.toHaveBeenCalled();
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("orphans the draft once the redo future that referenced it is cleared", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      const future: EditorHistory = {
+        past: [],
+        future: [createSnapshot(stateWithDraft())],
+      };
+      expect(orphanedDraftUrls([{ localImageUrl: draftUrl }], [], future)).toEqual([]);
+      const cleared = pushHistory(createHistory(), createEditorState(section, []));
+      const orphans = orphanedDraftUrls([{ localImageUrl: draftUrl }], [], cleared);
+      orphans.forEach((u) => URL.revokeObjectURL(u));
+      expect(orphans).toEqual([draftUrl]);
+      expect(revoke).toHaveBeenCalledWith(draftUrl);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("orphans current-state-only drafts when removed", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      const orphans = orphanedDraftUrls(
+        [{ localImageUrl: "blob:https://example.com/current" }],
+        [],
+        createHistory()
+      );
+      orphans.forEach((u) => URL.revokeObjectURL(u));
+      expect(orphans).toEqual(["blob:https://example.com/current"]);
+      expect(revoke).toHaveBeenCalledWith("blob:https://example.com/current");
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("keeps the source draft alive while its duplicate also references it", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      const state = stateWithDraft();
+      const duped = duplicatePromotion(state, "p1");
+      const orphans = orphanedDraftUrls([state.promotions[0]], duped.promotions, createHistory());
+      orphans.forEach((u) => URL.revokeObjectURL(u));
+      expect(orphans).toEqual([]);
+      expect(revoke).not.toHaveBeenCalled();
+    } finally {
+      revoke.mockRestore();
+    }
   });
 });
 
