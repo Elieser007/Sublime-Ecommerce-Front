@@ -257,6 +257,28 @@ describe("promotions.astro — draft object-URL lifecycle", () => {
   });
 });
 
+describe("promotions.astro — history-aware draft revocation (W-UNDO-REVOKED)", () => {
+  it("submit revokes the replaced draft only when no state, history snapshot, or pushed prev references it", () => {
+    // The pre-modal draft is released only when nothing references it: not the
+    // current state, not the past/future stacks, not the prev snapshot about to
+    // be pushed — otherwise undo restores a revoked URL.
+    expect(pageSource).toMatch(
+      /if \(replacedDraft && !draftUrlReferenced\(replacedDraft, state\.promotions, history, \[prev\]\)\)/
+    );
+    expect(pageSource).toMatch(/URL\.revokeObjectURL\(replacedDraft\)/);
+    expect(pageSource).not.toMatch(/!state\.promotions\.some\(\(p\) => p\.localImageUrl === replacedDraft\)/);
+  });
+
+  it("doRemove scans orphans against the would-be history so undo can restore the removed draft", () => {
+    // The scan receives the history INCLUDING the prev snapshot about to be
+    // pushed, so the removed promo's draft stays live while undo can restore
+    // it instead of rendering a revoked tile.
+    expect(pageSource).toMatch(/const nextHistory = pushHistory\(history, prev\);/);
+    expect(pageSource).toMatch(/orphanedDraftUrls\(before, next\.promotions, nextHistory\)/);
+    expect(pageSource).not.toMatch(/orphanedDraftUrls\(before, next\.promotions\)\.forEach/);
+  });
+});
+
 describe("promotions.astro — per-item banner edit binding", () => {
   it("binds each edit affordance to the promo matching its data-local-key", () => {
     expect(pageSource).toMatch(/btn\.dataset\.localKey/);

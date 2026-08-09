@@ -794,9 +794,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
     const prev = state;
     const before = state.promotions;
     const next = removePromotion(state, id);
-    orphanedDraftUrls(before, next.promotions).forEach((u) => URL.revokeObjectURL(u));
+    const nextHistory = pushHistory(history, prev);
+    orphanedDraftUrls(before, next.promotions, nextHistory).forEach((u) => URL.revokeObjectURL(u));
     state = next;
-    history = pushHistory(history, prev);
+    history = nextHistory;
     selectedId = null;
     renderAll();
   }
@@ -1198,9 +1199,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
         };
         const replacedDraft = modalPrevDraftUrl && modalPrevDraftUrl !== modalDraftUrl ? modalPrevDraftUrl : null;
         state = updatePromotion(state, id, patch);
-        // The pre-modal draft left the promo (replaced or removed): release it
-        // unless another promo (duplicate) still references it.
-        if (replacedDraft && !state.promotions.some((p) => p.localImageUrl === replacedDraft)) {
+        // Release the pre-modal draft only when nothing references it: not the
+        // current state, not any past/future snapshot, not the prev about to be
+        // pushed — undo must be able to restore it.
+        if (replacedDraft && !draftUrlReferenced(replacedDraft, state.promotions, history, [prev])) {
           URL.revokeObjectURL(replacedDraft);
         }
       } else {

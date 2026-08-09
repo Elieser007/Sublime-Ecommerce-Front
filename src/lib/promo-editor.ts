@@ -135,6 +135,19 @@ export function orphanedDraftUrls(
   return [...orphaned];
 }
 
+export function draftUrlReferenced(
+  url: string,
+  after: Array<{ localImageUrl?: string | null }>,
+  history: EditorHistory = { past: [], future: [] },
+  pending: PromoEditorState[] = []
+): boolean {
+  if (after.some((p) => p.localImageUrl === url)) return true;
+  for (const snap of [...history.past, ...history.future, ...pending]) {
+    if (snap.promotions.some((p) => p.localImageUrl === url)) return true;
+  }
+  return false;
+}
+
 export function resolvePromoImage(promo: {
   localImageUrl?: string | null;
   imageUrl?: string | null;

@@ -37,6 +37,8 @@ import {
   clearLocalImage,
   resolvePromoImage,
   orphanedDraftUrls,
+  draftUrlReferenced,
+  HISTORY_LIMIT,
   type EditorSection,
   type EditorPromotion,
   type PromoEditorState,
@@ -607,6 +609,143 @@ describe("orphanedDraftUrls (history-aware)", () => {
       orphans.forEach((u) => URL.revokeObjectURL(u));
       expect(orphans).toEqual([]);
       expect(revoke).not.toHaveBeenCalled();
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+});
+
+describe("draftUrlReferenced", () => {
+  const draft = "blob:https://example.com/d1";
+  const alt = "blob:https://example.com/a";
+
+  function promoStateWith(localImageUrl: string | null): PromoEditorState {
+    let state = createEditorState(section, [
+      serverPromo({ id: "p1", position: 0, posY: 0, tileCols: 2, tileRows: 1 }),
+    ]);
+    state = updatePromotion(state, "p1", { localImageUrl });
+    return state;
+  }
+
+  it("returns true when the current state references the URL", () => {
+    const state = promoStateWith(draft);
+    expect(draftUrlReferenced(draft, state.promotions, createHistory(), [])).toBe(true);
+  });
+
+  it("returns true when a past snapshot references the URL", () => {
+    const history: EditorHistory = { past: [createSnapshot(promoStateWith(draft))], future: [] };
+    expect(draftUrlReferenced(draft, promoStateWith(alt).promotions, history, [])).toBe(true);
+  });
+
+  it("returns true when a future snapshot references the URL", () => {
+    const history: EditorHistory = { past: [], future: [createSnapshot(promoStateWith(draft))] };
+    expect(draftUrlReferenced(draft, promoStateWith(alt).promotions, history, [])).toBe(true);
+  });
+
+  it("returns true when the pending snapshot (about to be pushed) references the URL", () => {
+    const pending = promoStateWith(draft);
+    expect(draftUrlReferenced(draft, promoStateWith(alt).promotions, createHistory(), [pending])).toBe(true);
+  });
+
+  it("returns false when nothing references the URL", () => {
+    expect(draftUrlReferenced(draft, promoStateWith(alt).promotions, createHistory(), [])).toBe(false);
+  });
+});
+
+describe("history-aware draft revocation (W-UNDO-REVOKED)", () => {
+  const draft = "blob:https://example.com/d1";
+  const alt = "blob:https://example.com/a";
+
+  function promoStateWith(localImageUrl: string | null): PromoEditorState {
+    let state = createEditorState(section, [
+      serverPromo({ id: "p1", position: 0, posY: 0, tileCols: 2, tileRows: 1 }),
+    ]);
+    state = updatePromotion(state, "p1", { localImageUrl });
+    return state;
+  }
+
+  it("keeps D1 live across pick→submit→pick→submit when a history snapshot references it", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      // edit P, pick D1, submit → history.past holds a snapshot referencing D1.
+      let state = promoStateWith(draft);
+      let history = pushHistory(createHistory(), state);
+      // edit P again, pick A, submit → the submit guard must NOT revoke D1.
+      const prev = state;
+      state = updatePromotion(state, "p1", { localImageUrl: alt });
+      const replacedDraft = draft;
+      if (replacedDraft && !draftUrlReferenced(replacedDraft, state.promotions, history, [prev])) {
+        URL.revokeObjectURL(replacedDraft);
+      }
+      expect(revoke).not.toHaveBeenCalledWith(draft);
+      history = pushHistory(history, prev);
+      // Undo twice: the tile must still show the live D1 object URL each time.
+      const undone1 = undoEditor(history, state)!;
+      expect(undone1.state.promotions[0].localImageUrl).toBe(draft);
+      const undone2 = undoEditor(undone1.history, undone1.state)!;
+      expect(undone2.state.promotions[0].localImageUrl).toBe(draft);
+      expect(revoke).not.toHaveBeenCalledWith(draft);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("keeps the removed promo's draft live so undo restores it, then doSave revokes it", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      let state = promoStateWith(draft);
+      let history = createHistory();
+      // doRemove: the orphan scan sees the would-be history (prev included).
+      const prev = state;
+      const before = state.promotions;
+      const next = removePromotion(state, "p1");
+      const nextHistory = pushHistory(history, prev);
+      orphanedDraftUrls(before, next.promotions, nextHistory).forEach((u) => URL.revokeObjectURL(u));
+      expect(revoke).not.toHaveBeenCalledWith(draft);
+      history = nextHistory;
+      state = next;
+      // First Ctrl+Z restores the tile with the live draft URL.
+      const undone = undoEditor(history, state)!;
+      expect(undone.state.promotions[0].localImageUrl).toBe(draft);
+      // After doSave (history cleared), the post-save scan revokes the draft.
+      const preSavePromotions = undone.state.promotions;
+      const saved = applySavedResponse(undone.state, {
+        section,
+        promotions: [
+          {
+            id: "p1",
+            title: "Summer Sale",
+            subtitle: null,
+            imageUrl: "https://media.sublimepy.store/saved.webp",
+            link: "/products/remera",
+            position: 0,
+            posY: 0,
+            tileCols: 2,
+            tileRows: 1,
+          },
+        ],
+      });
+      orphanedDraftUrls(preSavePromotions, saved.promotions, createHistory()).forEach((u) => URL.revokeObjectURL(u));
+      expect(revoke).toHaveBeenCalledWith(draft);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("revokes the replaced draft at submit when nothing references it (history evicted)", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      let history: EditorHistory = createHistory();
+      for (let i = 0; i < HISTORY_LIMIT; i++) {
+        history = pushHistory(history, promoStateWith(alt));
+      }
+      const state = promoStateWith(alt);
+      const prev = state;
+      expect(draftUrlReferenced(draft, state.promotions, history, [prev])).toBe(false);
+      if (!draftUrlReferenced(draft, state.promotions, history, [prev])) {
+        URL.revokeObjectURL(draft);
+      }
+      expect(revoke).toHaveBeenCalledWith(draft);
     } finally {
       revoke.mockRestore();
     }
