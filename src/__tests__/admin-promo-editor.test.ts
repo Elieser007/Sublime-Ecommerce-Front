@@ -116,3 +116,37 @@ describe("promotions.astro — no dead code", () => {
     expect(pageSource).not.toMatch(/fetch\([^)]*\/api\/promotions['"]/);
   });
 });
+
+describe("promotions.astro — judgment-day fixes wiring", () => {
+  it("uses pointer-event reorder on the strip, not HTML5 drag-and-drop (F4)", () => {
+    expect(pageSource).toContain("beginStripPointerSession");
+    // Strip items are no longer HTML5-draggable (the image-upload area keeps
+    // its own File drop handler, so dataTransfer still appears once).
+    expect(pageSource).not.toContain("draggable=\"true\"");
+    expect(pageSource).not.toMatch(/strip-item.*draggable/s);
+    expect(pageSource).toContain("strip-item--target");
+  });
+
+  it("guards ClientRouter SPA navigation when dirty (F9)", () => {
+    expect(pageSource).toContain("composedPath");
+    expect(pageSource).toContain("beforeunload");
+    expect(pageSource).toContain("shouldWarnBeforeUnload");
+  });
+
+  it("validates titles per tile before Guardar (F10)", () => {
+    expect(pageSource).toContain("validatePromotionsForSave");
+  });
+
+  it("keys the edit modal by localKey so unsaved edits update in place (F5)", () => {
+    expect(pageSource).toContain("localKey");
+    expect(pageSource).toContain("updatePromotion(state, id, patch)");
+  });
+
+  it("captures R2 cleanup targets before applySavedResponse resets state (F6)", () => {
+    expect(pageSource).toContain("removedImageUrls");
+  });
+
+  it("associates uploaded images by server id, not response array index (F7)", () => {
+    expect(pageSource).toContain("for (const [serverId, url] of Object.entries(resolvedUrls))");
+  });
+});
