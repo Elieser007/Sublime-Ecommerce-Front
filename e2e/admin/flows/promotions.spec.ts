@@ -285,6 +285,63 @@ test("beforeunload warns when leaving a dirty editor (E2E-1 #5)", async ({ page 
   await navPromise.catch(() => {});
 });
 
+test("draft image shows on the editor surface before Guardar and persists after (E2E-1 #7)", async ({ page }) => {
+  await openTilesSection(page);
+  await expect(page.locator(".canvas-tile")).toHaveCount(2);
+
+  // Add a new promo with a picked image (modal only — no Guardar yet).
+  await page.locator("#add-promo-btn").click();
+  const modal = page.locator("#modal-overlay");
+  await expect(modal).toBeVisible();
+  await modal.locator('input[name="title"]').fill("Tile Borrador");
+  await modal.locator("#promo-input").setInputFiles({
+    name: "draft.png",
+    mimeType: "image/png",
+    buffer: PNG_1X1,
+  });
+  await expect(modal.locator("#promo-image")).toBeVisible();
+  await modal.locator('#promo-form button[type="submit"]').click();
+  await expect(modal).toBeHidden();
+  await expect(page.locator(".canvas-tile")).toHaveCount(3);
+
+  // (a) The editor surface shows the DRAFT (blob URL), not the placeholder.
+  const tile = page.locator(".canvas-tile", { hasText: "Tile Borrador" });
+  const draftBg = await tile
+    .locator(".tile-bg")
+    .evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(draftBg).toContain("blob:");
+  expect(draftBg).not.toContain("placeholder-product.svg");
+  expect(draftBg).not.toBe("none");
+
+  // (b) Guardar uploads the blob; the tile now shows the server URL.
+  const uploadPromise = page.waitForResponse(
+    (res) => res.url().includes("/api/upload") && res.request().method() === "POST"
+  );
+  await page.locator("#save-btn").click();
+  await expect(page.locator("#editor-status")).toHaveText("Sin cambios");
+  const uploadResponse = await uploadPromise;
+  const uploadBody = (await uploadResponse.json()) as { url?: string };
+  expect(uploadBody.url).toBeTruthy();
+  const fileName = uploadBody.url!.split("/").pop()!;
+
+  const savedBg = await tile
+    .locator(".tile-bg")
+    .evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(savedBg).toContain(fileName);
+  expect(savedBg).not.toContain("blob:");
+  expect(savedBg).not.toContain("placeholder-product.svg");
+
+  // Cleanup: remove the saved promo so later serial tests see the seed.
+  await tile.click();
+  await expect(modal).toBeVisible();
+  await page.locator("#modal-cancel").click();
+  await expect(modal).toBeHidden();
+  await page.keyboard.press("Delete");
+  await expect(page.locator(".canvas-tile")).toHaveCount(2);
+  await page.locator("#save-btn").click();
+  await expect(page.locator("#editor-status")).toHaveText("Sin cambios");
+});
+
 test("replacing an image deletes the old R2 object (E2E-1 #6)", async ({ page }) => {
   await openTilesSection(page);
   const a = await tileId(page, TILE_A);

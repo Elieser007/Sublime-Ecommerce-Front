@@ -18,6 +18,12 @@ test.use(TOUCH_CONTEXT);
 const TILES_SECTION_ID = "promo-home-top";
 const TILE_A = "Remeras Personalizadas";
 
+/** 1×1 PNG for the draft-image upload path. */
+const PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64"
+);
+
 test.beforeAll(() => {
   reseedE2E();
 });
@@ -159,6 +165,40 @@ test("resize handles keep ≥44px hit areas on touch (AR-2)", async ({ page }) =
   // Restore state for later serial tests.
   page.once("dialog", (dialog) => void dialog.accept());
   await page.locator("#revert-btn").click();
+});
+
+test("touch: draft image shows on a new tile before Guardar (AR-2 draft)", async ({ page }) => {
+  await openTilesSection(page);
+  await expect(page.locator(".canvas-tile")).toHaveCount(2);
+
+  // Add a new promo with a picked image, submit the modal, no Guardar.
+  await page.locator("#add-promo-btn").click();
+  const modal = page.locator("#modal-overlay");
+  await expect(modal).toBeVisible();
+  await modal.locator('input[name="title"]').fill("Tile Táctil");
+  await modal.locator("#promo-input").setInputFiles({
+    name: "draft.png",
+    mimeType: "image/png",
+    buffer: PNG_1X1,
+  });
+  await expect(modal.locator("#promo-image")).toBeVisible();
+  await modal.locator('#promo-form button[type="submit"]').click();
+  await expect(modal).toBeHidden();
+  await expect(page.locator(".canvas-tile")).toHaveCount(3);
+
+  // The editor surface shows the DRAFT (blob URL), not the placeholder.
+  const tile = page.locator(".canvas-tile", { hasText: "Tile Táctil" });
+  const draftBg = await tile
+    .locator(".tile-bg")
+    .evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(draftBg).toContain("blob:");
+  expect(draftBg).not.toContain("placeholder-product.svg");
+  expect(draftBg).not.toBe("none");
+
+  // Discard without saving so the seeded layout stays pristine.
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.locator("#revert-btn").click();
+  await expect(page.locator(".canvas-tile")).toHaveCount(2);
 });
 
 test("touch reorder moves a strip item (carousel/split/ribbon) (F4)", async ({ page }) => {

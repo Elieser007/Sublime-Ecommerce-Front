@@ -109,16 +109,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
           <div class="promo-strip" id="promo-strip"></div>
         </div>
 
-        <!-- Simple edit form (hero/banner) -->
+        <!-- Hero/banner: the real visual is the editing surface -->
         <div class="simple-section" id="simple-section" style="display:none;">
-          <h3 class="label-sm">Edición Simple</h3>
+          <h3 class="label-sm">Vista del Anuncio</h3>
           <div class="simple-list" id="simple-list"></div>
-        </div>
-
-        <!-- Live preview -->
-        <div class="preview-section">
-          <h3 class="label-sm">Vista Previa</h3>
-          <div id="live-preview-container"><p class="body-sm" style="color:var(--on-surface-variant);">Seleccioná una sección para ver la vista previa</p></div>
         </div>
       </section>
     </div>
@@ -231,7 +225,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
     applySavedResponse, movePromotion, removePromotion, duplicatePromotion,
     addPromotion, updatePromotion, setSection, createHistory, pushHistory,
     undoEditor, redoEditor, shouldWarnBeforeUnload, validatePromotionsForSave,
-    extractFilename, localKey, stripHoverIndex, isPromoEditorRoute,
+    extractFilename, resolvePromoImage, orphanedDraftUrls, localKey,
+    stripHoverIndex, isPromoEditorRoute,
     type EditorPromotion, type PromoEditorState, type EditorHistory,
   } from '../../lib/promo-editor';
   import {
@@ -254,6 +249,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
   let modalImageUrl: string | null = null;
   let modalImageId: string | null = null;
   let modalPreviousUrl: string | null = null;
+  // Draft object URL for the current modal session (applied to the working
+  // promo immediately on pick) plus the promo's draft when the modal opened.
+  let modalDraftUrl: string | null = null;
+  let modalPrevDraftUrl: string | null = null;
 
   // R2 cleanup targets gathered at save time.
   let cleanupUrls: string[] = [];
@@ -364,7 +363,6 @@ import PromotionWall from '../../components/PromotionWall.astro';
   function renderAll() {
     if (!state) return;
     renderEditor();
-    renderPreview();
     renderStatus();
   }
 
@@ -401,32 +399,40 @@ import PromotionWall from '../../components/PromotionWall.astro';
     container.style.width = `${grid().cols * cell}px`;
     container.style.height = `${grid().rows * cell}px`;
 
-    const tiles: Array<GridTile & { title?: string }> = state.promotions.map((p) => ({
+    const tiles = state.promotions.map((p) => ({
       id: localKey(p),
       posX: p.posX,
       posY: p.posY,
       width: p.width,
       height: p.height,
       title: p.title,
+      subtitle: p.subtitle,
+      imageUrl: p.imageUrl,
+      localImageUrl: p.localImageUrl,
+      link: p.link,
     }));
 
-    container.innerHTML = renderGridLines(grid(), cell) + renderTileCanvasHtml(tiles, grid());
+    container.innerHTML = renderGridLines(grid(), cell) + renderTileCanvasHtml(tiles, grid(), selectedId);
   }
 
   function renderStrip() {
     if (!state) return;
     const strip = $('promo-strip')!;
-    strip.innerHTML = state.promotions.map((p, i) => `
-      <div class="strip-item" data-index="${i}" data-id="${escapeHtml(localKey(p))}">
-        <span class="strip-grip">⋮⋮</span>
-        ${p.imageUrl ? `<img src="${escapeHtml(getProductImageUrl(p.imageUrl))}" alt="" />` : '<span class="strip-noimg">Sin imagen</span>'}
-        <div class="strip-info">
-          <strong class="body-sm">${escapeHtml(p.title || '(sin título)')}</strong>
-          <span class="body-xs">${escapeHtml(p.link)}</span>
+    strip.innerHTML = state.promotions.map((p, i) => {
+      const imgSrc = resolvePromoImage(p);
+      const hasImage = !!(p.imageUrl || p.localImageUrl);
+      return `
+        <div class="strip-item" data-index="${i}" data-id="${escapeHtml(localKey(p))}">
+          <span class="strip-grip">⋮⋮</span>
+          ${hasImage ? `<img src="${escapeHtml(imgSrc)}" alt="" />` : '<span class="strip-noimg">Sin imagen</span>'}
+          <div class="strip-info">
+            <strong class="body-sm">${escapeHtml(p.title || '(sin título)')}</strong>
+            <span class="body-xs">${escapeHtml(p.link)}</span>
+          </div>
+          <span class="badge badge--active">#${i + 1}</span>
         </div>
-        <span class="badge badge--active">#${i + 1}</span>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     strip.querySelectorAll<HTMLElement>('.strip-item').forEach((item) => {
       item.addEventListener('pointerdown', beginStripPointerSession);
@@ -507,30 +513,27 @@ import PromotionWall from '../../components/PromotionWall.astro';
   function renderSimpleEdit() {
     if (!state) return;
     const list = $('simple-list')!;
-    list.innerHTML = state.promotions.map((p, i) => `
-      <div class="simple-item" data-id="${escapeHtml(localKey(p))}">
-        ${p.imageUrl ? `<img src="${escapeHtml(getProductImageUrl(p.imageUrl))}" alt="" />` : '<span class="strip-noimg">Sin imagen</span>'}
-        <div class="strip-info">
-          <strong class="body-sm">${escapeHtml(p.title || '(sin título)')}</strong>
-          <span class="body-xs">${escapeHtml(p.link)}</span>
-        </div>
-        <button class="ta-btn" data-edit="${i}" title="Editar">✏️</button>
-        <button class="ta-btn ta-btn--delete" data-del="${i}" title="Eliminar">🗑️</button>
-      </div>
-    `).join('');
-
-    list.querySelectorAll<HTMLElement>('[data-edit]').forEach((btn) => {
+    if (state.promotions.length === 0) {
+      list.innerHTML = '<p class="body-sm">Sin anuncios</p>';
+      return;
+    }
+    const previews: PromoPreview[] = state.promotions.map((p) => ({
+      id: p.id || localKey(p),
+      title: p.title,
+      subtitle: p.subtitle,
+      imageUrl: p.imageUrl || '',
+      localImageUrl: p.localImageUrl,
+      link: p.link,
+      position: p.posX,
+      posY: p.posY,
+      tileCols: p.width,
+      tileRows: p.height,
+    }));
+    list.innerHTML = buildPromoPreviewHtml(currentDisplayType, previews, grid().cols);
+    list.querySelectorAll<HTMLElement>('[data-action="edit"]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.edit || '', 10);
-        const p = state!.promotions[idx];
+        const p = state!.promotions[0];
         if (p) openModal(true, p);
-      });
-    });
-    list.querySelectorAll<HTMLElement>('[data-del]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.del || '', 10);
-        const p = state!.promotions[idx];
-        if (p) doRemove(localKey(p));
       });
     });
   }
@@ -550,65 +553,6 @@ import PromotionWall from '../../components/PromotionWall.astro';
     setButtonDisabled('save-btn', !dirty);
     setButtonDisabled('undo-btn', history.past.length === 0);
     setButtonDisabled('redo-btn', history.future.length === 0);
-  }
-
-  function renderPreview() {
-    if (!state) return;
-    const container = $('live-preview-container');
-    if (!container) return;
-    if (state.promotions.length === 0) {
-      container.innerHTML = '<p class="body-sm">Sin anuncios</p>';
-      return;
-    }
-    const previews: PromoPreview[] = state.promotions.map((p) => ({
-      id: p.id || 'local',
-      title: p.title,
-      subtitle: p.subtitle,
-      imageUrl: p.imageUrl || '',
-      link: p.link,
-      position: p.posX,
-      posY: p.posY,
-      tileCols: p.width,
-      tileRows: p.height,
-    }));
-    container.innerHTML = buildPromoPreviewHtml(currentDisplayType, previews, state.section.gridCols);
-    const carousel = container.querySelector('.carousel-promo');
-    if (carousel) initPreviewCarousel(carousel);
-  }
-
-  function initPreviewCarousel(container: HTMLElement) {
-    const slides = container.querySelectorAll<HTMLElement>('.carousel-slide');
-    const dots = container.querySelectorAll<HTMLElement>('.carousel-dot');
-    const prevBtn = container.querySelector<HTMLElement>('.carousel-arrow--left');
-    const nextBtn = container.querySelector<HTMLElement>('.carousel-arrow--right');
-    let current = 0;
-    let timer: number | undefined;
-    if (slides.length === 0) return;
-
-    function goTo(index: number) {
-      slides[current].classList.remove('active');
-      dots[current]?.classList.remove('active');
-      current = index;
-      slides[current].classList.add('active');
-      dots[current]?.classList.add('active');
-    }
-    function next() { goTo((current + 1) % slides.length); }
-    function prev() { goTo((current - 1 + slides.length) % slides.length); }
-    function startAuto() { timer = window.setInterval(next, 5000); }
-    function stopAuto() { window.clearInterval(timer); }
-
-    prevBtn?.addEventListener('click', () => { stopAuto(); prev(); startAuto(); });
-    nextBtn?.addEventListener('click', () => { stopAuto(); next(); startAuto(); });
-    dots.forEach((dot) => {
-      dot.addEventListener('click', () => {
-        stopAuto();
-        goTo(parseInt(dot.dataset.slide || '0', 10));
-        startAuto();
-      });
-    });
-    container.addEventListener('mouseenter', stopAuto);
-    container.addEventListener('mouseleave', startAuto);
-    if (slides.length > 1) startAuto();
   }
 
   // ─── POINTER SESSION (canvas drag/resize) ─────────────────────────
@@ -837,7 +781,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
   function doRemove(id: string) {
     if (!state) return;
     const prev = state;
-    state = removePromotion(state, id);
+    const before = state.promotions;
+    const next = removePromotion(state, id);
+    orphanedDraftUrls(before, next.promotions).forEach((u) => URL.revokeObjectURL(u));
+    state = next;
     history = pushHistory(history, prev);
     selectedId = null;
     renderAll();
@@ -863,7 +810,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
   function doRevert() {
     if (!state || !snapshot) return;
     if (!confirm('¿Descartar los cambios sin guardar?')) return;
+    const before = state.promotions;
     state = revert(state, snapshot);
+    orphanedDraftUrls(before, state.promotions).forEach((u) => URL.revokeObjectURL(u));
     history = createHistory();
     selectedId = null;
     renderAll();
@@ -894,6 +843,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
     modalImageUrl = promo?.imageUrl || null;
     modalImageId = promo?.imageId || null;
     modalPreviousUrl = promo?.imageUrl || null;
+    modalDraftUrl = promo?.localImageUrl || null;
+    modalPrevDraftUrl = promo?.localImageUrl || null;
     renderModalImage();
 
     if (promo) {
@@ -912,12 +863,29 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
   function closeModal() { promoModal.close(); }
 
+  function cancelModal() {
+    if (state) {
+      const id = ($('promo-id') as HTMLInputElement).value;
+      if (id) {
+        const before = state.promotions;
+        state = updatePromotion(state, id, { localImageUrl: modalPrevDraftUrl });
+        orphanedDraftUrls(before, state.promotions).forEach((u) => URL.revokeObjectURL(u));
+      } else if (modalDraftUrl) {
+        URL.revokeObjectURL(modalDraftUrl);
+      }
+    } else if (modalDraftUrl) {
+      URL.revokeObjectURL(modalDraftUrl);
+    }
+    modalDraftUrl = null;
+    promoModal.close();
+  }
+
   function renderModalImage() {
-    const hasImage = !!(modalImageBlob || modalImageUrl);
+    const hasImage = !!(modalImageBlob || modalImageUrl || modalDraftUrl);
     $('promo-empty')!.style.display = hasImage ? 'none' : 'flex';
     const img = $('promo-image') as HTMLImageElement;
     if (hasImage) {
-      img.src = modalImageBlob ? URL.createObjectURL(modalImageBlob) : getProductImageUrl(modalImageUrl!);
+      img.src = modalDraftUrl || getProductImageUrl(modalImageUrl);
       img.style.display = 'block';
     } else {
       img.style.display = 'none';
@@ -936,8 +904,19 @@ import PromotionWall from '../../components/PromotionWall.astro';
       const processed = await processImage(file);
       // If replacing an existing image, remember the old R2 url for cleanup.
       if (modalImageUrl && !modalPreviousUrl) modalPreviousUrl = modalImageUrl;
+      const url = URL.createObjectURL(processed);
+      // A URL created earlier in THIS session is superseded; the pre-modal
+      // draft stays alive until Cancelar/Guardar decides its fate.
+      if (modalDraftUrl && modalDraftUrl !== modalPrevDraftUrl) URL.revokeObjectURL(modalDraftUrl);
       modalImageBlob = processed;
       modalImageUrl = null;
+      modalDraftUrl = url;
+      // Reflect the draft on the working promo immediately (before Guardar).
+      const id = ($('promo-id') as HTMLInputElement).value;
+      if (id && state) {
+        state = updatePromotion(state, id, { localImageUrl: url });
+        renderAll();
+      }
       renderModalImage();
     } catch (err: any) {
       $('form-error')!.textContent = err.message || 'Error al procesar imagen';
@@ -951,6 +930,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (modalImageUrl && !modalPreviousUrl) modalPreviousUrl = modalImageUrl;
     modalImageBlob = null;
     modalImageUrl = null;
+    modalDraftUrl = null;
     renderModalImage();
   }
 
@@ -1027,6 +1007,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
       state = applySavedResponse(state, saved);
       snapshot = createSnapshot(state);
       history = createHistory();
+      // Draft object URLs are replaced by server URLs: release them.
+      orphanedDraftUrls(preSavePromotions, state.promotions).forEach((u) => URL.revokeObjectURL(u));
 
       // 4b. Associate uploaded blobs with their server ids (legacy table sync).
       // resolvedUrls is keyed by the payload item's OWN server id, so the
@@ -1127,9 +1109,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
       $('onboarding-hint')!.style.display = 'none';
       try { localStorage.setItem('promo-editor-hint-dismissed', '1'); } catch { /* private mode */ }
     });
-    $('modal-close')?.addEventListener('click', closeModal);
-    $('modal-cancel')?.addEventListener('click', closeModal);
-    $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+    $('modal-close')?.addEventListener('click', cancelModal);
+    $('modal-cancel')?.addEventListener('click', cancelModal);
+    $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) cancelModal(); });
 
     // Image upload wiring.
     const area = $('promo-upload-area');
@@ -1175,9 +1157,16 @@ import PromotionWall from '../../components/PromotionWall.astro';
           height: parseInt(form.height.value, 10) || 1,
           imageBlob: modalImageBlob,
           imageUrl: modalImageBlob ? null : modalImageUrl,
+          localImageUrl: modalDraftUrl,
           previousImageUrl: modalPreviousUrl && (modalImageBlob || modalImageUrl !== modalPreviousUrl) ? modalPreviousUrl : null,
         };
+        const replacedDraft = modalPrevDraftUrl && modalPrevDraftUrl !== modalDraftUrl ? modalPrevDraftUrl : null;
         state = updatePromotion(state, id, patch);
+        // The pre-modal draft left the promo (replaced or removed): release it
+        // unless another promo (duplicate) still references it.
+        if (replacedDraft && !state.promotions.some((p) => p.localImageUrl === replacedDraft)) {
+          URL.revokeObjectURL(replacedDraft);
+        }
       } else {
         // New promo: image is either an existing url or a pending blob.
         const fields: Partial<EditorPromotion> = {
@@ -1188,10 +1177,13 @@ import PromotionWall from '../../components/PromotionWall.astro';
           height: parseInt(form.height.value, 10) || 1,
           imageBlob: modalImageBlob,
           imageUrl: modalImageBlob ? null : modalImageUrl,
+          localImageUrl: modalDraftUrl,
         };
         state = addPromotion(state, fields);
       }
 
+      modalDraftUrl = null;
+      modalPrevDraftUrl = null;
       history = pushHistory(history, prev);
       closeModal();
       renderAll();
@@ -1373,17 +1365,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
   .strip-noimg { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 40px; background: var(--surface-container-high); color: var(--on-surface-variant); font-size: 10px; }
   .strip-hint { color: var(--on-surface-variant); }
 
-  /* ─── Simple edit list (hero/banner) ─────────────────────────── */
+  /* ─── Simple surface (hero/banner) ───────────────────────────── */
   .simple-list { display: flex; flex-direction: column; gap: var(--space-sm); }
-  .simple-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-    padding: var(--space-sm) var(--space-md);
-    border: var(--border-width) solid var(--outline-variant);
-    background: var(--surface-container);
-  }
-  .simple-item img { width: 56px; height: 40px; object-fit: cover; border: 1px solid var(--outline-variant); }
 
   /* ─── Promo layout (kept from previous editor) ───────────────── */
   .promo-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl); }
@@ -1409,10 +1392,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
   .type-info { margin-top: var(--space-md); padding: var(--space-md); background: var(--surface-container-high); border-left: 3px solid var(--primary); }
   .type-info-title { color: var(--primary); margin-bottom: var(--space-xs); }
   .type-info-desc { color: var(--on-surface-variant); line-height: 1.5; }
-  .preview-section { display: flex; flex-direction: column; gap: var(--space-md); }
-  .preview-section h3 { color: var(--primary); }
 
-  /* ─── Preview styles (hero/carousel/tiles/split/banner/ribbon) ── */
+  /* ─── Preview/surface styles (hero/tiles/banner) ─────────────── */
   .hero-promo { position: relative; width: 100%; min-height: 300px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
   .hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
   .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 100%); }
@@ -1422,49 +1403,12 @@ import PromotionWall from '../../components/PromotionWall.astro';
   .hero-btn { display: inline-block; padding: var(--space-md) var(--space-2xl); background: var(--primary); color: var(--on-primary); text-decoration: none; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; transition: all 0.2s ease; }
   .hero-btn:hover { background: white; color: black; text-decoration: none; }
 
-  .carousel-promo { position: relative; width: 100%; }
-  .carousel-track { position: relative; width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
-  .carousel-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
-  .carousel-slide.active { opacity: 1; pointer-events: auto; }
-  .slide-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
-  .slide-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 40%, transparent 100%); }
-  .slide-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-xl) var(--space-2xl); z-index: 2; color: white; }
-  .slide-title { font-family: var(--font-display); font-size: clamp(24px, 4vw, 48px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-sm); text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
-  .slide-desc { font-size: clamp(14px, 1.5vw, 18px); opacity: 0.9; text-shadow: 0 1px 6px rgba(0,0,0,0.4); }
-  .slide-link { position: absolute; inset: 0; z-index: 3; }
-  .carousel-dots { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); position: absolute; bottom: var(--space-md); right: var(--space-md); z-index: 10; }
-  .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); border: none; cursor: pointer; transition: all 0.2s ease; padding: 0; }
-  .carousel-dot:hover { background: rgba(255,255,255,0.7); }
-  .carousel-dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
-  .carousel-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 10; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; cursor: pointer; opacity: 0; transition: opacity 0.2s ease, background 0.2s ease; }
-  .carousel-promo:hover .carousel-arrow { opacity: 1; }
-  .carousel-arrow:hover { background: rgba(0,0,0,0.8); }
-  .carousel-arrow--left { left: var(--space-md); }
-  .carousel-arrow--right { right: var(--space-md); }
-
   .tiles-promo { display: grid; gap: var(--space-md); grid-auto-flow: dense; }
-  .tile { position: relative; overflow: hidden; border: var(--border-width) solid var(--outline-variant); min-height: 120px; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
-  .tile:hover { border-color: var(--primary); box-shadow: 0 0 20px rgba(130,207,255,0.12); }
-  .tile:hover .tile-bg { transform: scale(1.06); }
   .tile-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
   .tile-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 50%, transparent 100%); }
   .tile-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-lg); z-index: 2; color: white; }
-  .tile-title-pv { font-family: var(--font-display); font-size: clamp(16px, 2vw, 24px); text-transform: uppercase; line-height: 1.1; margin-bottom: var(--space-xs); text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
   .tile-desc { font-size: clamp(12px, 1vw, 14px); opacity: 0.9; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
   .tile-link { position: absolute; inset: 0; z-index: 3; }
-
-  .split-promo { display: flex; flex-direction: column; }
-  .split-item { display: flex; flex-direction: row; text-decoration: none; color: inherit; border: var(--border-width) solid var(--outline-variant); border-bottom: none; transition: background 0.2s ease; }
-  .split-item:last-child { border-bottom: var(--border-width) solid var(--outline-variant); }
-  .split-item:hover { background: var(--surface-container-high); text-decoration: none; }
-  .split-item--reverse { flex-direction: row-reverse; }
-  .split-img { flex: 1; min-height: 200px; overflow: hidden; }
-  .split-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
-  .split-item:hover .split-img img { transform: scale(1.05); }
-  .split-text { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--space-xl) var(--space-2xl); gap: var(--space-md); }
-  .split-title { font-family: var(--font-display); font-size: clamp(20px, 3vw, 32px); text-transform: uppercase; line-height: 1.1; color: var(--on-surface); }
-  .split-desc { font-size: 15px; color: var(--on-surface-variant); line-height: 1.5; }
-  .split-link { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); }
 
   .banner-promo { display: flex; flex-direction: column; }
   .banner-item { display: flex; align-items: center; justify-content: center; gap: var(--space-lg); padding: var(--space-lg) var(--space-xl); background: linear-gradient(135deg, var(--surface-container-high), var(--surface-container)); border: var(--border-width) solid var(--outline-variant); text-decoration: none; transition: all 0.2s ease; position: relative; overflow: hidden; }
@@ -1472,16 +1416,6 @@ import PromotionWall from '../../components/PromotionWall.astro';
   .banner-item:hover { background: linear-gradient(135deg, var(--surface-container-highest), var(--surface-container-high)); border-color: var(--primary); text-decoration: none; }
   .banner-title { font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--on-surface); font-weight: 600; }
   .banner-desc { font-size: 13px; color: var(--primary); }
-
-  .ribbon-promo { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; border: var(--border-width) solid var(--outline-variant); }
-  .ribbon-promo::-webkit-scrollbar { display: none; }
-  .ribbon-item { flex: 1; min-width: 200px; position: relative; overflow: hidden; text-decoration: none; color: white; display: flex; align-items: center; justify-content: center; min-height: 80px; }
-  .ribbon-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
-  .ribbon-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); transition: background 0.2s ease; }
-  .ribbon-item:hover .ribbon-overlay { background: rgba(0,0,0,0.4); }
-  .ribbon-content { position: relative; z-index: 2; display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); }
-  .ribbon-title { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
-  .ribbon-desc { font-size: 12px; opacity: 0.8; white-space: nowrap; }
 
   .form-group--wide { flex: 2; }
   .promo-upload-area {
