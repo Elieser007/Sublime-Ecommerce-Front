@@ -244,6 +244,12 @@ import PromotionWall from '../../components/PromotionWall.astro';
   let history: EditorHistory = createHistory();
   let selectedId: string | null = null;
   let currentDisplayType = 'tiles';
+  // Empty-cell tap target: when the new-promo modal saves, the promo lands on
+  // this cell instead of autoSuggestPosition.
+  let pendingPromoCell: { x: number; y: number } | null = null;
+  // Canvas MutationObserver for the selected-tile highlight; disconnected on
+  // ClientRouter teardown so it cannot leak the old page's DOM.
+  let canvasObserver: MutationObserver | null = null;
 
   // Modal image fields (local-only until Guardar).
   let modalImageBlob: Blob | null = null;
@@ -621,7 +627,12 @@ import PromotionWall from '../../components/PromotionWall.astro';
       ?? pointerHitElement(e);
     const target = hitEl?.closest('.canvas-tile') as HTMLElement | null;
     const handleEl = hitEl?.closest('.resize-handle') as HTMLElement | null;
-    if (!target) return;
+    if (!target) {
+      // Pointer on the canvas background: a tap (no movement) opens the
+      // new-promo modal pre-positioned at the tapped cell (FIX-2).
+      beginEmptyCellTap(e);
+      return;
+    }
 
     // Freeze the canvas geometry for the whole gesture (see canvasCellForEvent).
     const sessionRect = canvas.getBoundingClientRect();
@@ -715,6 +726,45 @@ import PromotionWall from '../../components/PromotionWall.astro';
     canvas.addEventListener('pointermove', moveHandler);
     canvas.addEventListener('pointerup', upHandler);
     canvas.addEventListener('pointercancel', upHandler);
+  }
+
+  /**
+   * Tap on the canvas background: open the new-promo modal pre-positioned at
+   * the tapped cell. Pointer capture retargets the native click to the canvas
+   * itself, so a click listener cannot tell tile clicks from background
+   * clicks — the tap is detected in the pointer session like tile click-to-edit.
+   */
+  function beginEmptyCellTap(e: PointerEvent) {
+    if (!state || !isTiles()) return;
+    const canvas = $('promo-canvas') as HTMLElement;
+    if (!canvas) return;
+    const cell = canvasCellForEvent(e);
+    if (!cell) return;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const TAP_SLOP_PX = 5;
+
+    const cleanup = () => {
+      canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('pointercancel', onCancel);
+    };
+    const onMove = (ev: PointerEvent) => {
+      // Moving beyond the slop turns the tap into a no-op background drag.
+      if (Math.abs(ev.clientX - startX) > TAP_SLOP_PX || Math.abs(ev.clientY - startY) > TAP_SLOP_PX) cleanup();
+    };
+    const onUp = () => {
+      cleanup();
+      if (!state || !isTiles()) return;
+      pendingPromoCell = cell;
+      openModal(false);
+    };
+    const onCancel = cleanup;
+
+    canvas.addEventListener('pointermove', onMove);
+    canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onCancel);
   }
 
   function showCollisionHint(movedId: string) {
@@ -824,6 +874,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
   function doAdd() {
     if (!state) return;
+    pendingPromoCell = null;
     openModal(false);
   }
 
@@ -862,6 +913,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     onClose: () => {
       if (modalSubmitted) return;
       discardModalDraft();
+      pendingPromoCell = null;
       renderAll();
     },
   });
@@ -1124,7 +1176,11 @@ import PromotionWall from '../../components/PromotionWall.astro';
   // ─── WIRING ───────────────────────────────────────────────────────
   function initCanvasEvents() {
     const canvas = $('promo-canvas');
-    canvas?.addEventListener('pointerdown', beginPointerSession);
+    // ClientRouter re-runs this script on every page-load: on other pages
+    // #promo-canvas does not exist and observe(null) would throw.
+    if (!canvas) return;
+
+    canvas.addEventListener('pointerdown', beginPointerSession);
 
     // Re-select after render: highlight selected tile.
     const highlight = () => {
@@ -1132,7 +1188,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
         el.classList.toggle('selected', el.getAttribute('data-id') === selectedId);
       });
     };
+    canvasObserver?.disconnect();
     const mo = new MutationObserver(highlight);
+    canvasObserver = mo;
     mo.observe(canvas, { childList: true, subtree: true });
   }
 
@@ -1243,7 +1301,14 @@ import PromotionWall from '../../components/PromotionWall.astro';
           localImageUrl: modalDraftUrl,
         };
         state = addPromotion(state, fields);
-        showCollisionHint(localKey(state.promotions[state.promotions.length - 1]));
+        const addedKey = localKey(state.promotions[state.promotions.length - 1]);
+        // Empty-cell tap: pin the new promo to the tapped cell instead of the
+        // auto-suggested position.
+        if (pendingPromoCell) {
+          state = updatePromotion(state, addedKey, { posX: pendingPromoCell.x, posY: pendingPromoCell.y });
+        }
+        pendingPromoCell = null;
+        showCollisionHint(addedKey);
       }
 
       modalDraftUrl = null;
@@ -1306,6 +1371,14 @@ import PromotionWall from '../../components/PromotionWall.astro';
     win[NAV_GUARD_KEY] = handler;
     document.addEventListener('click', handler, true);
   }
+
+  // Disconnect the canvas observer before ClientRouter swaps this document out
+  // (the page script re-runs per navigation; the observer would otherwise keep
+  // the outgoing page's DOM alive through its highlight closure).
+  document.addEventListener('astro:before-swap', () => {
+    canvasObserver?.disconnect();
+    canvasObserver = null;
+  });
 
   document.addEventListener('astro:page-load', () => {
     initCanvasEvents();

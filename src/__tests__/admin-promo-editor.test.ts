@@ -319,3 +319,23 @@ describe("promotions.astro — per-item banner edit binding", () => {
     expect(previewSource).toMatch(/data-local-key=/);
   });
 });
+
+describe("promotions.astro — canvas observer guard and empty-cell add", () => {
+  it("guards the canvas MutationObserver against a null canvas and disconnects it on SPA teardown (FIX-1)", () => {
+    // ClientRouter re-runs this script on every page-load: navigating away
+    // from /admin/promotions leaves #promo-canvas absent, so the observer
+    // creation must bail before observe(null) throws. The observer is also
+    // disconnected before the swap so it cannot leak the outgoing DOM.
+    expect(pageSource).toMatch(/function initCanvasEvents\(\) \{[\s\S]*?if \(!canvas\) return;[\s\S]*?mo\.observe\(canvas, \{ childList: true, subtree: true \}\)/);
+    expect(pageSource).toContain("canvasObserver?.disconnect();");
+    expect(pageSource).toContain("document.addEventListener('astro:before-swap'");
+  });
+
+  it("opens the new-promo modal pre-positioned at the tapped empty cell (FIX-2)", () => {
+    // A background tap must place the new promo at the tapped cell (clientToCell
+    // math), not at the autoSuggestPosition the + button path uses.
+    expect(pageSource).toContain("beginEmptyCellTap");
+    expect(pageSource).toContain("pendingPromoCell");
+    expect(pageSource).toMatch(/updatePromotion\(state, addedKey, \{ posX: pendingPromoCell\.x, posY: pendingPromoCell\.y \}\)/);
+  });
+});
