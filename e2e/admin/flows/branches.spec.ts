@@ -130,7 +130,7 @@ test("filters branches by status", async ({ page }) => {
   // NOTE: the pagination bar renders the en dash "0–0" (U+2013).
   await page.locator("#status-filter").selectOption("0");
   await expect(branchRow(page, name)).toHaveCount(0);
-  await expect(page.locator("#showing")).toHaveText(/Mostrando 0–0 de 0/);
+  await expect(page.locator(".dt-showing[data-showing]")).toHaveText(/Mostrando 0–0 de 0/);
 });
 
 test("lists the created branch in the sidebar branch selector", async ({ page }) => {
