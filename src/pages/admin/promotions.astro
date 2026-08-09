@@ -229,7 +229,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
     createEditorState, createSnapshot, isDirty, revert, toSavePayload,
     applySavedResponse, movePromotion, removePromotion, duplicatePromotion,
     addPromotion, updatePromotion, setSection, createHistory, pushHistory,
-    undoEditor, redoEditor, shouldWarnBeforeUnload, extractFilename,
+    undoEditor, redoEditor, shouldWarnBeforeUnload, validatePromotionsForSave,
+    extractFilename, localKey,
     type EditorPromotion, type PromoEditorState, type EditorHistory,
   } from '../../lib/promo-editor';
   import {
@@ -400,7 +401,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     container.style.height = `${grid().rows * cell}px`;
 
     const tiles: Array<GridTile & { title?: string }> = state.promotions.map((p) => ({
-      id: p.id || `local-${p.posX}-${p.posY}`,
+      id: localKey(p),
       posX: p.posX,
       posY: p.posY,
       width: p.width,
@@ -415,7 +416,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (!state) return;
     const strip = $('promo-strip')!;
     strip.innerHTML = state.promotions.map((p, i) => `
-      <div class="strip-item" data-index="${i}" data-id="${escapeHtml(p.id || `local-${i}`)}" draggable="true">
+      <div class="strip-item" data-index="${i}" data-id="${escapeHtml(localKey(p))}">
         <span class="strip-grip">⋮⋮</span>
         ${p.imageUrl ? `<img src="${escapeHtml(getProductImageUrl(p.imageUrl))}" alt="" />` : '<span class="strip-noimg">Sin imagen</span>'}
         <div class="strip-info">
@@ -427,37 +428,82 @@ import PromotionWall from '../../components/PromotionWall.astro';
     `).join('');
 
     strip.querySelectorAll<HTMLElement>('.strip-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        const id = item.dataset.id;
-        if (id) openModal(true, state!.promotions.find((p) => p.id === id || `local-${state!.promotions.indexOf(p)}` === id));
-      });
-      item.addEventListener('dragstart', (e) => {
-        e.dataTransfer?.setData('text/plain', item.dataset.index || '');
-      });
-      item.addEventListener('dragover', (e) => e.preventDefault());
-      item.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const from = parseInt(e.dataTransfer?.getData('text/plain') || '', 10);
-        const to = parseInt(item.dataset.index || '', 10);
-        if (Number.isFinite(from) && Number.isFinite(to) && from !== to && state) {
-          const prev = state;
-          // renumberOrder maps an ARRAY of tiles; apply it to the promotions
-          // array, not to the whole state object (tiles.map would throw).
-          const reordered = movePromotion(state, from, to);
-          state = { ...reordered, promotions: renumberOrder(reordered.promotions) };
-          history = pushHistory(history, prev);
-          selectedId = state.promotions[to]?.id || null;
-          renderAll();
-        }
-      });
+      item.addEventListener('pointerdown', beginStripPointerSession);
     });
+  }
+
+  /**
+   * Pointer-session reorder for the carousel/split/ribbon strip. HTML5
+   * drag-and-drop does not work on touch; pointer events do. One history entry
+   * per completed gesture; a tap without a drag opens the edit modal.
+   */
+  function beginStripPointerSession(e: PointerEvent) {
+    if (!state) return;
+    const strip = $('promo-strip')!;
+    const item = (e.target as HTMLElement)?.closest?.('.strip-item') as HTMLElement | null;
+    if (!item || !strip.contains(item)) return;
+    const items = Array.from(strip.querySelectorAll<HTMLElement>('.strip-item'));
+    const from = items.indexOf(item);
+    if (from < 0) return;
+
+    const pointerId = e.pointerId;
+    try { item.setPointerCapture(pointerId); } catch { /* synthetic event */ }
+
+    const prevState = state;
+    let hoverIndex = from;
+
+    const clearHover = () => {
+      strip.querySelectorAll('.strip-item--target').forEach((el) => el.classList.remove('strip-item--target'));
+    };
+
+    const moveHandler = (ev: PointerEvent) => {
+      const current = Array.from(strip.querySelectorAll<HTMLElement>('.strip-item'));
+      const rect = item.getBoundingClientRect();
+      const centerY = rect.top + rect.height / 2;
+      let target = -1;
+      for (let i = 0; i < current.length; i++) {
+        const r = current[i].getBoundingClientRect();
+        if (centerY >= r.top && centerY <= r.bottom) { target = i; break; }
+      }
+      clearHover();
+      if (target >= 0 && target !== from) {
+        hoverIndex = target;
+        current[target].classList.add('strip-item--target');
+      } else {
+        hoverIndex = from;
+      }
+    };
+
+    const upHandler = () => {
+      try { item.releasePointerCapture(pointerId); } catch { /* synthetic event */ }
+      strip.removeEventListener('pointermove', moveHandler);
+      strip.removeEventListener('pointerup', upHandler);
+      strip.removeEventListener('pointercancel', upHandler);
+      clearHover();
+      if (!state) return;
+      if (hoverIndex !== from) {
+        const reordered = movePromotion(state, from, hoverIndex);
+        state = { ...reordered, promotions: renumberOrder(reordered.promotions) };
+        history = pushHistory(history, prevState);
+        selectedId = state.promotions[hoverIndex]?.id || null;
+        renderAll();
+        return;
+      }
+      // Tap without a drag opens the edit modal.
+      const promo = state.promotions[from];
+      if (promo) openModal(true, promo);
+    };
+
+    strip.addEventListener('pointermove', moveHandler);
+    strip.addEventListener('pointerup', upHandler);
+    strip.addEventListener('pointercancel', upHandler);
   }
 
   function renderSimpleEdit() {
     if (!state) return;
     const list = $('simple-list')!;
     list.innerHTML = state.promotions.map((p, i) => `
-      <div class="simple-item" data-id="${escapeHtml(p.id || `local-${i}`)}">
+      <div class="simple-item" data-id="${escapeHtml(localKey(p))}">
         ${p.imageUrl ? `<img src="${escapeHtml(getProductImageUrl(p.imageUrl))}" alt="" />` : '<span class="strip-noimg">Sin imagen</span>'}
         <div class="strip-info">
           <strong class="body-sm">${escapeHtml(p.title || '(sin título)')}</strong>
@@ -479,7 +525,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.del || '', 10);
         const p = state!.promotions[idx];
-        if (p) doRemove(p.id || `local-${idx}`);
+        if (p) doRemove(localKey(p));
       });
     });
   }
@@ -621,7 +667,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
     const tileId = target.dataset.id;
     if (!tileId) return;
-    const promoIndex = state.promotions.findIndex((p) => (p.id || `local-${p.posX}-${p.posY}`) === tileId);
+    const promoIndex = state.promotions.findIndex((p) => localKey(p) === tileId);
     const promo = state.promotions[promoIndex];
     if (!promo) return;
 
@@ -661,7 +707,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
       if (next.posX !== promo.posX || next.posY !== promo.posY || next.width !== promo.width || next.height !== promo.height) {
         didDrag = true;
       }
-      const localKey = promo.id || `local-${promo.posX}-${promo.posY}`;
+      const movedKey = localKey(promo);
       state = {
         ...state,
         promotions: state.promotions.map((p, i) =>
@@ -671,7 +717,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
         ),
       };
       renderCanvas();
-      showCollisionHint(localKey);
+      // The moved tile's localKey changes with its position, so derive it from
+      // the CURRENT state (post-update) or the hint lookup misses unsaved tiles.
+      const moved = state.promotions[promoIndex];
+      showCollisionHint(moved ? localKey(moved) : movedKey);
     };
 
     const upHandler = (ev: PointerEvent) => {
@@ -684,9 +733,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
       // so the editor owns click detection (dragging never opens the modal).
       if (!didDrag && !handle) {
         const id = target.dataset.id;
-        const promo = state?.promotions.find((p) => (p.id || `local-${p.posX}-${p.posY}`) === id);
+        const promo = state?.promotions.find((p) => localKey(p) === id);
         if (promo) {
-          selectedId = promo.id || `local-${promo.posX}-${promo.posY}`;
+          selectedId = localKey(promo);
           openModal(true, promo);
           return;
         }
@@ -706,7 +755,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (!state) return;
     const hint = $('collision-hint')!;
     const tiles: GridTile[] = state.promotions.map((p) => ({
-      id: p.id || 'local', posX: p.posX, posY: p.posY, width: p.width, height: p.height,
+      id: localKey(p), posX: p.posX, posY: p.posY, width: p.width, height: p.height,
     }));
     const collisions = detectCollisions(tiles, movedId || tiles[0]?.id || '');
     if (collisions.length > 0) {
@@ -739,7 +788,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (e.key.startsWith('Arrow') && selectedId && isTiles()) {
       e.preventDefault();
       if (e.repeat) return; // coalesce repeats (AD "Undo granularity")
-      const promo = state.promotions.find((p) => (p.id || `local-${p.posX}-${p.posY}`) === selectedId);
+      const promo = state.promotions.find((p) => localKey(p) === selectedId);
       if (!promo) return;
       const prev = state;
       const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
@@ -751,7 +800,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
       state = {
         ...state,
         promotions: state.promotions.map((p) =>
-          (p.id || `local-${p.posX}-${p.posY}`) === selectedId
+          localKey(p) === selectedId
             ? { ...p, posX: next.posX, posY: next.posY }
             : p
         ),
@@ -831,7 +880,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
     form.reset();
     $('form-error')!.textContent = '';
     $('modal-title')!.textContent = isEdit ? 'Editar Anuncio' : 'Nuevo Anuncio';
-    ($('promo-id') as HTMLInputElement).value = promo?.id || '';
+    // Key the modal by localKey so editing an UNSAVED promo updates the working
+    // copy instead of addPromotion creating a duplicate (F5).
+    ($('promo-id') as HTMLInputElement).value = promo ? localKey(promo) : '';
     ($('promo-image-id') as HTMLInputElement).value = promo?.imageId || '';
 
     modalImageBlob = null;
@@ -903,6 +954,14 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (!state || !snapshot) return;
     if (!isDirty(state, snapshot)) return;
 
+    // Per-tile title validation BEFORE Guardar: the backend 400s the WHOLE
+    // batch on a blank title, so name the offending tile here (F10).
+    const validationError = validatePromotionsForSave(state.promotions);
+    if (validationError) {
+      $('form-error')!.textContent = validationError;
+      return;
+    }
+
     const saveBtn = $('save-btn') as HTMLButtonElement;
     setButtonDisabled('save-btn', true);
     saveBtn.textContent = 'Guardando...';
@@ -937,6 +996,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
       // 2. Build payload with resolved upload URLs.
       const payload = toSavePayload(saveState, resolvedUrls);
 
+      // 2b. Capture R2 cleanup targets BEFORE applySavedResponse resets
+      // state.deletedImageUrls (F6): removed promos' image URLs live there.
+      const removedImageUrls = [...saveState.deletedImageUrls];
+
       // 3. Batch PUT.
       const res = await fetch(`${API_URL}/api/promotion-sections/${state.section.id}/promotions`, {
         method: 'PUT',
@@ -954,17 +1017,16 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
       // 4. Re-sync from server truth.
       const preSavePromotions = saveState.promotions;
-      const payloadPromotions = payload.promotions;
       state = applySavedResponse(state, saved);
       snapshot = createSnapshot(state);
       history = createHistory();
 
       // 4b. Associate uploaded blobs with their server ids (legacy table sync).
-      const savedPromos = (saved.promotions || []) as Array<{ id: string }>;
-      for (const [key, url] of Object.entries(resolvedUrls)) {
-        const payloadIndex = payloadPromotions.findIndex((p) => p.id === key);
-        const serverId = payloadIndex >= 0 ? savedPromos[payloadIndex]?.id : undefined;
-        if (serverId && url) {
+      // resolvedUrls is keyed by the payload item's OWN server id, so the
+      // association targets that id directly — the response is ordered by
+      // pos_x and array-index correlation would map to the WRONG promo (F7).
+      for (const [serverId, url] of Object.entries(resolvedUrls)) {
+        if (url) {
           try {
             await associateImage('promotions', serverId, url, API_URL, undefined, { is_primary: 1, sort_order: 0 });
           } catch { /* best-effort association */ }
@@ -972,7 +1034,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
       }
 
       // 5. Best-effort R2 cleanup: replaced/removed image URLs + removed promos.
-      const cleanupTargets = new Set<string>();
+      const cleanupTargets = new Set<string>(removedImageUrls);
       for (const p of preSavePromotions) {
         if (p.previousImageUrl && p.previousImageUrl !== p.imageUrl) cleanupTargets.add(p.previousImageUrl);
         // Replaced associations: drop the legacy promotion_image row.
@@ -980,7 +1042,6 @@ import PromotionWall from '../../components/PromotionWall.astro';
           try { await deleteImage('promotions', p.id || '', p.imageId, API_URL); } catch { /* best-effort */ }
         }
       }
-      for (const url of state.deletedImageUrls) cleanupTargets.add(url);
       for (const url of cleanupTargets) {
         const filename = extractFilename(url);
         if (filename) {
@@ -1137,6 +1198,28 @@ import PromotionWall from '../../components/PromotionWall.astro';
         e.returnValue = '';
       }
     });
+    // ClientRouter SPA navigation guard (F9): beforeunload never fires on
+    // view-transition navigations (sidebar clicks), and astro:before-preparation
+    // preventDefault degrades to a full page load — so intercept same-origin
+    // anchor clicks in the capture phase (before the router's own listener)
+    // and confirm when dirty. preventDefault blocks the navigation outright.
+    document.addEventListener('click', (e) => {
+      if (!state || !snapshot) return;
+      if (!shouldWarnBeforeUnload(state, snapshot)) return;
+      const raw = (e.composedPath?.() || [])[0] || e.target;
+      const link = raw instanceof Element ? raw.closest?.('a[href]') : null;
+      if (!(link instanceof HTMLAnchorElement)) return;
+      if (link.target && link.target !== '_self') return;
+      if (link.hasAttribute('download')) return;
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      let sameOrigin = false;
+      try { sameOrigin = new URL(link.href, location.href).origin === location.origin; } catch { /* ignore */ }
+      if (!sameOrigin) return;
+      if (!confirm('Hay cambios sin guardar. ¿Descartarlos?')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
     window.addEventListener('resize', () => { if (isTiles()) renderCanvas(); });
   }
 
@@ -1242,7 +1325,11 @@ import PromotionWall from '../../components/PromotionWall.astro';
     border: var(--border-width) solid var(--outline-variant);
     background: var(--surface-container);
     cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
+  .strip-item--target { border-color: var(--secondary); box-shadow: 0 0 0 2px rgba(255, 176, 204, 0.4); }
   .strip-item img { width: 56px; height: 40px; object-fit: cover; border: 1px solid var(--outline-variant); }
   .strip-grip { color: var(--on-surface-variant); font-family: var(--font-mono); }
   .strip-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
