@@ -407,6 +407,53 @@ describe("removePromotion", () => {
   });
 });
 
+describe("removePromotion — removedDraftUrls", () => {
+  const draft = "blob:https://example.com/removed-draft";
+
+  it("records the removed promo's localImageUrl for later revocation", () => {
+    let state = createEditorState(section, [serverPromo({ id: "p1" })]);
+    state = updatePromotion(state, "p1", { localImageUrl: draft });
+    state = removePromotion(state, "p1");
+    expect(state.promotions).toHaveLength(0);
+    expect(state.removedDraftUrls).toEqual([draft]);
+  });
+
+  it("records nothing when the removed promo has no draft", () => {
+    let state = createEditorState(section, [serverPromo({ id: "p1", imageUrl: "https://media.sublimepy.store/x.webp" })]);
+    state = removePromotion(state, "p1");
+    expect(state.removedDraftUrls).toEqual([]);
+  });
+
+  it("does not mutate the input state", () => {
+    let state = createEditorState(section, [serverPromo({ id: "p1" })]);
+    state = updatePromotion(state, "p1", { localImageUrl: draft });
+    const before = createSnapshot(state);
+    removePromotion(state, "p1");
+    expect(state.removedDraftUrls).toEqual([]);
+    expect(state.promotions).toHaveLength(1);
+    expect(before.promotions[0].localImageUrl).toBe(draft);
+  });
+
+  it("resets removedDraftUrls when a saved response is applied", () => {
+    let state = createEditorState(section, [serverPromo({ id: "p1" })]);
+    state = updatePromotion(state, "p1", { localImageUrl: draft });
+    state = removePromotion(state, "p1");
+    expect(state.removedDraftUrls).toEqual([draft]);
+    const synced = applySavedResponse(state, { section, promotions: [] });
+    expect(synced.removedDraftUrls).toEqual([]);
+  });
+
+  it("undo restores a clean removedDraftUrls (pre-removal snapshot)", () => {
+    let state = createEditorState(section, [serverPromo({ id: "p1" })]);
+    state = updatePromotion(state, "p1", { localImageUrl: draft });
+    const history = pushHistory(createHistory(), state);
+    state = removePromotion(state, "p1");
+    expect(state.removedDraftUrls).toEqual([draft]);
+    const undone = undoEditor(history, state)!;
+    expect(undone.state.removedDraftUrls).toEqual([]);
+  });
+});
+
 describe("updatePromotion", () => {
   it("updates an unsaved promo by its localKey (F5)", () => {
     let state = createEditorState(section, []);
@@ -745,6 +792,199 @@ describe("history-aware draft revocation (W-UNDO-REVOKED)", () => {
       if (!draftUrlReferenced(draft, state.promotions, history, [prev])) {
         URL.revokeObjectURL(draft);
       }
+      expect(revoke).toHaveBeenCalledWith(draft);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("doSave revokes the removed promo's draft exactly once, and only at save (LEAK)", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      let state = promoStateWith(draft);
+      let history = createHistory();
+      // doRemove: the history snapshot keeps the draft live (undo can restore).
+      const prev = state;
+      const before = state.promotions;
+      const next = removePromotion(state, "p1");
+      const nextHistory = pushHistory(history, prev);
+      orphanedDraftUrls(before, next.promotions, nextHistory).forEach((u) => URL.revokeObjectURL(u));
+      expect(revoke).not.toHaveBeenCalledWith(draft);
+      history = nextHistory;
+      state = next;
+      // doSave: history cleared, then the removed draft becomes unreferenced.
+      const preSavePromotions = state.promotions;
+      const removedDraftUrls = [...state.removedDraftUrls];
+      state = applySavedResponse(state, { section, promotions: [] });
+      history = createHistory();
+      orphanedDraftUrls(preSavePromotions, state.promotions).forEach((u) => URL.revokeObjectURL(u));
+      for (const u of new Set(removedDraftUrls)) {
+        if (!draftUrlReferenced(u, preSavePromotions)) URL.revokeObjectURL(u);
+      }
+      expect(revoke).toHaveBeenCalledTimes(1);
+      expect(revoke).toHaveBeenCalledWith(draft);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("remove → undo → save keeps the restored draft live until save revokes it once", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      let state = promoStateWith(draft);
+      let history = createHistory();
+      const prev = state;
+      const before = state.promotions;
+      const next = removePromotion(state, "p1");
+      const nextHistory = pushHistory(history, prev);
+      orphanedDraftUrls(before, next.promotions, nextHistory).forEach((u) => URL.revokeObjectURL(u));
+      expect(revoke).not.toHaveBeenCalledWith(draft);
+      history = nextHistory;
+      state = next;
+      // Undo restores the promo WITH its draft URL still live.
+      const undone = undoEditor(history, state)!;
+      state = undone.state;
+      history = undone.history;
+      expect(state.promotions[0].localImageUrl).toBe(draft);
+      expect(revoke).not.toHaveBeenCalledWith(draft);
+      // Save: the restored promo's draft is superseded by server truth.
+      const preSavePromotions = state.promotions;
+      const removedDraftUrls = [...state.removedDraftUrls];
+      state = applySavedResponse(state, {
+        section,
+        promotions: [
+          {
+            id: "p1",
+            title: "Summer Sale",
+            subtitle: null,
+            imageUrl: "https://media.sublimepy.store/saved.webp",
+            link: "/products/remera",
+            position: 0,
+            posY: 0,
+            tileCols: 2,
+            tileRows: 1,
+          },
+        ],
+      });
+      history = createHistory();
+      orphanedDraftUrls(preSavePromotions, state.promotions).forEach((u) => URL.revokeObjectURL(u));
+      for (const u of new Set(removedDraftUrls)) {
+        if (!draftUrlReferenced(u, preSavePromotions)) URL.revokeObjectURL(u);
+      }
+      expect(revoke).toHaveBeenCalledTimes(1);
+      expect(revoke).toHaveBeenCalledWith(draft);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("doSave does not revoke the removed draft while a duplicate still references it (dedupe-safe)", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      let state = promoStateWith(draft);
+      state = duplicatePromotion(state, "p1");
+      // Remove the source; the duplicate keeps the same draft URL.
+      state = removePromotion(state, "p1");
+      expect(state.removedDraftUrls).toEqual([draft]);
+      expect(state.promotions.some((p) => p.localImageUrl === draft)).toBe(true);
+      // doSave with a surviving duplicate referencing the URL.
+      const preSavePromotions = state.promotions;
+      const removedDraftUrls = [...state.removedDraftUrls];
+      state = applySavedResponse(state, { section, promotions: [] });
+      orphanedDraftUrls(preSavePromotions, state.promotions).forEach((u) => URL.revokeObjectURL(u));
+      for (const u of new Set(removedDraftUrls)) {
+        if (!draftUrlReferenced(u, preSavePromotions)) URL.revokeObjectURL(u);
+      }
+      // The duplicate's draft is released once by the post-save scan; the
+      // removedDraftUrls pass skips it because the duplicate references it.
+      expect(revoke).toHaveBeenCalledTimes(1);
+      expect(revoke).toHaveBeenCalledWith(draft);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("doRevert revokes the removed promo's draft once the working copy is discarded", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      const snap = createSnapshot(createEditorState(section, [serverPromo({ id: "p1" })]));
+      let state = promoStateWith(draft);
+      let history = createHistory();
+      const prev = state;
+      const before = state.promotions;
+      const next = removePromotion(state, "p1");
+      const nextHistory = pushHistory(history, prev);
+      orphanedDraftUrls(before, next.promotions, nextHistory).forEach((u) => URL.revokeObjectURL(u));
+      expect(revoke).not.toHaveBeenCalledWith(draft);
+      history = nextHistory;
+      state = next;
+      // doRevert: discard the working copy, history gone → draft unreferenced.
+      const revertBefore = state.promotions;
+      const removedDrafts = [...state.removedDraftUrls];
+      state = revert(state, snap);
+      orphanedDraftUrls(revertBefore, state.promotions).forEach((u) => URL.revokeObjectURL(u));
+      for (const u of new Set(removedDrafts)) {
+        if (!draftUrlReferenced(u, revertBefore)) URL.revokeObjectURL(u);
+      }
+      expect(revoke).toHaveBeenCalledTimes(1);
+      expect(revoke).toHaveBeenCalledWith(draft);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("doRevert with a surviving duplicate revokes the shared draft exactly once", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      const snap = createSnapshot(createEditorState(section, [serverPromo({ id: "p1" })]));
+      let state = promoStateWith(draft);
+      state = duplicatePromotion(state, "p1");
+      let history = createHistory();
+      const prev = state;
+      const before = state.promotions;
+      const next = removePromotion(state, "p1");
+      const nextHistory = pushHistory(history, prev);
+      orphanedDraftUrls(before, next.promotions, nextHistory).forEach((u) => URL.revokeObjectURL(u));
+      history = nextHistory;
+      state = next;
+      // The discarded working copy still holds the duplicate with the draft:
+      // the orphan scan releases it, the removedDraftUrls pass must skip it.
+      const revertBefore = state.promotions;
+      const removedDrafts = [...state.removedDraftUrls];
+      state = revert(state, snap);
+      orphanedDraftUrls(revertBefore, state.promotions).forEach((u) => URL.revokeObjectURL(u));
+      for (const u of new Set(removedDrafts)) {
+        if (!draftUrlReferenced(u, revertBefore)) URL.revokeObjectURL(u);
+      }
+      expect(revoke).toHaveBeenCalledTimes(1);
+      expect(revoke).toHaveBeenCalledWith(draft);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("selectSection revokes the removed promo's draft when switching sections", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      let state = promoStateWith(draft);
+      let history = createHistory();
+      const prev = state;
+      const before = state.promotions;
+      const next = removePromotion(state, "p1");
+      const nextHistory = pushHistory(history, prev);
+      orphanedDraftUrls(before, next.promotions, nextHistory).forEach((u) => URL.revokeObjectURL(u));
+      expect(revoke).not.toHaveBeenCalledWith(draft);
+      history = nextHistory;
+      state = next;
+      // selectSection: outgoing working copy is discarded, history reset.
+      const outgoing = state;
+      const otherSection: EditorSection = { ...section, id: "sec-2", slug: "home-bottom" };
+      const nextState = createEditorState(otherSection, []);
+      orphanedDraftUrls(outgoing.promotions, nextState.promotions, { past: [], future: [] }).forEach((u) => URL.revokeObjectURL(u));
+      for (const u of new Set(outgoing.removedDraftUrls)) {
+        if (!draftUrlReferenced(u, outgoing.promotions)) URL.revokeObjectURL(u);
+      }
+      expect(revoke).toHaveBeenCalledTimes(1);
       expect(revoke).toHaveBeenCalledWith(draft);
     } finally {
       revoke.mockRestore();

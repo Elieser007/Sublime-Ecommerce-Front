@@ -277,6 +277,26 @@ describe("promotions.astro — history-aware draft revocation (W-UNDO-REVOKED)",
     expect(pageSource).toMatch(/orphanedDraftUrls\(before, next\.promotions, nextHistory\)/);
     expect(pageSource).not.toMatch(/orphanedDraftUrls\(before, next\.promotions\)\.forEach/);
   });
+
+  it("doSave captures removed promos' drafts before the response resets state, revoking only unreferenced URLs", () => {
+    // removePromotion records the removed promo's localImageUrl on the state;
+    // doSave captures it before applySavedResponse resets it, then revokes it
+    // after history is cleared — unless a surviving promo still references it.
+    expect(pageSource).toMatch(/const removedDraftUrls = \[\.\.\.saveState\.removedDraftUrls\];/);
+    expect(pageSource).toMatch(/for \(const u of new Set\(removedDraftUrls\)\) \{/);
+    expect(pageSource).toMatch(/if \(!draftUrlReferenced\(u, preSavePromotions\)\) URL\.revokeObjectURL\(u\);/);
+  });
+
+  it("doRevert revokes removed promos' drafts when the working copy is discarded", () => {
+    // The removed promo is absent from the pre-revert promotions array, so the
+    // orphan scan cannot see it; removedDraftUrls closes that gap.
+    expect(pageSource).toMatch(/const removedDrafts = \[\.\.\.state\.removedDraftUrls\];/);
+    expect(pageSource).toMatch(/for \(const u of new Set\(removedDrafts\)\) \{/);
+  });
+
+  it("selectSection revokes removed promos' drafts when switching sections", () => {
+    expect(pageSource).toMatch(/for \(const u of new Set\(outgoing\.removedDraftUrls\)\) \{/);
+  });
 });
 
 describe("promotions.astro — per-item banner edit binding", () => {

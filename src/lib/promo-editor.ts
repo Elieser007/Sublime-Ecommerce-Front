@@ -33,6 +33,7 @@ export interface PromoEditorState {
   promotions: EditorPromotion[];
   deletedIds: string[];
   deletedImageUrls: string[];
+  removedDraftUrls: string[];
 }
 
 export interface EditorHistory {
@@ -184,6 +185,7 @@ export function createEditorState(
     promotions: promotions.map(toEditorPromotion),
     deletedIds: [],
     deletedImageUrls: [],
+    removedDraftUrls: [],
   };
 }
 
@@ -196,6 +198,7 @@ export function createSnapshot(s: PromoEditorState): PromoEditorState {
     })),
     deletedIds: [...s.deletedIds],
     deletedImageUrls: [...s.deletedImageUrls],
+    removedDraftUrls: [...s.removedDraftUrls],
   };
 }
 
@@ -309,6 +312,7 @@ export function applySavedResponse(
     promotions: res.promotions.map(toEditorPromotion),
     deletedIds: [],
     deletedImageUrls: [],
+    removedDraftUrls: [],
   };
 }
 
@@ -337,11 +341,15 @@ export function removePromotion(s: PromoEditorState, key: string): PromoEditorSt
   if (promo?.previousImageUrl && promo.previousImageUrl !== promo.imageUrl) {
     deletedImageUrls.push(promo.previousImageUrl);
   }
+  const removedDraftUrls = promo?.localImageUrl
+    ? [...s.removedDraftUrls, promo.localImageUrl]
+    : s.removedDraftUrls;
   return {
     ...s,
     promotions: s.promotions.filter((p) => localKey(p) !== key),
     deletedIds,
     deletedImageUrls,
+    removedDraftUrls,
   };
 }
 

@@ -225,7 +225,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     applySavedResponse, movePromotion, removePromotion, duplicatePromotion,
     addPromotion, updatePromotion, setSection, createHistory, pushHistory,
     undoEditor, redoEditor, shouldWarnBeforeUnload, validatePromotionsForSave,
-    extractFilename, resolvePromoImage, orphanedDraftUrls, localKey,
+    extractFilename, resolvePromoImage, orphanedDraftUrls, draftUrlReferenced, localKey,
     stripHoverIndex, isPromoEditorRoute,
     type EditorPromotion, type PromoEditorState, type EditorHistory,
   } from '../../lib/promo-editor';
@@ -346,6 +346,11 @@ import PromotionWall from '../../components/PromotionWall.astro';
     const nextState = createEditorState(editorSection, promotions);
     if (outgoing) {
       orphanedDraftUrls(outgoing.promotions, nextState.promotions, { past: [], future: [] }).forEach((u) => URL.revokeObjectURL(u));
+      // Removed promos are absent from the orphan scan's `before`: revoke
+      // their drafts too, unless a promo of the outgoing copy still holds one.
+      for (const u of new Set(outgoing.removedDraftUrls)) {
+        if (!draftUrlReferenced(u, outgoing.promotions)) URL.revokeObjectURL(u);
+      }
     }
     state = nextState;
     snapshot = createSnapshot(state);
@@ -823,8 +828,14 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (!state || !snapshot) return;
     if (!confirm('¿Descartar los cambios sin guardar?')) return;
     const before = state.promotions;
+    const removedDrafts = [...state.removedDraftUrls];
     state = revert(state, snapshot);
     orphanedDraftUrls(before, state.promotions).forEach((u) => URL.revokeObjectURL(u));
+    // Removed promos never appear in `before`: their drafts are released here,
+    // skipping any URL the orphan scan already released via a surviving promo.
+    for (const u of new Set(removedDrafts)) {
+      if (!draftUrlReferenced(u, before)) URL.revokeObjectURL(u);
+    }
     history = createHistory();
     selectedId = null;
     renderAll();
@@ -1023,6 +1034,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
       // 2b. Capture R2 cleanup targets BEFORE applySavedResponse resets
       // state.deletedImageUrls (F6): removed promos' image URLs live there.
       const removedImageUrls = [...saveState.deletedImageUrls];
+      // Same for removed promos' draft object URLs: they leave the live set
+      // once their history snapshot is discarded at the end of doSave.
+      const removedDraftUrls = [...saveState.removedDraftUrls];
 
       // 3. Batch PUT.
       const res = await fetch(`${API_URL}/api/promotion-sections/${state.section.id}/promotions`, {
@@ -1046,6 +1060,12 @@ import PromotionWall from '../../components/PromotionWall.astro';
       history = createHistory();
       // Draft object URLs are replaced by server URLs: release them.
       orphanedDraftUrls(preSavePromotions, state.promotions).forEach((u) => URL.revokeObjectURL(u));
+      // Removed promos are not in preSavePromotions, so the scan above cannot
+      // see their drafts: revoke them now, unless a surviving promo still
+      // references the same URL (a duplicate — released once by the scan).
+      for (const u of new Set(removedDraftUrls)) {
+        if (!draftUrlReferenced(u, preSavePromotions)) URL.revokeObjectURL(u);
+      }
 
       // 4b. Associate uploaded blobs with their server ids (legacy table sync).
       // resolvedUrls is keyed by the payload item's OWN server id, so the
