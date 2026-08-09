@@ -77,6 +77,20 @@ export function localKey(p: Pick<EditorPromotion, "id" | "localId">): string {
   return p.id || p.localId || "";
 }
 
+export interface StripItemBox {
+  top: number;
+  bottom: number;
+}
+
+export function stripHoverIndex(items: StripItemBox[], pointerY: number): number {
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (pointerY >= item.top && pointerY <= item.bottom) return i;
+  }
+  if (items.length === 0) return -1;
+  return pointerY < items[0].top ? 0 : items.length - 1;
+}
+
 function toEditorPromotion(p: ServerPromotion): EditorPromotion {
   return {
     id: p.id,

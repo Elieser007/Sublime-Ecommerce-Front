@@ -230,7 +230,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     applySavedResponse, movePromotion, removePromotion, duplicatePromotion,
     addPromotion, updatePromotion, setSection, createHistory, pushHistory,
     undoEditor, redoEditor, shouldWarnBeforeUnload, validatePromotionsForSave,
-    extractFilename, localKey,
+    extractFilename, localKey, stripHoverIndex,
     type EditorPromotion, type PromoEditorState, type EditorHistory,
   } from '../../lib/promo-editor';
   import {
@@ -450,6 +450,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
     try { item.setPointerCapture(pointerId); } catch { /* synthetic event */ }
 
     const prevState = state;
+    const startY = e.clientY;
+    const DRAG_THRESHOLD_PX = 5;
+    let didDrag = false;
     let hoverIndex = from;
 
     const clearHover = () => {
@@ -457,14 +460,13 @@ import PromotionWall from '../../components/PromotionWall.astro';
     };
 
     const moveHandler = (ev: PointerEvent) => {
+      if (Math.abs(ev.clientY - startY) > DRAG_THRESHOLD_PX) didDrag = true;
       const current = Array.from(strip.querySelectorAll<HTMLElement>('.strip-item'));
-      const rect = item.getBoundingClientRect();
-      const centerY = rect.top + rect.height / 2;
-      let target = -1;
-      for (let i = 0; i < current.length; i++) {
-        const r = current[i].getBoundingClientRect();
-        if (centerY >= r.top && centerY <= r.bottom) { target = i; break; }
-      }
+      const boxes = current.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom };
+      });
+      const target = stripHoverIndex(boxes, ev.clientY);
       clearHover();
       if (target >= 0 && target !== from) {
         hoverIndex = target;
@@ -481,12 +483,14 @@ import PromotionWall from '../../components/PromotionWall.astro';
       strip.removeEventListener('pointercancel', upHandler);
       clearHover();
       if (!state) return;
-      if (hoverIndex !== from) {
-        const reordered = movePromotion(state, from, hoverIndex);
-        state = { ...reordered, promotions: renumberOrder(reordered.promotions) };
-        history = pushHistory(history, prevState);
-        selectedId = state.promotions[hoverIndex]?.id || null;
-        renderAll();
+      if (didDrag) {
+        if (hoverIndex !== from) {
+          const reordered = movePromotion(state, from, hoverIndex);
+          state = { ...reordered, promotions: renumberOrder(reordered.promotions) };
+          history = pushHistory(history, prevState);
+          selectedId = state.promotions[hoverIndex]?.id || null;
+          renderAll();
+        }
         return;
       }
       // Tap without a drag opens the edit modal.

@@ -31,6 +31,7 @@ import {
   extractFilename,
   localKey,
   nextLocalId,
+  stripHoverIndex,
   type EditorSection,
   type EditorPromotion,
   type PromoEditorState,
@@ -435,6 +436,32 @@ describe("nextLocalId", () => {
     const a = nextLocalId();
     const b = nextLocalId();
     expect(a).not.toBe(b);
+  });
+});
+
+describe("stripHoverIndex (FIX1)", () => {
+  const items = [
+    { top: 0, bottom: 40 },
+    { top: 44, bottom: 84 },
+    { top: 88, bottom: 128 },
+  ];
+
+  it("returns the index whose vertical span contains the pointer Y", () => {
+    expect(stripHoverIndex(items, 20)).toBe(0);
+    expect(stripHoverIndex(items, 60)).toBe(1);
+    expect(stripHoverIndex(items, 100)).toBe(2);
+  });
+
+  it("snaps a pointer above the first item to index 0", () => {
+    expect(stripHoverIndex(items, -10)).toBe(0);
+  });
+
+  it("snaps a pointer below the last item to the last index", () => {
+    expect(stripHoverIndex(items, 500)).toBe(2);
+  });
+
+  it("returns -1 for an empty strip", () => {
+    expect(stripHoverIndex([], 50)).toBe(-1);
   });
 });
 
