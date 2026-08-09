@@ -146,10 +146,20 @@ describe("detectCollisions", () => {
     expect(detectCollisions(tiles, "a")).toEqual(["b"]);
   });
 
-  it("detects edge-touch as a collision", () => {
+  it("does NOT count edge-touch as a collision (strict overlap only, F11)", () => {
     const tiles: GridTile[] = [
       tile({ id: "a", posX: 0, posY: 0, width: 1, height: 1 }),
       tile({ id: "b", posX: 1, posY: 0, width: 1, height: 1 }), // touches a's east edge
+      tile({ id: "c", posX: 0, posY: 1, width: 1, height: 1 }), // touches a's south edge
+      tile({ id: "d", posX: 1, posY: 1, width: 1, height: 1 }), // diagonal corner-touch
+    ];
+    expect(detectCollisions(tiles, "a")).toEqual([]);
+  });
+
+  it("counts real overlap where tiles share at least one cell", () => {
+    const tiles: GridTile[] = [
+      tile({ id: "a", posX: 0, posY: 0, width: 2, height: 2 }),
+      tile({ id: "b", posX: 1, posY: 1, width: 1, height: 1 }), // overlaps a's center cell
     ];
     expect(detectCollisions(tiles, "a")).toEqual(["b"]);
   });
