@@ -1180,6 +1180,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
           localImageUrl: modalDraftUrl,
         };
         state = addPromotion(state, fields);
+        showCollisionHint(localKey(state.promotions[state.promotions.length - 1]));
       }
 
       modalDraftUrl = null;

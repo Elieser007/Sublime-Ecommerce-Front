@@ -105,7 +105,7 @@ export function renumberOrder(tiles: GridTile[]): GridTile[] {
 export function autoSuggestPosition(
   grid: Grid,
   tiles: GridTile[]
-): { x: number; y: number } | null {
+): { x: number; y: number } {
   const occupied = new Set<string>();
   for (const t of tiles) {
     for (let y = t.posY; y < t.posY + t.height; y++) {
@@ -120,7 +120,7 @@ export function autoSuggestPosition(
       if (!occupied.has(`${x},${y}`)) return { x, y };
     }
   }
-  return null;
+  return { x: 0, y: 0 };
 }
 
 export function tilePlacement(tile: GridTile): { col: number; row: number } {

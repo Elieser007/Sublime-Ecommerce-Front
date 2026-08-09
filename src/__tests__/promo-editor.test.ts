@@ -323,6 +323,44 @@ describe("movePromotion", () => {
   });
 });
 
+describe("addPromotion on a full grid", () => {
+  const fullSection: EditorSection = { ...section, gridCols: 8, gridRows: 2 };
+
+  const fullState = createEditorState(fullSection, [
+    serverPromo({ id: "a", position: 0, posY: 0, tileCols: 4, tileRows: 2 }),
+    serverPromo({ id: "b", position: 4, posY: 0, tileCols: 4, tileRows: 2 }),
+  ]);
+
+  it("still creates the tile, overlapping at the origin", () => {
+    const added = addPromotion(fullState, { title: "Overlap", link: "/overlap" });
+    expect(added.promotions).toHaveLength(3);
+    const promo = added.promotions[2];
+    expect(promo.title).toBe("Overlap");
+    expect(promo.posX).toBe(0);
+    expect(promo.posY).toBe(0);
+    expect(promo.width).toBe(1);
+    expect(promo.height).toBe(1);
+  });
+
+  it("clamps an oversized span to the grid", () => {
+    const added = addPromotion(fullState, { title: "Big", link: "/big", width: 99, height: 99 });
+    const promo = added.promotions[2];
+    expect(promo.posX).toBe(0);
+    expect(promo.posY).toBe(0);
+    expect(promo.width).toBe(8);
+    expect(promo.height).toBe(2);
+  });
+
+  it("still uses the first free cell when space exists (regression)", () => {
+    const partial = createEditorState(fullSection, [
+      serverPromo({ id: "a", position: 0, posY: 0, tileCols: 4, tileRows: 2 }),
+    ]);
+    const added = addPromotion(partial, { title: "Fit", link: "/fit" });
+    expect(added.promotions[1].posX).toBe(4);
+    expect(added.promotions[1].posY).toBe(0);
+  });
+});
+
 describe("removePromotion", () => {
   it("removes the promo and records its id for deletion", () => {
     let state = createEditorState(section, [serverPromo({ id: "p1", imageUrl: "https://media.sublimepy.store/promo1.webp" })]);
@@ -661,7 +699,7 @@ describe("duplicatePromotion", () => {
     expect(copy.posY).toBe(0);
   });
 
-  it("leaves the state unchanged when the grid is full", () => {
+  it("still adds a copy, overlapping at the origin, when the grid is full", () => {
     const full: Record<string, unknown>[] = [];
     for (let i = 0; i < 8 * 4; i++) {
       full.push(serverPromo({ id: `p${i}`, position: i % 8, posY: Math.floor(i / 8), tileCols: 1, tileRows: 1 }));
@@ -669,7 +707,12 @@ describe("duplicatePromotion", () => {
     const state = createEditorState(section, full);
     expect(state.promotions).toHaveLength(32);
     const duped = duplicatePromotion(state, "p0");
-    expect(duped.promotions).toHaveLength(full.length);
+    expect(duped.promotions).toHaveLength(full.length + 1);
+    const copy = duped.promotions[duped.promotions.length - 1];
+    expect(copy.posX).toBe(0);
+    expect(copy.posY).toBe(0);
+    expect(copy.width).toBe(1);
+    expect(copy.height).toBe(1);
   });
 });
 

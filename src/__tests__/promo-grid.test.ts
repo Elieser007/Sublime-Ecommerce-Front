@@ -231,11 +231,19 @@ describe("autoSuggestPosition", () => {
     expect(autoSuggestPosition(grid, tiles)).toEqual({ x: 2, y: 0 });
   });
 
-  it("returns null when the grid is full", () => {
+  it("returns the origin when the grid is full", () => {
     const tiles: GridTile[] = Array.from({ length: grid.cols * grid.rows }, (_, i) =>
       tile({ id: `t${i}`, posX: i % grid.cols, posY: Math.floor(i / grid.cols) })
     );
-    expect(autoSuggestPosition(grid, tiles)).toBeNull();
+    expect(autoSuggestPosition(grid, tiles)).toEqual({ x: 0, y: 0 });
+  });
+
+  it("falls back to the origin when multi-cell tiles cover the whole grid", () => {
+    const tiles: GridTile[] = [
+      tile({ id: "a", posX: 0, posY: 0, width: 4, height: 2 }),
+      tile({ id: "b", posX: 4, posY: 0, width: 4, height: 2 }),
+    ];
+    expect(autoSuggestPosition({ cols: 8, rows: 2 }, tiles)).toEqual({ x: 0, y: 0 });
   });
 });
 

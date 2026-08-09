@@ -332,7 +332,6 @@ export function duplicatePromotion(s: PromoEditorState, id: string): PromoEditor
 
   const grid: Grid = { cols: s.section.gridCols, rows: s.section.gridRows };
   const suggested = autoSuggestPosition(grid, s.promotions);
-  if (!suggested) return s;
 
   const copy: EditorPromotion = {
     ...source,
@@ -366,7 +365,16 @@ export function addPromotion(
 ): PromoEditorState {
   const grid: Grid = { cols: s.section.gridCols, rows: s.section.gridRows };
   const suggested = autoSuggestPosition(grid, s.promotions);
-  if (!suggested) return s;
+  const placed = clampTile(
+    {
+      id: "",
+      posX: suggested.x,
+      posY: suggested.y,
+      width: fields.width ?? 1,
+      height: fields.height ?? 1,
+    },
+    grid
+  );
 
   const promo: EditorPromotion = {
     id: null,
@@ -376,10 +384,10 @@ export function addPromotion(
     imageUrl: fields.imageUrl ?? null,
     localImageUrl: fields.localImageUrl ?? null,
     link: fields.link ?? "",
-    posX: suggested.x,
-    posY: suggested.y,
-    width: fields.width ?? 1,
-    height: fields.height ?? 1,
+    posX: placed.posX,
+    posY: placed.posY,
+    width: placed.width,
+    height: placed.height,
     isActive: fields.isActive ?? true,
     imageId: null,
     imageBlob: fields.imageBlob ?? null,
