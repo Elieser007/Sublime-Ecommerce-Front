@@ -160,3 +160,53 @@ test("resize handles keep ≥44px hit areas on touch (AR-2)", async ({ page }) =
   page.once("dialog", (dialog) => void dialog.accept());
   await page.locator("#revert-btn").click();
 });
+
+test("touch reorder moves a strip item (carousel/split/ribbon) (F4)", async ({ page }) => {
+  await openTilesSection(page);
+
+  // Switch to carousel: the reorder strip replaces the canvas.
+  await page.locator("#display-type-select").selectOption("carousel");
+  await expect(page.locator("#strip-section")).toBeVisible();
+  await expect(page.locator(".strip-item")).toHaveCount(2);
+  await expect(page.locator(".strip-item").nth(0)).toContainText(TILE_A);
+
+  // Touch-drag item 0 onto item 1 via pointer events (HTML5 DnD is mouse-only).
+  const dragged = await page.evaluate(async () => {
+    const items = Array.from(document.querySelectorAll<HTMLElement>(".strip-item"));
+    if (items.length < 2) return false;
+    const from = items[0];
+    const fromRect = from.getBoundingClientRect();
+    const startY = fromRect.top + fromRect.height / 2;
+    const targetY = items[1].getBoundingClientRect().top + items[1].getBoundingClientRect().height / 2;
+    const x = fromRect.left + fromRect.width / 2;
+    const fire = (type: string, y: number) => {
+      from.dispatchEvent(
+        new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          pointerId: 1,
+          pointerType: "touch",
+          isPrimary: true,
+          clientX: x,
+          clientY: y,
+        })
+      );
+    };
+    fire("pointerdown", startY);
+    const steps = 4;
+    for (let i = 1; i <= steps; i++) {
+      fire("pointermove", startY + ((targetY - startY) * i) / steps);
+    }
+    fire("pointerup", targetY);
+    return true;
+  });
+  expect(dragged).toBe(true);
+
+  // Order swapped and the editor is dirty.
+  await expect(page.locator(".strip-item").nth(0)).toContainText("Tazas Mágicas");
+  await expect(page.locator(".strip-item").nth(1)).toContainText(TILE_A);
+  await expect(page.locator("#save-btn")).toBeEnabled();
+
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.locator("#revert-btn").click();
+});
