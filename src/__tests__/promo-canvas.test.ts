@@ -8,17 +8,36 @@
  */
 
 import { describe, it, expect } from "vitest";
+import type { Grid, GridTile } from "../lib/promo-grid";
 import {
   clientToCell,
   cellSizeForGrid,
   renderTileCanvasHtml,
   renderGridLines,
-  type GridTile,
-  type Grid,
+  type CanvasTile,
 } from "../lib/promo-canvas";
 
-function tile(overrides: Partial<GridTile> = {}): GridTile {
-  return { id: "t1", posX: 1, posY: 2, width: 2, height: 1, ...overrides };
+function tile(overrides: Partial<CanvasTile> = {}): CanvasTile {
+  return {
+    id: "t1",
+    posX: 1,
+    posY: 2,
+    width: 2,
+    height: 1,
+    title: "Shop now",
+    subtitle: "Summer sale",
+    imageUrl: "https://media.sublimepy.store/promo.webp",
+    link: "/products/remera",
+    ...overrides,
+  };
+}
+
+function tileSection(html: string, id: string): string {
+  return (
+    html
+      .split('<div class="canvas-tile')
+      .find((part) => part.includes(`data-id="${id}"`)) ?? ""
+  );
 }
 
 describe("clientToCell", () => {
@@ -86,7 +105,7 @@ describe("renderTileCanvasHtml", () => {
     expect(html).toContain("height:25%");
   });
 
-  it("renders a tile with a data-id and 8 resize handles", () => {
+  it("renders a tile with a data-id and 8 resize handles when no selection is given", () => {
     const html = renderTileCanvasHtml([tile({ id: "abc" })], { cols: 8, rows: 4 });
     expect(html).toContain('data-id="abc"');
     const handles = html.match(/data-handle="/g) ?? [];
@@ -101,9 +120,82 @@ describe("renderTileCanvasHtml", () => {
     expect(html).toContain("handle-hit");
   });
 
-  it("renders the tile title as accessible text", () => {
+  it("renders the real background image resolved from imageUrl", () => {
     const html = renderTileCanvasHtml([tile()], { cols: 8, rows: 4 });
-    expect(html).toContain("class=\"tile-title\"");
+    expect(html).toContain(
+      "background-image:url('https://media.sublimepy.store/promo.webp')"
+    );
+  });
+
+  it("lets the local image URL win over the server image URL", () => {
+    const html = renderTileCanvasHtml(
+      [tile({ localImageUrl: "blob:https://example.com/draft" })],
+      { cols: 8, rows: 4 }
+    );
+    expect(html).toContain("background-image:url('blob:https://example.com/draft')");
+    expect(html).not.toContain("media.sublimepy.store");
+  });
+
+  it("falls back to the placeholder when no image is available", () => {
+    const html = renderTileCanvasHtml(
+      [tile({ imageUrl: null, localImageUrl: null })],
+      { cols: 8, rows: 4 }
+    );
+    expect(html).toContain("placeholder-product.svg");
+  });
+
+  it("renders the real title and subtitle text", () => {
+    const html = renderTileCanvasHtml(
+      [tile({ title: "New collection", subtitle: "20% off" })],
+      { cols: 8, rows: 4 }
+    );
+    expect(html).toContain("New collection");
+    expect(html).toContain("20% off");
+    expect(html).toContain('class="tile-title"');
+    expect(html).toContain('class="tile-desc"');
+  });
+
+  it("escapes a script tag in the title", () => {
+    const html = renderTileCanvasHtml(
+      [tile({ title: "<script>alert('x')</script>" })],
+      { cols: 8, rows: 4 }
+    );
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("sanitizes the tile link href", () => {
+    const html = renderTileCanvasHtml(
+      [tile({ link: "javascript:alert(1)" })],
+      { cols: 8, rows: 4 }
+    );
+    expect(html).not.toContain("javascript:");
+    expect(html).toContain('href="#"');
+  });
+
+  it("renders resize handles and the edit affordance only on the selected tile", () => {
+    const html = renderTileCanvasHtml(
+      [tile({ id: "a" }), tile({ id: "b" })],
+      { cols: 8, rows: 4 },
+      "a"
+    );
+    const handles = html.match(/data-handle="/g) ?? [];
+    expect(handles).toHaveLength(8);
+    expect(tileSection(html, "a")).toContain('data-handle="n"');
+    expect(tileSection(html, "a")).toContain('data-action="edit"');
+    expect(tileSection(html, "b")).not.toContain("resize-handle");
+    expect(tileSection(html, "b")).not.toContain('data-action="edit"');
+  });
+
+  it("marks the active tile with the selected class", () => {
+    const html = renderTileCanvasHtml(
+      [tile({ id: "a" }), tile({ id: "b" })],
+      { cols: 8, rows: 4 },
+      "b"
+    );
+    expect(html).toContain('<div class="canvas-tile selected" data-id="b"');
+    expect(html).toContain('<div class="canvas-tile" data-id="a"');
+    expect(html).not.toMatch(/<div class="canvas-tile[^"]*selected[^"]*" data-id="a"/);
   });
 
   it("renders multiple tiles", () => {

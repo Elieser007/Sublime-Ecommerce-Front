@@ -114,7 +114,10 @@ export function clearLocalImage(promo: EditorPromotion): EditorPromotion {
   return { ...promo, localImageUrl: null };
 }
 
-export function resolvePromoImage(promo: EditorPromotion): string {
+export function resolvePromoImage(promo: {
+  localImageUrl?: string | null;
+  imageUrl?: string | null;
+}): string {
   return promo.localImageUrl || getProductImageUrl(promo.imageUrl);
 }
 
