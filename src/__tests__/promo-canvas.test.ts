@@ -120,4 +120,22 @@ describe("renderTileCanvasHtml", () => {
     const html = renderTileCanvasHtml([tile({ posX: 7, posY: 3, width: 2, height: 2 })], { cols: 8, rows: 4 });
     expect(html).toContain('data-id="t1"');
   });
+
+  it("uses the real grid_rows for vertical percent (2-row grid)", () => {
+    // A full-height tile (h:2) in a 2-row grid spans 100% of the canvas height.
+    const full = renderTileCanvasHtml([tile({ posX: 0, posY: 0, width: 4, height: 2 })], { cols: 8, rows: 2 });
+    expect(full).toContain("top:0%");
+    expect(full).toContain("height:100%");
+
+    // A 1-row tile in a 2-row grid spans 50%.
+    const half = renderTileCanvasHtml([tile({ posX: 0, posY: 1, width: 4, height: 1 })], { cols: 8, rows: 2 });
+    expect(half).toContain("top:50%");
+    expect(half).toContain("height:50%");
+  });
+
+  it("uses the real grid_cols for horizontal percent", () => {
+    // A 6-wide tile in an 8-col grid spans 75%; in a 4-col grid it would be 150%.
+    const html = renderTileCanvasHtml([tile({ posX: 0, posY: 0, width: 6, height: 1 })], { cols: 8, rows: 2 });
+    expect(html).toContain("width:75%");
+  });
 });

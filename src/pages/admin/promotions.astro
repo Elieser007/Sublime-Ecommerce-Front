@@ -441,7 +441,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
         const to = parseInt(item.dataset.index || '', 10);
         if (Number.isFinite(from) && Number.isFinite(to) && from !== to && state) {
           const prev = state;
-          state = renumberOrder(movePromotion(state, from, to));
+          // renumberOrder maps an ARRAY of tiles; apply it to the promotions
+          // array, not to the whole state object (tiles.map would throw).
+          const reordered = movePromotion(state, from, to);
+          state = { ...reordered, promotions: renumberOrder(reordered.promotions) };
           history = pushHistory(history, prev);
           selectedId = state.promotions[to]?.id || null;
           renderAll();
@@ -481,13 +484,21 @@ import PromotionWall from '../../components/PromotionWall.astro';
     });
   }
 
+  /** Toggle a button's disabled state AND its aria-disabled (a11y sync). */
+  function setButtonDisabled(id: string, disabled: boolean) {
+    const btn = $(id) as HTMLButtonElement | null;
+    if (!btn) return;
+    btn.disabled = disabled;
+    btn.setAttribute('aria-disabled', String(disabled));
+  }
+
   function renderStatus() {
     if (!state || !snapshot) return;
     const dirty = isDirty(state, snapshot);
     $('editor-status')!.textContent = dirty ? 'Cambios sin guardar' : 'Sin cambios';
-    ($('save-btn') as HTMLButtonElement).disabled = !dirty;
-    ($('undo-btn') as HTMLButtonElement).disabled = history.past.length === 0;
-    ($('redo-btn') as HTMLButtonElement).disabled = history.future.length === 0;
+    setButtonDisabled('save-btn', !dirty);
+    setButtonDisabled('undo-btn', history.past.length === 0);
+    setButtonDisabled('redo-btn', history.future.length === 0);
   }
 
   function renderPreview() {
@@ -550,21 +561,63 @@ import PromotionWall from '../../components/PromotionWall.astro';
   }
 
   // ─── POINTER SESSION (canvas drag/resize) ─────────────────────────
-  function canvasCellForEvent(e: PointerEvent): { x: number; y: number } | null {
+  /**
+   * Convert a pointer event to grid cells. `rect` is the canvas rect FROZEN at
+   * pointerdown: the canvas can shift mid-drag (the collision hint appearing,
+   * the onboarding hint reflowing), and re-reading getBoundingClientRect per
+   * event would corrupt the cell mapping. Anchoring every move to the
+   * gesture-start geometry keeps the tile under the pointer.
+   */
+  function canvasCellForEvent(e: PointerEvent, rect?: DOMRect): { x: number; y: number } | null {
     const canvas = $('promo-canvas');
     if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const cell = cellSizeForGrid(grid(), canvas.clientWidth || rect.width, window.innerWidth >= 768);
-    return clientToCell(e.clientX - rect.left, e.clientY - rect.top, cell, grid());
+    const r = rect || canvas.getBoundingClientRect();
+    const cell = cellSizeForGrid(grid(), canvas.clientWidth || r.width, window.innerWidth >= 768);
+    return clientToCell(e.clientX - r.left, e.clientY - r.top, cell, grid());
+  }
+
+  /**
+   * Geometric fallback for the pointer's hit target. Synthetic PointerEvents
+   * (e2e dispatch) fire on the canvas itself (e.target = canvas), and the
+   * canvas routinely sits BELOW the viewport fold — so document.elementFromPoint
+   * returns null there. getBoundingClientRect still yields true viewport
+   * coordinates off-screen, so we hit-test the tiles' boxes directly.
+   * Topmost tile wins (reverse DOM order); a resize handle wins over its tile
+   * when the pointer is inside the handle's visible 12px box.
+   */
+  function pointerHitElement(e: PointerEvent): HTMLElement | null {
+    const canvas = $('promo-canvas');
+    if (!canvas) return null;
+    const tiles = Array.from(canvas.querySelectorAll<HTMLElement>('.canvas-tile'));
+    for (let i = tiles.length - 1; i >= 0; i--) {
+      const r = tiles[i].getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) continue;
+      const handles = Array.from(tiles[i].querySelectorAll<HTMLElement>('.resize-handle'));
+      for (const h of handles) {
+        const hr = h.getBoundingClientRect();
+        if (e.clientX >= hr.left && e.clientX <= hr.right && e.clientY >= hr.top && e.clientY <= hr.bottom) return h;
+      }
+      return tiles[i];
+    }
+    return null;
   }
 
   function beginPointerSession(e: PointerEvent) {
     if (!state) return;
     const canvas = $('promo-canvas') as HTMLElement;
     if (!canvas) return;
-    const target = (e.target as HTMLElement).closest('.canvas-tile') as HTMLElement | null;
-    const handleEl = (e.target as HTMLElement).closest('.resize-handle') as HTMLElement | null;
+    // Resolve the tile/handle UNDER THE POINTER. Real pointerdown already
+    // targets the correct element; synthetic PointerEvents (e2e touch/mouse
+    // dispatch) fire on the canvas itself, so fall back to a geometric
+    // hit-test that also works when the canvas is below the fold.
+    const hitEl = (e.target as HTMLElement)?.closest?.('.canvas-tile, .resize-handle') as HTMLElement | null
+      ?? pointerHitElement(e);
+    const target = hitEl?.closest('.canvas-tile') as HTMLElement | null;
+    const handleEl = hitEl?.closest('.resize-handle') as HTMLElement | null;
     if (!target) return;
+
+    // Freeze the canvas geometry for the whole gesture (see canvasCellForEvent).
+    const sessionRect = canvas.getBoundingClientRect();
 
     const tileId = target.dataset.id;
     if (!tileId) return;
@@ -572,11 +625,14 @@ import PromotionWall from '../../components/PromotionWall.astro';
     const promo = state.promotions[promoIndex];
     if (!promo) return;
 
-    e.preventDefault();
+    // NOTE: no e.preventDefault() here — canceling pointerdown would suppress
+    // the compatibility `click` event, breaking click-to-edit on tiles.
+    // Text selection during drags is prevented by `user-select: none` on the
+    // canvas; the post-drag click is suppressed in upHandler.
     const handle = handleEl?.dataset.handle || null;
 
     // Grab offset: keep the tile under the finger (AD "Drag anchor").
-    const cell = canvasCellForEvent(e);
+    const cell = canvasCellForEvent(e, sessionRect);
     if (!cell) return;
     const grabDx = cell.x - promo.posX;
     const grabDy = cell.y - promo.posY;
@@ -587,9 +643,13 @@ import PromotionWall from '../../components/PromotionWall.astro';
     // stable outside the canvas.
     try { canvas.setPointerCapture(pointerId); } catch { /* synthetic event */ }
 
+    // Set once the gesture actually moves the tile; used to suppress the
+    // click that follows a real drag (so dragging does NOT open the modal).
+    let didDrag = false;
+
     const moveHandler = (ev: PointerEvent) => {
       if (!state) return;
-      const c = canvasCellForEvent(ev);
+      const c = canvasCellForEvent(ev, sessionRect);
       if (!c) return;
       const tile: GridTile = {
         id: promo.id || 'local',
@@ -598,6 +658,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
       const next = handle
         ? resizeToSpans(tile, c, handle as any, grid())
         : dragToCell(tile, { x: c.x - grabDx, y: c.y - grabDy }, grid());
+      if (next.posX !== promo.posX || next.posY !== promo.posY || next.width !== promo.width || next.height !== promo.height) {
+        didDrag = true;
+      }
       const localKey = promo.id || `local-${promo.posX}-${promo.posY}`;
       state = {
         ...state,
@@ -616,6 +679,18 @@ import PromotionWall from '../../components/PromotionWall.astro';
       canvas.removeEventListener('pointermove', moveHandler);
       canvas.removeEventListener('pointerup', upHandler);
       canvas.removeEventListener('pointercancel', upHandler);
+      // Click-to-edit: pointerdown+up WITHOUT movement is a click on the tile.
+      // setPointerCapture on pointerdown suppresses the native `click` event,
+      // so the editor owns click detection (dragging never opens the modal).
+      if (!didDrag && !handle) {
+        const id = target.dataset.id;
+        const promo = state?.promotions.find((p) => (p.id || `local-${p.posX}-${p.posY}`) === id);
+        if (promo) {
+          selectedId = promo.id || `local-${promo.posX}-${promo.posY}`;
+          openModal(true, promo);
+          return;
+        }
+      }
       if (!state) return;
       // One history entry per completed gesture.
       history = pushHistory(history, state);
@@ -829,7 +904,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (!isDirty(state, snapshot)) return;
 
     const saveBtn = $('save-btn') as HTMLButtonElement;
-    saveBtn.disabled = true;
+    setButtonDisabled('save-btn', true);
     saveBtn.textContent = 'Guardando...';
     uploadedThisSave = [];
 
@@ -908,7 +983,11 @@ import PromotionWall from '../../components/PromotionWall.astro';
       for (const url of state.deletedImageUrls) cleanupTargets.add(url);
       for (const url of cleanupTargets) {
         const filename = extractFilename(url);
-        if (filename) deleteUploadedFile(filename, API_URL);
+        if (filename) {
+          // Await the R2 delete so the object is gone before the save reports
+          // success (the e2e R2-proof relies on this ordering).
+          try { await deleteUploadedFile(filename, API_URL); } catch { /* best-effort */ }
+        }
       }
       cleanupUrls = [];
 
@@ -919,11 +998,13 @@ import PromotionWall from '../../components/PromotionWall.astro';
       // Orphan guard: delete blobs uploaded this save (batch failure).
       for (const url of uploadedThisSave) {
         const filename = extractFilename(url);
-        if (filename) deleteUploadedFile(filename, API_URL);
+        if (filename) {
+          try { await deleteUploadedFile(filename, API_URL); } catch { /* best-effort */ }
+        }
       }
       $('form-error')!.textContent = err.message || 'Error al guardar';
     } finally {
-      saveBtn.disabled = false;
+      setButtonDisabled('save-btn', false);
       saveBtn.textContent = 'Guardar';
     }
   }
@@ -932,18 +1013,6 @@ import PromotionWall from '../../components/PromotionWall.astro';
   function initCanvasEvents() {
     const canvas = $('promo-canvas');
     canvas?.addEventListener('pointerdown', beginPointerSession);
-
-    canvas?.addEventListener('click', (e) => {
-      if (!state) return;
-      const tile = (e.target as HTMLElement).closest('.canvas-tile') as HTMLElement | null;
-      if (!tile) return;
-      const id = tile.dataset.id;
-      const promo = state.promotions.find((p) => (p.id || `local-${p.posX}-${p.posY}`) === id);
-      if (promo) {
-        selectedId = promo.id || `local-${promo.posX}-${promo.posY}`;
-        openModal(true, promo);
-      }
-    });
 
     // Re-select after render: highlight selected tile.
     const highlight = () => {
@@ -1090,7 +1159,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
   /* ─── Canvas editor ─────────────────────────────────────────── */
   .canvas-section { display: flex; flex-direction: column; gap: var(--space-md); }
   .canvas-scroll { overflow-x: auto; max-width: 100%; border: var(--border-width) solid var(--outline-variant); background: var(--surface-container); padding: var(--space-md); }
-  .promo-canvas { position: relative; touch-action: none; }
+  .promo-canvas { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; }
   .grid-lines { position: absolute; inset: 0; pointer-events: none; }
   .gl-v, .gl-h { position: absolute; background: rgba(130, 207, 255, 0.18); }
   .gl-v { top: 0; bottom: 0; width: 1px; }
@@ -1194,8 +1263,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
   .simple-item img { width: 56px; height: 40px; object-fit: cover; border: 1px solid var(--outline-variant); }
 
   /* ─── Promo layout (kept from previous editor) ───────────────── */
-  .promo-layout { display: grid; grid-template-columns: 1fr; gap: var(--space-2xl); }
-  @media (min-width: 1024px) { .promo-layout { grid-template-columns: 300px 1fr; } }
+  .promo-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl); }
+  @media (min-width: 1024px) { .promo-layout { grid-template-columns: 300px minmax(0, 1fr); } }
   .promo-sections { display: flex; flex-direction: column; gap: var(--space-md); }
   .sections-title { color: var(--primary); margin-bottom: var(--space-sm); }
   .sections-list { display: flex; flex-direction: column; gap: var(--space-sm); }

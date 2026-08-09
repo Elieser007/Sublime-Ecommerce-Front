@@ -1,19 +1,7 @@
-/**
- * Promo Editor — pure local store for the visual promo editor.
- *
- * Holds the working copy of the section + promotions, tracks dirtiness
- * against a snapshot, supports one-history-entry-per-completed-interaction
- * undo/redo (cap 50), and builds the batch PUT payload. NO network calls —
- * the page uploads blobs, calls toSavePayload(state, resolvedUrls), PUTs,
- * then applySavedResponse(state, serverTruth) to re-sync.
- *
- * State is immutable: every action returns a NEW state (no mutation).
- */
-
-import { clampTile, autoSuggestPosition, renumberOrder, type Grid } from "./promo-grid";
+import { clampTile, autoSuggestPosition, type Grid } from "./promo-grid";
 
 export interface EditorPromotion {
-  id: string | null; // server id; null = brand-new (not yet saved)
+  id: string | null;
   title: string;
   subtitle: string | null;
   imageUrl: string | null;
@@ -23,11 +11,8 @@ export interface EditorPromotion {
   width: number;
   height: number;
   isActive: boolean;
-  /** Association row id (deleteImage target) — set when the page loads it. */
   imageId: string | null;
-  /** Pending processed blob (uploaded at Guardar time). */
   imageBlob: Blob | null;
-  /** Original R2 URL replaced by a new image — R2 delete target at save. */
   previousImageUrl: string | null;
 }
 
@@ -43,9 +28,7 @@ export interface EditorSection {
 export interface PromoEditorState {
   section: EditorSection;
   promotions: EditorPromotion[];
-  /** Server ids removed locally — sent in the batch as deletes. */
   deletedIds: string[];
-  /** R2 URLs of removed promos — cleanup targets at save (assoc dies via FK). */
   deletedImageUrls: string[];
 }
 
@@ -56,17 +39,16 @@ export interface EditorHistory {
 
 export const HISTORY_LIMIT = 50;
 
-/** Server-shaped promotion row from GET /api/promotions (legacy aliases kept). */
 export interface ServerPromotion {
   id: string;
   title: string | null;
   subtitle: string | null;
   imageUrl: string;
-  link: string;
-  position: number; // legacy alias of pos_x
+  link: string | null;
+  position: number;
   posY?: number;
-  tileCols: number; // legacy alias of width
-  tileRows: number; // legacy alias of height
+  tileCols: number;
+  tileRows: number;
 }
 
 export interface SavedSectionResponse {
@@ -89,7 +71,7 @@ function toEditorPromotion(p: ServerPromotion): EditorPromotion {
     title: p.title || "",
     subtitle: p.subtitle,
     imageUrl: p.imageUrl,
-    link: p.link,
+    link: p.link || "/",
     posX: p.position,
     posY: p.posY ?? 0,
     width: p.tileCols,
@@ -113,20 +95,18 @@ export function createEditorState(
   };
 }
 
-/** Deep-enough copy for snapshot/revert/history (Blobs are stored by reference). */
 export function createSnapshot(s: PromoEditorState): PromoEditorState {
   return {
     section: { ...s.section },
     promotions: s.promotions.map((p) => ({
       ...p,
-      imageBlob: p.imageBlob, // Blob identity is NOT part of dirtiness
+      imageBlob: p.imageBlob,
     })),
     deletedIds: [...s.deletedIds],
     deletedImageUrls: [...s.deletedImageUrls],
   };
 }
 
-/** Normalized projection used by isDirty — imageBlob → '<blob>' marker. */
 function project(p: EditorPromotion): Record<string, unknown> {
   return {
     id: p.id,
@@ -161,7 +141,6 @@ export function revert(s: PromoEditorState, snap: PromoEditorState): PromoEditor
   return createSnapshot(snap);
 }
 
-/** resolvedUrls: promoId → uploaded R2 url (page uploads blobs before calling). */
 export function toSavePayload(
   s: PromoEditorState,
   resolvedUrls: Record<string, string | null> = {}
@@ -203,7 +182,7 @@ export function toSavePayload(
         title: p.title,
         subtitle: p.subtitle,
         imageUrl: p.imageUrl,
-        link: p.link,
+        link: p.link || "/",
         posX: p.posX,
         posY: p.posY,
         width: p.width,
@@ -218,7 +197,6 @@ export function toSavePayload(
   };
 }
 
-/** Re-key temp ids to server ids, clear blob/deleted state, new snapshot base. */
 export function applySavedResponse(
   s: PromoEditorState,
   res: SavedPromotionsResponse
@@ -273,10 +251,10 @@ export function duplicatePromotion(s: PromoEditorState, id: string): PromoEditor
 
   const copy: EditorPromotion = {
     ...source,
-    id: null, // brand-new — server assigns on save
+    id: null,
     posX: suggested.x,
     posY: suggested.y,
-    imageBlob: null, // the image is shared via imageUrl, no re-upload
+    imageBlob: null,
     imageId: null,
     previousImageUrl: null,
   };
@@ -296,14 +274,13 @@ export function updatePromotion(
   };
 }
 
-/** Add a brand-new promo on the first free cell (add-on-empty / new tile). */
 export function addPromotion(
   s: PromoEditorState,
   fields: Partial<Omit<EditorPromotion, "id" | "posX" | "posY">> = {}
 ): PromoEditorState {
   const grid: Grid = { cols: s.section.gridCols, rows: s.section.gridRows };
   const suggested = autoSuggestPosition(grid, s.promotions);
-  if (!suggested) return s; // grid full — no-op
+  if (!suggested) return s;
 
   const promo: EditorPromotion = {
     id: null,
@@ -330,7 +307,6 @@ export function setSection(
   return { ...s, section: { ...s.section, ...patch } };
 }
 
-/** Grid-clamp a promotion's tile (used by canvas drag/resize wrappers). */
 export function clampPromotionTile(s: PromoEditorState, id: string): PromoEditorState {
   const grid: Grid = { cols: s.section.gridCols, rows: s.section.gridRows };
   return {
@@ -353,7 +329,6 @@ export function createHistory(): EditorHistory {
   return { past: [], future: [] };
 }
 
-/** Push a completed-interaction state; evicts the oldest beyond HISTORY_LIMIT. */
 export function pushHistory(h: EditorHistory, s: PromoEditorState): EditorHistory {
   const past = [...h.past, createSnapshot(s)].slice(-HISTORY_LIMIT);
   return { past, future: [] };
@@ -389,11 +364,6 @@ export function shouldWarnBeforeUnload(s: PromoEditorState, snap: PromoEditorSta
   return isDirty(s, snap);
 }
 
-/**
- * Extract the R2 filename from a URL (bucket-domain or local upload proxy).
- * Only OUR uploads can be deleted: bucket-domain URLs (media.sublimepy.store)
- * and upload-proxy paths (/api/upload/<file>). External URLs → null.
- */
 export function extractFilename(url: string): string | null {
   if (!url) return null;
   let parsed: URL;

@@ -85,6 +85,20 @@ describe("resizeToSpans", () => {
     expect(result).toEqual({ id: "t1", posX: 1, posY: 1, width: 4, height: 3 });
   });
 
+  it("e2e scenario: full-height tile in a 2-row grid resized to cell 5 is 6 wide", () => {
+    // Seeded tiles section (promo-home-top, 8×2): a 4×2 tile at (0,0) whose SE
+    // handle is dragged to cell (5,1) spans cells 0..5 → width 6, and the
+    // height stays 2 (clamped to the full grid). Inclusive-cell math:
+    // width = cell.x - posX + 1.
+    const r = resizeToSpans(
+      { id: "t1", posX: 0, posY: 0, width: 4, height: 2 },
+      { x: 5, y: 1 },
+      "se",
+      { cols: 8, rows: 2 }
+    );
+    expect(r).toEqual({ id: "t1", posX: 0, posY: 0, width: 6, height: 2 });
+  });
+
   it("northwest handle anchors the opposite corner and moves the origin", () => {
     const result = resizeToSpans(base, { x: 0, y: 0 }, "nw", grid);
     expect(result).toEqual({ id: "t1", posX: 0, posY: 0, width: 3, height: 3 });
