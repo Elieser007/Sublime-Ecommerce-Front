@@ -11,7 +11,7 @@
  *   product (required) — JSON string with product data
  */
 
-import { formatPrice } from '../lib/cart.js';
+import { formatPrice } from '../lib/format';
 import { escapeHtml } from '../lib/escape-html';
 import { getBestVolumeBadge, getVolumeTierCount } from '../lib/price-utils';
 
@@ -256,6 +256,17 @@ class ProductCard extends HTMLElement {
         if (product.price_tiers && product.price_tiers.length > 0) {
           modal.setAttribute('price-tiers', JSON.stringify(product.price_tiers));
         }
+        // Baked at build time (SSG): the modal resolves availability + price
+        // client-side and never fetches /variants at runtime.
+        const variantsAttr = this.getAttribute('variants');
+        if (variantsAttr) {
+          modal.setAttribute('variants', variantsAttr);
+        }
+        // Forward the bake-outcome flag so the modal can distinguish a
+        // failed bake (payload said modules should exist, graph
+        // missing/corrupt → notice + blocked) from a product that genuinely
+        // has no variants (purchasable). See src/lib/variant-fallback.ts.
+        modal.setAttribute('bake-failed', product.bakeFailed ? 'true' : 'false');
         document.body.appendChild(modal);
       }
       modal.open(btn);

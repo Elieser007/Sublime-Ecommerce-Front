@@ -8,20 +8,32 @@
 
 import { formatPrice, getProductImageUrl } from '../lib/public-api';
 import { getApiUrl } from '../lib/api-url';
+import { getCatalogBuildData } from '../lib/catalog-build';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Chip from '../components/Chip.astro';
 import Button from '../components/Button.astro';
 
 const API_URL = getApiUrl();
 
-// Fetch featured products at build time
+// Featured products at build time: the first 8 of the catalog sorted by
+// created_at DESC ONLY (no id tiebreak) — the exact ORDER BY semantics of
+// the old /api/public/products/featured endpoint (ORDER BY created_at DESC
+// LIMIT 8). The sort is stable, so products with identical created_at keep
+// the catalog's deterministic order (created_at DESC, id); the old
+// endpoint's tie order was unspecified, so any tie order is a faithful
+// reproduction. The seed writes identical created_at for every product, so
+// in practice the slice IS the catalog's first 8 (smallest ids first). No
+// extra fetch — the payload is shared with the other pages via the memo.
 let featuredProducts: any[] = [];
+let variantsByProduct = new Map<string, any>();
+let bakeFailedByProduct = new Map<string, boolean>();
 try {
-  const res = await fetch(`${API_URL}/api/public/products/featured`);
-  if (res.ok) {
-    const data = await res.json();
-    featuredProducts = data.products || [];
-  }
+  const buildData = await getCatalogBuildData(API_URL);
+  featuredProducts = [...buildData.products]
+    .sort((a, b) => b.created_at - a.created_at)
+    .slice(0, 8);
+  variantsByProduct = buildData.variantsByProduct;
+  bakeFailedByProduct = buildData.bakeFailedByProduct;
 } catch (err) {
   console.error('Error fetching featured products at build time:', err);
 }
@@ -68,6 +80,8 @@ try {
         <div class="products-grid grid" id="featured-grid">
           {featuredProducts.map((product) => {
             const imageUrl = getProductImageUrl(product.image_url);
+            const baked = variantsByProduct.get(product.id);
+            const variantsAttr = baked && baked.modules.length > 0 ? JSON.stringify(baked) : null;
             return (
               <div class="product-wrapper">
                 <product-card
@@ -79,8 +93,9 @@ try {
                     image: imageUrl,
                     category: product.section_name,
                     price_tiers: product.price_tiers || [],
-                    has_variants: !!product.has_variants,
+                    bakeFailed: !!product.bakeFailed,
                   })}
+                  {...(variantsAttr ? { variants: variantsAttr } : {})}
                 />
               </div>
             );

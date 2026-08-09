@@ -14,6 +14,7 @@
 
 import { formatPrice, getProductImageUrl } from '../lib/public-api';
 import { getApiUrl } from '../lib/api-url';
+import { getCatalogBuildData, fetchWithTimeout } from '../lib/catalog-build';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PromotionWall from '../components/PromotionWall.astro';
 import Button from '../components/Button.astro';
@@ -22,40 +23,73 @@ import FilterPanel from '../components/FilterPanel.astro';
 
 const API_URL = getApiUrl();
 
-// Fetch products, category tree, and promotions at build time (SSG)
+// Fetch products (batched catalog — shared with the other pages via the
+// memoized build module), category tree, and promotions at build time (SSG).
+// The auxiliary sections (tree, promotions) are fired in parallel with the
+// catalog and EACH is consumed through its own try/catch: a rejecting or
+// timed-out auxiliary fetch degrades ONLY that section (empty tree/promos)
+// while the product grid still renders. The catalog batch itself is
+// FAIL-LOUD — awaited without a swallowing guard, so an unreachable backend
+// fails the build (same contract as [slug].astro getStaticPaths — never
+// silently ship an empty catalog). All build fetches are
+// AbortController-guarded so a hung backend can't stall the build.
 let products: any[] = [];
+let variantsByProduct = new Map<string, any>();
+let bakeFailedByProduct = new Map<string, boolean>();
 let tree: any[] = [];
 let topPromotions: any[] = [];
 let topSectionInfo: any = null;
 let bottomPromotions: any[] = [];
 let bottomSectionInfo: any = null;
+
+const treeReq = fetchWithTimeout(`${API_URL}/api/public/categories/tree`, 10_000);
+const topPromoReq = fetchWithTimeout(`${API_URL}/api/public/promotions?section=always-catalog-top`, 10_000);
+const bottomPromoReq = fetchWithTimeout(`${API_URL}/api/public/promotions?section=always-catalog-bottom`, 10_000);
+// Defensive no-op rejection handlers: the FAIL-LOUD catalog await below runs
+// BEFORE the per-section try/catch attaches handlers to these promises, so a
+// concurrent rejection (full backend outage) must never surface as an
+// unhandled rejection that masks the primary catalog error. The per-section
+// try/catch below still observes the real rejection and degrades only its own
+// section; request count is unchanged.
+treeReq.catch(() => {});
+topPromoReq.catch(() => {});
+bottomPromoReq.catch(() => {});
+
+const buildData = await getCatalogBuildData(API_URL);
+products = buildData.products;
+variantsByProduct = buildData.variantsByProduct;
+bakeFailedByProduct = buildData.bakeFailedByProduct;
+
 try {
-  const [productsRes, treeRes, topPromoRes, bottomPromoRes] = await Promise.all([
-    fetch(`${API_URL}/api/public/products?limit=1000`),
-    fetch(`${API_URL}/api/public/categories/tree`),
-    fetch(`${API_URL}/api/public/promotions?section=always-catalog-top`),
-    fetch(`${API_URL}/api/public/promotions?section=always-catalog-bottom`),
-  ]);
-  if (productsRes.ok) {
-    const data = await productsRes.json();
-    products = data.data || [];
-  }
+  const treeRes = await treeReq;
   if (treeRes.ok) {
     const data = await treeRes.json();
     tree = data.tree || [];
   }
+} catch (err) {
+  console.error('Error fetching category tree at build time:', err);
+}
+
+try {
+  const topPromoRes = await topPromoReq;
   if (topPromoRes.ok) {
     const data = await topPromoRes.json();
     topPromotions = data.promotions || [];
     topSectionInfo = data.section || null;
   }
+} catch (err) {
+  console.error('Error fetching top promotions at build time:', err);
+}
+
+try {
+  const bottomPromoRes = await bottomPromoReq;
   if (bottomPromoRes.ok) {
     const data = await bottomPromoRes.json();
     bottomPromotions = data.promotions || [];
     bottomSectionInfo = data.section || null;
   }
 } catch (err) {
-  console.error('Error fetching catalog data at build time:', err);
+  console.error('Error fetching bottom promotions at build time:', err);
 }
 
 ---
@@ -148,6 +182,8 @@ try {
                 const catSlug = product.category_slug || '';
                 // NULL from DB (no subcategory) → '' which won't match any real slug in filtering
                 const subSlug = product.subcategory_slug || '';
+                const baked = variantsByProduct.get(product.id);
+                const variantsAttr = baked && baked.modules.length > 0 ? JSON.stringify(baked) : null;
                 return (
                   <div class="product-wrapper"
                     data-category={secSlug}
@@ -166,8 +202,9 @@ try {
                         image: imageUrl,
                         category: product.section_name,
                         price_tiers: product.price_tiers || [],
-                        has_variants: !!product.has_variants,
+                        bakeFailed: !!product.bakeFailed,
                       })}
+                      {...(variantsAttr ? { variants: variantsAttr } : {})}
                     />
                   </div>
                 );

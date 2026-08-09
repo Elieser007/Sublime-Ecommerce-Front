@@ -50,11 +50,19 @@ export function computeFinalPrice(basePrice: number, selectedModifiers: number[]
 // ─── SELECTION COMPLETENESS ───────────────────────────────
 
 /**
- * Check if all modules with values have a selected value.
+ * Check if every *selectable* module has a selected value.
+ *
+ * Only modules with at least one available value (available !== false) are
+ * counted — mirroring the backend, which filters out values that dependencies
+ * forbid and (with no selection) drops all-unavailable modules entirely. A
+ * module whose values are ALL unavailable is treated as absent, so it can
+ * never permanently block add-to-cart (the all-unavailable deadlock fix).
+ * Values without an explicit `available` flag are treated as selectable
+ * (legacy payloads).
  *
  * @param modules - All modules with their values
  * @param selectedAttributes - Map of moduleId → valueId
- * @returns true if every module that has values has a selection
+ * @returns true if every selectable module has a selection
  */
 export function isSelectionComplete(
   modules: ModuleWithValues[],
@@ -63,8 +71,9 @@ export function isSelectionComplete(
   if (modules.length === 0) return true;
 
   return modules.every((mod) => {
-    // Skip modules with no values
-    if (mod.values.length === 0) return true;
+    // Modules with no selectable values impose no requirement.
+    const hasSelectableValue = mod.values.some((v) => v.available !== false);
+    if (!hasSelectableValue) return true;
     return selectedAttributes.has(mod.module_id);
   });
 }

@@ -2,15 +2,14 @@ import { addToCartWithOptions, updateCartBadge } from '../lib/cart.js';
 import { escapeHtml, sanitizeUrl } from '../lib/escape-html';
 import { formatPrice } from '../lib/format';
 import { isSelectionComplete } from '../lib/variant-logic';
+import { resolveAvailable, resolveFinalPrice } from '../lib/variant-filter';
+import { resolveVariantUiState } from '../lib/variant-fallback';
 import { getBestVolumeBadge, getTierPrice, getTierForQuantity, formatTierLabel } from '../lib/price-utils';
 import * as modalStack from '../lib/modalStack.js';
-import { getApiUrl } from '../lib/api-url';
-
-const API_URL = getApiUrl();
 
 class VariantModal extends HTMLElement {
   static get observedAttributes() {
-    return ['product-id', 'product-name', 'product-price', 'product-image', 'price-tiers'];
+    return ['product-id', 'product-name', 'product-price', 'product-image', 'price-tiers', 'variants', 'bake-failed'];
   }
 
   constructor() {
@@ -25,10 +24,10 @@ class VariantModal extends HTMLElement {
     this._priceTiers = [];
     this._quantity = 1;
     this._modules = [];
+    this._dependencies = [];
+    this._bakedVariants = null;
     this._selectedAttributes = {};
     this._finalPrice = 0;
-    this._loading = false;
-    this._error = null;
     this._selectorEl = null;
     this._stackId = null;
     this._trapActive = false;
@@ -71,13 +70,20 @@ class VariantModal extends HTMLElement {
     this._isOpen = true;
     this._quantity = 1;
     this._selectedAttributes = {};
-    this._error = null;
-    this._modules = [];
     this._parseAttributes();
-    this._renderContent();
-    document.body.style.overflow = 'hidden';
-    this._fetchVariants();
 
+    // Variant data is baked into the page at build time (SSG). The modal
+    // resolves availability + price purely client-side — no runtime fetch.
+    const baked = this._bakedVariants;
+    this._modules = baked?.modules || [];
+    this._dependencies = baked?.dependencies || [];
+    if (typeof baked?.basePrice === 'number') {
+      this._basePrice = baked.basePrice;
+    }
+
+    this._renderContent();
+    this._recalculatePrice();
+    document.body.style.overflow = 'hidden';
     this._stackId = modalStack.push(() => {
       // Stack close (ESC/back): closeTop() owns the history pop — never pop here
       this.close(true);
@@ -122,6 +128,24 @@ class VariantModal extends HTMLElement {
     } catch {
       this._priceTiers = [];
     }
+    const bakedAttr = this.getAttribute('variants');
+    this._bakedVariants = null;
+    if (bakedAttr) {
+      try {
+        const parsed = JSON.parse(bakedAttr);
+        this._bakedVariants = parsed && typeof parsed === 'object' ? parsed : null;
+      } catch {
+        this._bakedVariants = null;
+      }
+    }
+    // Bake-outcome signal (see src/lib/variant-fallback.ts): forwarded by
+    // <product-card> from the page-provided payload flag. true = the payload
+    // said modules should exist but the graph is missing/corrupt.
+    this._bakeFailed = this.getAttribute('bake-failed') === 'true';
+  }
+
+  _currentVariantUi() {
+    return resolveVariantUiState({}, this._modules, this._dependencies, this._bakeFailed);
   }
 
   _renderShell() {
@@ -133,48 +157,19 @@ class VariantModal extends HTMLElement {
   }
 
   _renderContent() {
-    const bodyHtml = this._loading
-      ? this._renderLoading()
-      : this._error
-        ? this._renderError()
-        : this._renderModalBody();
-
-    const dialogAttrs = this._loading || this._error
-      ? `aria-label="${this._loading ? 'Cargando variantes' : 'Error al cargar variantes'}"`
-      : 'aria-labelledby="variant-modal-title"';
-
     this._shadow.innerHTML = `
       <style>${this._getStyles()}</style>
       <div class="overlay" ${this._isOpen ? '' : 'aria-hidden="true"'}>
-        <div class="modal" role="dialog" aria-modal="true"
-             ${dialogAttrs}>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="variant-modal-title">
           <button class="close-btn" aria-label="Cerrar modal">&times;</button>
-          ${bodyHtml}
+          ${this._renderModalBody()}
         </div>
       </div>
     `;
 
     this._attachOverlayEvents();
-    if (!this._loading && !this._error) {
-      this._attachModalEvents();
-      this._activateFocusTrap();
-    }
-  }
-
-  _renderLoading() {
-    return `
-      <div class="modal-loading">
-        <div class="spinner"></div>
-        <p>Cargando variantes...</p>
-      </div>`;
-  }
-
-  _renderError() {
-    return `
-      <div class="modal-error">
-        <p>${escapeHtml(this._error)}</p>
-        <button class="retry-btn">Reintentar</button>
-      </div>`;
+    this._attachModalEvents();
+    this._activateFocusTrap();
   }
 
   _renderTierInfo() {
@@ -210,6 +205,17 @@ class VariantModal extends HTMLElement {
 
   _renderModalBody() {
     const hasModules = this._modules.length > 0;
+    const ui = this._currentVariantUi();
+    let bodyMarkup;
+    if (hasModules) {
+      bodyMarkup = '<variant-selector></variant-selector>';
+    } else if (ui.showFallbackNotice) {
+      // Bake failed at build time for a product that expects variants: show a
+      // visible notice and block confirm-to-cart (no options → no cart entry).
+      bodyMarkup = '<p class="variant-fallback-notice" role="status">No se pudieron cargar las variantes. Consultanos por WhatsApp.</p>';
+    } else {
+      bodyMarkup = '<p class="no-variants-msg">Este producto no tiene variantes disponibles.</p>';
+    }
     return `
       <div class="modal-header">
         <img class="modal-image"
@@ -226,9 +232,7 @@ class VariantModal extends HTMLElement {
       </div>
 
       <div class="modal-body">
-        ${hasModules
-          ? '<variant-selector></variant-selector>'
-          : '<p class="no-variants-msg">Este producto no tiene variantes disponibles.</p>'}
+        ${bodyMarkup}
       </div>
 
       <div class="modal-footer">
@@ -240,7 +244,7 @@ class VariantModal extends HTMLElement {
             <button class="qty-btn qty-plus" aria-label="Aumentar cantidad">+</button>
           </div>
         </div>
-        <button class="confirm-btn">
+        <button class="confirm-btn"${ui.showFallbackNotice ? ' disabled' : ''}>
           Confirmar
         </button>
       </div>`;
@@ -258,9 +262,6 @@ class VariantModal extends HTMLElement {
   _attachModalEvents() {
     const closeBtn = this._shadow.querySelector('.close-btn');
     if (closeBtn) closeBtn.addEventListener('click', () => this.close());
-
-    const retryBtn = this._shadow.querySelector('.retry-btn');
-    if (retryBtn) retryBtn.addEventListener('click', () => this._fetchVariants());
 
     const minusBtn = this._shadow.querySelector('.qty-minus');
     const plusBtn = this._shadow.querySelector('.qty-plus');
@@ -325,94 +326,50 @@ class VariantModal extends HTMLElement {
     }
   }
 
-  async _fetchVariants() {
-    if (!this._productId) return;
-
-    this._loading = true;
-    this._error = null;
-    this._renderContent();
-
-    try {
-      const selected = this._buildSelectedParam();
-      let url = `${API_URL}/api/public/products/${this._productId}/variants`;
-      if (Object.keys(selected).length > 0) {
-        url += `?selected=${encodeURIComponent(JSON.stringify(selected))}`;
-      }
-
-      const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-
-      const json = await res.json();
-      const modules = json.data?.available_modules || json.available_modules || [];
-      const serverPrice = json.data?.final_price ?? json.final_price ?? null;
-
-      this._modules = modules;
-      this._finalPrice = serverPrice || this._basePrice;
-      this._loading = false;
-      this._renderContent();
-    } catch (err) {
-      this._loading = false;
-      this._error = 'No se pudieron cargar las variantes. Intenta de nuevo.';
-      this._renderContent();
-    }
-  }
-
-  _buildSelectedParam() {
-    const selected = {};
-    for (const [moduleId, valueId] of Object.entries(this._selectedAttributes)) {
-      const mod = this._modules.find((m) => m.module_id === moduleId);
-      if (!mod) continue;
-      const val = mod.values.find((v) => v.value_id === valueId);
-      if (val) selected[mod.slug] = val.raw_value;
-    }
-    return selected;
-  }
+  // Variant availability + price are resolved entirely from the baked
+  // dependency graph — no runtime /variants requests on catalog pages.
 
   _onVariantChange(detail) {
-    this._selectedAttributes[detail.moduleId] = detail.valueId;
+    if (detail.valueId) {
+      this._selectedAttributes[detail.moduleId] = detail.valueId;
+    } else {
+      delete this._selectedAttributes[detail.moduleId];
+    }
+    this._applyAvailability();
     this._recalculatePrice();
-    this._refreshVariants();
+  }
+
+  _applyAvailability() {
+    const resolved = resolveAvailable(this._modules, this._dependencies, this._selectedAttributes);
+
+    // Drop selections that became unavailable under the current parents
+    // (mirrors the backend filtering those values out entirely).
+    for (const moduleId of Object.keys(this._selectedAttributes)) {
+      const mod = resolved.find((m) => m.module_id === moduleId);
+      const value = mod?.values.find((v) => v.value_id === this._selectedAttributes[moduleId]);
+      if (!value || value.available === false) {
+        delete this._selectedAttributes[moduleId];
+      }
+    }
+
+    this._modules = resolved;
+    if (this._selectorEl) {
+      this._selectorEl.setAttribute('modules', JSON.stringify(resolved));
+      this._selectorEl.setAttribute('selected', JSON.stringify(this._selectedAttributes));
+    }
   }
 
   _recalculatePrice() {
-    const modifiers = [];
-    for (const [moduleId, valueId] of Object.entries(this._selectedAttributes)) {
-      const mod = this._modules.find((m) => m.module_id === moduleId);
-      if (!mod) continue;
-      const val = mod.values.find((v) => v.value_id === valueId);
-      if (val) modifiers.push(val.price_modifier);
-    }
-
     let basePrice = this._basePrice;
     if (this._priceTiers?.length > 0) {
       basePrice = getTierPrice(this._priceTiers, this._quantity, this._basePrice);
     }
 
-    this._finalPrice = Math.max(0, basePrice + modifiers.reduce((a, b) => a + b, 0));
+    this._finalPrice = resolveFinalPrice(basePrice, this._modules, this._selectedAttributes);
 
     const priceEl = this._shadow.querySelector('.modal-price');
     if (priceEl) {
       priceEl.textContent = `Gs. ${formatPrice(this._finalPrice)}`;
-    }
-  }
-
-  async _refreshVariants() {
-    try {
-      const selected = this._buildSelectedParam();
-      let url = `${API_URL}/api/public/products/${this._productId}/variants`;
-      if (Object.keys(selected).length > 0) {
-        url += `?selected=${encodeURIComponent(JSON.stringify(selected))}`;
-      }
-      const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) return;
-      const json = await res.json();
-      const modules = json.data?.available_modules || json.available_modules || [];
-      this._modules = modules;
-      if (this._selectorEl) {
-        this._selectorEl.setAttribute('modules', JSON.stringify(modules));
-      }
-    } catch {
-      return;
     }
   }
 
@@ -434,6 +391,9 @@ class VariantModal extends HTMLElement {
   }
 
   _handleConfirm() {
+    // Bake-failure fallback: never add a variant product without options.
+    if (this._currentVariantUi().showFallbackNotice) return;
+
     if (this._modules.length > 0) {
       const selectedMap = new Map(Object.entries(this._selectedAttributes));
       const allSelected = isSelectionComplete(this._modules, selectedMap);
@@ -655,6 +615,13 @@ class VariantModal extends HTMLElement {
         padding: var(--_space-lg) 0;
       }
 
+      .variant-fallback-notice {
+        color: var(--_on-surface-variant);
+        text-align: center;
+        padding: var(--_space-lg);
+        border: var(--_border-width) dashed var(--_outline-variant);
+      }
+
       .modal-footer {
         padding: var(--_space-md) var(--_space-lg);
         border-top: var(--_border-width) solid var(--_outline-variant);
@@ -750,51 +717,6 @@ class VariantModal extends HTMLElement {
         color: #000;
       }
 
-      .modal-loading, .modal-error {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: var(--_space-xl);
-        gap: var(--_space-md);
-        min-height: 200px;
-        font-family: var(--_font-body);
-      }
-
-      .modal-loading p, .modal-error p {
-        color: var(--_on-surface-variant);
-        margin: 0;
-      }
-
-      .spinner {
-        width: 32px;
-        height: 32px;
-        border: 3px solid var(--_outline-variant);
-        border-top-color: var(--_primary);
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-      }
-
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
-
-      .retry-btn {
-        padding: var(--_space-sm) var(--_space-md);
-        background: var(--_surface-container-high);
-        border: var(--_border-width) solid var(--_outline-variant);
-        color: var(--_on-surface);
-        cursor: pointer;
-        font-family: var(--_font-body);
-        transition: border-color 0.15s ease;
-      }
-
-      .retry-btn:hover { border-color: var(--_primary); }
-      .retry-btn:focus-visible {
-        outline: 2px solid var(--_primary);
-        outline-offset: 2px;
-      }
-
       @media (max-width: 767px) {
         .overlay {
           padding: 0;
@@ -825,11 +747,7 @@ class VariantModal extends HTMLElement {
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .spinner {
-          animation: none;
-        }
-
-        .overlay, .qty-btn, .confirm-btn, .retry-btn {
+        .overlay, .qty-btn, .confirm-btn {
           transition: none;
         }
       }

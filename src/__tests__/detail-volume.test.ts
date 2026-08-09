@@ -21,6 +21,10 @@ const modalSource = readFileSync(
   resolve(__dirname, "../components/variant-modal.js"),
   "utf-8"
 );
+const cardSource = readFileSync(
+  resolve(__dirname, "../components/product-card.js"),
+  "utf-8"
+);
 const cartUtilsSource = readFileSync(
   resolve(__dirname, "../lib/cart-utils.ts"),
   "utf-8"
@@ -64,6 +68,104 @@ describe("[slug].astro server-rendered volume UI (D2)", () => {
     expect(detailSource).toMatch(
       /getTierPrice\(currentTiers, selectedQty,\s*basePrice\)\s*:\s*basePrice/
     );
+  });
+});
+
+describe("[slug].astro — static variant data flow (SSG)", () => {
+  it("injects the baked variant graph as window.__VARIANTS_DATA__", () => {
+    expect(detailSource).toContain("window.__VARIANTS_DATA__");
+  });
+
+  it("resolves availability + price client-side from baked data", () => {
+    expect(detailSource).toContain("resolveAvailable");
+    expect(detailSource).toContain("resolveFinalPrice");
+    expect(detailSource).toContain("recomputeVariants");
+  });
+
+  it("no longer fetches /variants at runtime (loadVariants/refreshVariants gone)", () => {
+    expect(detailSource).not.toContain("function loadVariants");
+    expect(detailSource).not.toContain("function refreshVariants");
+    expect(detailSource).not.toContain("function buildSelectedParam");
+    expect(detailSource).not.toContain("loadVariants(currentProduct.id)");
+  });
+
+  it("no longer imports getApiUrl into the client script", () => {
+    // The build-time fetch uses getApiUrl in frontmatter, but the browser
+    // script must not resolve a runtime API URL anymore.
+    const scriptBody = detailSource.slice(detailSource.indexOf("<script>"));
+    expect(scriptBody).not.toContain("getApiUrl");
+  });
+});
+
+describe("variant-modal.js — baked variant data (SSG)", () => {
+  it("accepts a baked 'variants' attribute", () => {
+    expect(modalSource).toContain("'variants'");
+    expect(modalSource).toContain("this.getAttribute('variants')");
+  });
+
+  it("resolves availability + price client-side", () => {
+    expect(modalSource).toContain("resolveAvailable");
+    expect(modalSource).toContain("resolveFinalPrice");
+    expect(modalSource).toContain("_applyAvailability");
+  });
+
+  it("no longer fetches anything at runtime", () => {
+    expect(modalSource).not.toContain("_fetchVariants");
+    expect(modalSource).not.toContain("_refreshVariants");
+    expect(modalSource).not.toContain("getApiUrl");
+    expect(modalSource).not.toContain("fetch(");
+  });
+});
+
+describe("Bake-failure fallback (SSG) — no cart entry without options", () => {
+  const NOTICE = "No se pudieron cargar las variantes. Consultanos por WhatsApp.";
+
+  it("[slug].astro imports and uses resolveVariantUiState", () => {
+    expect(detailSource).toContain("resolveVariantUiState");
+  });
+
+  it("[slug].astro server-renders the fallback notice when modules are empty", () => {
+    expect(detailSource).toContain("variantUi.showFallbackNotice");
+    expect(detailSource).toContain(NOTICE);
+  });
+
+  it("[slug].astro disables add-to-cart on fallback (server + client)", () => {
+    expect(detailSource).toContain("disabled={variantUi.showFallbackNotice}");
+    expect(detailSource).toContain("$addCart.disabled = variantUi.showFallbackNotice || !complete");
+  });
+
+  it("[slug].astro passes the bakeFailed signal into resolveVariantUiState", () => {
+    // Server render: props.bakeFailed; client: currentProduct.bakeFailed
+    // (the ProductWithDetails payload carries the resolved flag).
+    expect(detailSource).toMatch(/resolveVariantUiState\(\s*product,/);
+    expect(detailSource).toMatch(/resolveVariantUiState\(\s*currentProduct,/);
+    expect(detailSource).toContain("bakeFailed");
+  });
+
+  it("[slug].astro guards the add-to-cart click on fallback", () => {
+    expect(detailSource).toContain("variantUi.showFallbackNotice) return");
+  });
+
+  it("variant-modal reads the bake-failed signal (not legacy has-variants)", () => {
+    expect(modalSource).toContain("'bake-failed'");
+    expect(modalSource).toContain("this.getAttribute('bake-failed')");
+    expect(modalSource).not.toContain("'has-variants'");
+    expect(modalSource).not.toContain("this.getAttribute('has-variants')");
+  });
+
+  it("variant-modal renders the fallback notice and disables confirm", () => {
+    expect(modalSource).toContain("variant-fallback-notice");
+    expect(modalSource).toContain(NOTICE);
+    expect(modalSource).toContain("ui.showFallbackNotice ? ' disabled' : ''");
+  });
+
+  it("variant-modal guards confirm-to-cart on fallback", () => {
+    expect(modalSource).toContain("if (this._currentVariantUi().showFallbackNotice) return;");
+  });
+
+  it("product-card forwards bake-failed to the modal (not has-variants)", () => {
+    expect(cardSource).toContain("modal.setAttribute('bake-failed'");
+    expect(cardSource).not.toContain("has-variants");
   });
 });
 

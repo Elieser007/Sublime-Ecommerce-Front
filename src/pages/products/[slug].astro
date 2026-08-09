@@ -3,8 +3,10 @@
  * Product Detail — /products/[slug]
  *
  * SSG: pre-rendered at build time via getStaticPaths().
- * Product data comes from Astro.props (build-time fetch).
- * Variant selection remains client-side (fetched on interaction).
+ * Product data + variant graph (attribute modules, dependency rules, base
+ * price) come from Astro.props (build-time fetch) and are injected as
+ * window globals — variant selection resolves fully client-side, with zero
+ * runtime backend requests on catalog pages.
  * Add-to-cart uses LocalStorage. WhatsApp checkout with tier info.
  */
 
@@ -12,6 +14,8 @@ import { getProductImageUrl } from '../../lib/public-api';
 import { formatPrice } from '../../lib/public-api';
 import { getApiUrl } from '../../lib/api-url';
 import { getRelatedProducts } from '../../lib/product-related';
+import { getCatalogBuildData, EMPTY_VARIANTS_DATA, type BakedVariantData } from '../../lib/catalog-build';
+import { resolveVariantUiState } from '../../lib/variant-fallback';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PriceTierList from '../../components/PriceTierList.astro';
 import ProductGallery from '../../components/ProductGallery.astro';
@@ -22,53 +26,49 @@ const API_URL = getApiUrl();
 export async function getStaticPaths() {
   const apiUrl = getApiUrl();
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+  // One batched catalog fetch for the whole build (src/lib/catalog-build.ts
+  // memoizes it, so index/home/[slug] share a single pipeline run). The batch
+  // pipeline owns the per-batch 10s abort timeouts and fails loudly when the
+  // backend is unreachable — no try/catch here, the build must fail.
+  const { products, variantsByProduct, bakeFailedByProduct } = await getCatalogBuildData(apiUrl);
 
-    const listRes = await fetch(`${apiUrl}/api/public/products?limit=1000`, {
-      signal: controller.signal,
+  const paths = [];
+  for (const product of products) {
+    const related = getRelatedProducts(products, product.slug, product.section_slug || '');
+    const relatedVariants: Record<string, BakedVariantData> = {};
+    for (const relatedProduct of related) {
+      const baked = variantsByProduct.get(relatedProduct.id);
+      if (baked) relatedVariants[relatedProduct.id] = baked;
+    }
+
+    paths.push({
+      params: { slug: product.slug },
+      props: {
+        product,
+        // Build-time recommendations from the in-memory list (D6/REQ-10):
+        // deterministic, zero runtime fetches.
+        related,
+        // Baked attribute-variant graph for this product (SSG).
+        variantsData: variantsByProduct.get(product.id) ?? EMPTY_VARIANTS_DATA,
+        // Baked graphs for the related product cards (they open the modal).
+        relatedVariants,
+        // Bake-outcome signal: payload said modules should exist but the
+        // graph is missing/corrupt → fallback notice + blocked add-to-cart.
+        bakeFailed: bakeFailedByProduct.get(product.id) ?? false,
+      },
     });
-    clearTimeout(timeout);
-
-    if (!listRes.ok) {
-      console.warn(`[getStaticPaths] API returned ${listRes.status} — skipping product pages`);
-      return [];
-    }
-
-    const listData = await listRes.json();
-    const products = listData.data || [];
-
-    // NOTE: This uses an N+1 fetch pattern (1 list + N detail requests).
-    // Acceptable for ~500 products with daily deploys. The backend's
-    // /api/public/products endpoint doesn't return full product details
-    // (images, variants, all price tiers), so individual fetches are needed.
-    // If product count grows beyond 1000, consider adding a batch endpoint
-    // to the backend that returns all products with full details.
-    const paths = [];
-    for (const product of products) {
-      const detailRes = await fetch(`${apiUrl}/api/public/products/slug/${product.slug}`);
-      if (!detailRes.ok) continue;
-      const detailData = await detailRes.json();
-      paths.push({
-        params: { slug: product.slug },
-        props: {
-          product: detailData.product,
-          // Build-time recommendations from the in-memory list (D6/REQ-10):
-          // deterministic, zero runtime fetches.
-          related: getRelatedProducts(products, product.slug, product.section_slug || ''),
-        },
-      });
-    }
-
-    return paths;
-  } catch (err) {
-    console.warn(`[getStaticPaths] API unreachable at ${apiUrl} — skipping product pages`);
-    return [];
   }
+
+  return paths;
 }
 
-const { product, related = [] } = Astro.props;
+const { product, related = [], variantsData = EMPTY_VARIANTS_DATA, relatedVariants = {}, bakeFailed = false } = Astro.props;
+
+// Server-side fallback decision: bake-outcome based (see
+// src/lib/variant-fallback.ts). Products with a clean payload and zero
+// modules (seeded size products: SKUs but no attribute modules) render as
+// genuine "no variants" — purchasable, no notice.
+const variantUi = resolveVariantUiState(product, variantsData.modules, variantsData.dependencies, bakeFailed);
 
 // Pre-compute values for template
 const primaryImage = product.images && product.images.length > 0
@@ -113,7 +113,13 @@ const basePriceFormatted = formatPrice(product.base_price);
         </div>
 
         <!-- Variant Selector (attribute modules — loaded client-side) -->
-        <div id="variant-section"></div>
+        <div id="variant-section">
+          {variantUi.showFallbackNotice && (
+            <p class="variant-fallback-notice" role="status" id="variant-fallback-notice">
+              No se pudieron cargar las variantes. Consultanos por WhatsApp.
+            </p>
+          )}
+        </div>
         
         <!-- Quantity Stepper (shows when tier selected) -->
         <div id="quantity-stepper-section" class="quantity-stepper-section" style={tiers.length > 0 ? "display: block;" : "display: none;"}>
@@ -126,7 +132,13 @@ const basePriceFormatted = formatPrice(product.base_price);
         </div>
 
         <div class="detail-actions">
-          <Button variant="primary" size="lg" class="detail-add-btn" id="detail-add-cart">
+          <Button
+            variant="primary"
+            size="lg"
+            class="detail-add-btn"
+            id="detail-add-cart"
+            disabled={variantUi.showFallbackNotice}
+          >
             Agregar al carrito
           </Button>
           <Button variant="secondary" size="lg" id="detail-whatsapp" href="#" target="_blank" rel="noopener">
@@ -144,20 +156,25 @@ const basePriceFormatted = formatPrice(product.base_price);
       <section id="related-products" class="related-products">
         <h2 class="related-products__title">Productos relacionados</h2>
         <div class="related-products__grid">
-          {related.map((relatedProduct: any) => (
-            <product-card
-              product={JSON.stringify({
-                id: relatedProduct.id,
-                slug: relatedProduct.slug,
-                name: relatedProduct.name,
-                price: relatedProduct.base_price,
-                image: getProductImageUrl(relatedProduct.image_url),
-                category: relatedProduct.section_name,
-                price_tiers: relatedProduct.price_tiers || [],
-                has_variants: !!relatedProduct.has_variants,
-              })}
-            />
-          ))}
+          {related.map((relatedProduct: any) => {
+            const baked = relatedVariants[relatedProduct.id];
+            const variantsAttr = baked && baked.modules.length > 0 ? JSON.stringify(baked) : null;
+            return (
+              <product-card
+                product={JSON.stringify({
+                  id: relatedProduct.id,
+                  slug: relatedProduct.slug,
+                  name: relatedProduct.name,
+                  price: relatedProduct.base_price,
+                  image: getProductImageUrl(relatedProduct.image_url),
+                  category: relatedProduct.section_name,
+                  price_tiers: relatedProduct.price_tiers || [],
+                  bakeFailed: !!relatedProduct.bakeFailed,
+                })}
+                {...(variantsAttr ? { variants: variantsAttr } : {})}
+              />
+            );
+          })}
         </div>
       </section>
     )}
@@ -165,6 +182,8 @@ const basePriceFormatted = formatPrice(product.base_price);
 
   <!-- Inject build-time product data for client-side script -->
   <script is:inline set:html={`window.__PRODUCT_DATA__ = ${JSON.stringify(product).replace(/<\//g, '<\\/')};`} />
+  <!-- Inject the build-time attribute-variant graph (modules + dependency rules + base price) -->
+  <script is:inline set:html={`window.__VARIANTS_DATA__ = ${JSON.stringify(variantsData).replace(/<\//g, '<\\/')};`} />
 </BaseLayout>
 
 <script>
@@ -174,11 +193,10 @@ const basePriceFormatted = formatPrice(product.base_price);
   } from '../../lib/public-api';
   import { getTierPrice, getTierForQuantity } from '../../lib/price-utils';
   import { buildCartMessage } from '../../lib/whatsapp';
-  import { computeFinalPrice, isSelectionComplete } from '../../lib/variant-logic';
+  import { isSelectionComplete } from '../../lib/variant-logic';
+  import { resolveAvailable, resolveFinalPrice } from '../../lib/variant-filter';
+  import { resolveVariantUiState } from '../../lib/variant-fallback';
   import { addToCartWithOptions, updateCartBadge } from '../../lib/cart.js';
-  import { getApiUrl } from '../../lib/api-url';
-
-  const API_URL = getApiUrl();
 
   const $variantSection = document.getElementById('variant-section');
   const $qtySection = document.getElementById('quantity-stepper-section');
@@ -188,86 +206,79 @@ const basePriceFormatted = formatPrice(product.base_price);
   const $price = document.getElementById('detail-price');
 
   const currentProduct: any = (window as any).__PRODUCT_DATA__;
+  const bakedVariants: any = (window as any).__VARIANTS_DATA__;
+
+  // Variant data is baked into the page at build time (SSG). The client only
+  // resolves availability + price locally — no runtime /variants requests.
+  let currentVariantModules: any[] = bakedVariants?.modules || [];
+  let currentDependencies: any[] = bakedVariants?.dependencies || [];
   let currentTiers: any[] = currentProduct?.price_tiers || [];
   let selectedTier: any = null;
   let selectedQty = 1;
-  let currentVariantModules: any[] = [];
-  let variantFinalPrice: number | null = null;
   let selectedAttributesMap = new Map<string, string>();
-  let selectedModifiersMap = new Map<string, number>();
+
+  // Bake-failure fallback (see src/lib/variant-fallback.ts): bake-outcome
+  // based. The batch payload carries the resolved bakeFailed flag; when true
+  // (payload said modules should exist but the graph is missing/corrupt) the
+  // notice renders and add-to-cart stays blocked. Modules never appear at
+  // runtime (zero fetches), so this is stable for the whole page life.
+  const bakeFailed = !!(currentProduct as any)?.bakeFailed;
+  const variantUi = resolveVariantUiState(currentProduct, currentVariantModules, currentDependencies, bakeFailed);
 
   let $variantSelector: any = null;
 
+  function renderVariantFallbackNotice() {
+    if (document.getElementById('variant-fallback-notice')) return;
+    const notice = document.createElement('p');
+    notice.id = 'variant-fallback-notice';
+    notice.className = 'variant-fallback-notice';
+    notice.setAttribute('role', 'status');
+    notice.textContent = 'No se pudieron cargar las variantes. Consultanos por WhatsApp.';
+    $variantSection.appendChild(notice);
+  }
+
+  // Recompute value availability from the baked dependency graph and re-sync
+  // the selector. Selections that became unavailable are dropped (mirrors the
+  // backend filtering values out when a parent forbids them).
+  function recomputeVariants() {
+    const resolved = resolveAvailable(currentVariantModules, currentDependencies, selectedAttributesMap);
+
+    for (const [moduleId, valueId] of Array.from(selectedAttributesMap.entries())) {
+      const mod = resolved.find((m: any) => m.module_id === moduleId);
+      const value = mod?.values.find((v: any) => v.value_id === valueId);
+      if (!value || value.available === false) {
+        selectedAttributesMap.delete(moduleId);
+      }
+    }
+
+    currentVariantModules = resolved;
+    if ($variantSelector) {
+      $variantSelector.setAttribute('modules', JSON.stringify(currentVariantModules));
+      $variantSelector.setAttribute('selected', JSON.stringify(Object.fromEntries(selectedAttributesMap)));
+    }
+  }
+
   function renderVariantSelector() {
     $variantSelector = document.createElement('variant-selector');
+    $variantSection.appendChild($variantSelector);
     $variantSelector.setAttribute('modules', JSON.stringify(currentVariantModules));
     $variantSelector.setAttribute('selected', JSON.stringify(Object.fromEntries(selectedAttributesMap)));
-    $variantSection.appendChild($variantSelector);
 
     $variantSelector.addEventListener('variant-change', ((e: CustomEvent) => {
-      const { moduleId, valueId, priceModifier } = e.detail;
-      selectedAttributesMap.set(moduleId, valueId);
-      selectedModifiersMap.set(moduleId, priceModifier);
+      const { moduleId, valueId } = e.detail;
+      if (valueId) {
+        selectedAttributesMap.set(moduleId, valueId);
+      } else {
+        selectedAttributesMap.delete(moduleId);
+      }
 
-      const baseForTier = selectedTier ? selectedTier.price : currentProduct.base_price;
-      const modifiers = Array.from(selectedModifiersMap.values());
-      variantFinalPrice = computeFinalPrice(baseForTier, modifiers);
+      recomputeVariants();
 
       const complete = isSelectionComplete(currentVariantModules, selectedAttributesMap);
-      if ($addCart) $addCart.disabled = !complete;
+      if ($addCart) $addCart.disabled = variantUi.showFallbackNotice || !complete;
 
       updatePriceDisplay();
-      refreshVariants();
     }) as EventListener);
-  }
-
-  function buildSelectedParam(): Record<string, string> {
-    const selected: Record<string, string> = {};
-    for (const [moduleId, valueId] of selectedAttributesMap) {
-      const mod = currentVariantModules.find((m: any) => m.module_id === moduleId);
-      if (!mod) continue;
-      const val = mod.values.find((v: any) => v.value_id === valueId);
-      if (val) {
-        selected[mod.slug] = val.raw_value;
-      }
-    }
-    return selected;
-  }
-
-  async function refreshVariants() {
-    const selected = buildSelectedParam();
-    await loadVariants(currentProduct.id, selected);
-  }
-
-  async function loadVariants(productId: string, selected?: Record<string, string>) {
-    try {
-      let url = `${API_URL}/api/public/products/${productId}/variants`;
-      if (selected && Object.keys(selected).length > 0) {
-        url += `?selected=${encodeURIComponent(JSON.stringify(selected))}`;
-      }
-      const res = await fetch(url);
-      if (!res.ok) return;
-
-      const json = await res.json();
-      const modules = json.data?.available_modules || json.available_modules || [];
-
-      if (modules.length === 0) {
-        $variantSection.innerHTML = '';
-        return;
-      }
-
-      currentVariantModules = modules;
-      variantFinalPrice = json.data?.final_price ?? json.final_price ?? null;
-
-      if (!$variantSelector) {
-        renderVariantSelector();
-      } else {
-        $variantSelector.setAttribute('modules', JSON.stringify(currentVariantModules));
-        $variantSelector.setAttribute('selected', JSON.stringify(Object.fromEntries(selectedAttributesMap)));
-      }
-    } catch (err) {
-      console.error('Failed to load variants:', err);
-    }
   }
 
   function buildSelectedAttributes() {
@@ -296,8 +307,7 @@ const basePriceFormatted = formatPrice(product.base_price);
     const tierPrice = currentTiers.length > 0 ? getTierPrice(currentTiers, selectedQty, basePrice) : basePrice;
     const applicableTier = currentTiers.length > 0 ? getTierForQuantity(currentTiers, selectedQty) : null;
 
-    const modifierSum = Array.from(selectedModifiersMap.values()).reduce((a, b) => a + b, 0);
-    const displayPrice = Math.max(0, tierPrice + modifierSum);
+    const displayPrice = resolveFinalPrice(tierPrice, currentVariantModules, selectedAttributesMap);
 
     $price.textContent = `Gs. ${formatPrice(displayPrice)}`;
 
@@ -335,7 +345,8 @@ const basePriceFormatted = formatPrice(product.base_price);
 
   document.addEventListener('astro:page-load', () => {
     $addCart?.addEventListener('click', () => {
-      if (!currentProduct) return;
+      // Bake-failure fallback: never add a variant product without options.
+      if (!currentProduct || variantUi.showFallbackNotice) return;
 
       const tierMinQty = selectedTier?.min_quantity || 1;
 
@@ -369,7 +380,15 @@ const basePriceFormatted = formatPrice(product.base_price);
     });
 
     if (currentProduct) {
-      loadVariants(currentProduct.id);
+      recomputeVariants();
+      if (currentVariantModules.length > 0) {
+        renderVariantSelector();
+      } else if (variantUi.showFallbackNotice) {
+        renderVariantFallbackNotice();
+      }
+      const complete = isSelectionComplete(currentVariantModules, selectedAttributesMap);
+      if ($addCart) $addCart.disabled = variantUi.showFallbackNotice || !complete;
+      updatePriceDisplay();
     }
 
     if (currentTiers.length > 0) {
@@ -591,5 +610,16 @@ const basePriceFormatted = formatPrice(product.base_price);
     border: var(--border-width) solid var(--outline-variant);
     border-radius: var(--border-radius);
     margin-bottom: var(--space-lg);
+  }
+
+  /* Bake-failure fallback notice (variant product with no baked modules) */
+  .variant-fallback-notice {
+    margin: 0 0 var(--space-lg);
+    padding: var(--space-md);
+    background-color: var(--surface-container);
+    border: var(--border-width) solid var(--outline-variant);
+    border-radius: var(--border-radius);
+    color: var(--on-surface-variant);
+    font-family: var(--font-body);
   }
 </style>
