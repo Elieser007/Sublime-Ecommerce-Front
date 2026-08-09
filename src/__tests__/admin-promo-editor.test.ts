@@ -158,4 +158,13 @@ describe("promotions.astro — judgment-day fixes wiring", () => {
     expect(pageSource).toMatch(/\$\(['"]save-error['"]\)!\.textContent\s*=\s*validationError/);
     expect(pageSource).not.toMatch(/\$\(['"]form-error['"]\)!\.textContent\s*=\s*validationError/);
   });
+
+  it("dedupes the SPA nav guard across repeated initEvents (FIX4)", () => {
+    expect(pageSource).toContain("installNavGuard");
+    expect(pageSource).toContain("NAV_GUARD_KEY");
+    // The guard removes the previous capture-phase document click listener
+    // before installing the current one, so visits cannot stack confirm dialogs.
+    expect(pageSource).toMatch(/document\.removeEventListener\(['"]click['"],\s*previous,\s*true\)/);
+    expect(pageSource).toMatch(/document\.addEventListener\(['"]click['"],\s*handler,\s*true\)/);
+  });
 });

@@ -1210,7 +1210,25 @@ import PromotionWall from '../../components/PromotionWall.astro';
     // preventDefault degrades to a full page load — so intercept same-origin
     // anchor clicks in the capture phase (before the router's own listener)
     // and confirm when dirty. preventDefault blocks the navigation outright.
-    document.addEventListener('click', (e) => {
+    installNavGuard();
+    window.addEventListener('resize', () => { if (isTiles()) renderCanvas(); });
+  }
+
+  // Astro ClientRouter re-executes the page script on every navigation, so a
+  // bare document.addEventListener('click', ...) inside initEvents would stack
+  // one stale guard per visit (each closing over an old `state`). Keep exactly
+  // one active guard per live page by storing the handler on window and
+  // removing the previous one before installing the current.
+  const NAV_GUARD_KEY = '__sublimePromoNavGuard';
+
+  function installNavGuard() {
+    const win = window as unknown as Record<string, unknown>;
+    const previous = win[NAV_GUARD_KEY] as ((e: MouseEvent) => void) | undefined;
+    if (previous) {
+      document.removeEventListener('click', previous, true);
+      win[NAV_GUARD_KEY] = undefined;
+    }
+    const handler = (e: MouseEvent) => {
       if (!state || !snapshot) return;
       if (!shouldWarnBeforeUnload(state, snapshot)) return;
       const raw = (e.composedPath?.() || [])[0] || e.target;
@@ -1220,14 +1238,15 @@ import PromotionWall from '../../components/PromotionWall.astro';
       if (link.hasAttribute('download')) return;
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       let sameOrigin = false;
-      try { sameOrigin = new URL(link.href, location.href).origin === location.origin; } catch { /* ignore */ }
+      try { sameOrigin = new URL(link.href, location.href).origin === location.origin; } catch { return; }
       if (!sameOrigin) return;
       if (!confirm('Hay cambios sin guardar. ¿Descartarlos?')) {
         e.preventDefault();
         e.stopPropagation();
       }
-    }, true);
-    window.addEventListener('resize', () => { if (isTiles()) renderCanvas(); });
+    };
+    win[NAV_GUARD_KEY] = handler;
+    document.addEventListener('click', handler, true);
   }
 
   document.addEventListener('astro:page-load', () => {
