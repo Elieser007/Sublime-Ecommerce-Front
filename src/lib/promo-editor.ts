@@ -2,6 +2,7 @@ import { clampTile, autoSuggestPosition, type Grid } from "./promo-grid";
 
 export interface EditorPromotion {
   id: string | null;
+  localId: string | null;
   title: string;
   subtitle: string | null;
   imageUrl: string | null;
@@ -65,13 +66,21 @@ export interface SavedPromotionsResponse {
   promotions: ServerPromotion[];
 }
 
-export function localKey(p: Pick<EditorPromotion, "id" | "posX" | "posY">): string {
-  return p.id || `local-${p.posX}-${p.posY}`;
+let localIdSeq = 0;
+
+export function nextLocalId(): string {
+  localIdSeq += 1;
+  return `local-${localIdSeq}`;
+}
+
+export function localKey(p: Pick<EditorPromotion, "id" | "localId">): string {
+  return p.id || p.localId || "";
 }
 
 function toEditorPromotion(p: ServerPromotion): EditorPromotion {
   return {
     id: p.id,
+    localId: null,
     title: p.title || "",
     subtitle: p.subtitle,
     imageUrl: p.imageUrl,
@@ -267,6 +276,7 @@ export function duplicatePromotion(s: PromoEditorState, id: string): PromoEditor
   const copy: EditorPromotion = {
     ...source,
     id: null,
+    localId: nextLocalId(),
     posX: suggested.x,
     posY: suggested.y,
     imageBlob: null,
@@ -299,6 +309,7 @@ export function addPromotion(
 
   const promo: EditorPromotion = {
     id: null,
+    localId: nextLocalId(),
     title: fields.title ?? "",
     subtitle: fields.subtitle ?? null,
     imageUrl: fields.imageUrl ?? null,

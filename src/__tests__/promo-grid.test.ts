@@ -164,6 +164,17 @@ describe("detectCollisions", () => {
     expect(detectCollisions(tiles, "a")).toEqual(["b"]);
   });
 
+  it("reports co-located unsaved tiles with distinct ids in the warning (FIX2)", () => {
+    // Two unsaved promos parked on the same cell (overlap is warn-only): each
+    // has its own stable localKey, so the collision warning must see both.
+    const tiles: GridTile[] = [
+      tile({ id: "local-1", posX: 0, posY: 0 }),
+      tile({ id: "local-2", posX: 0, posY: 0 }),
+    ];
+    expect(detectCollisions(tiles, "local-1")).toEqual(["local-2"]);
+    expect(detectCollisions(tiles, "local-2")).toEqual(["local-1"]);
+  });
+
   it("excludes the moved tile itself", () => {
     const tiles: GridTile[] = [tile({ id: "a", posX: 0, posY: 0 })];
     expect(detectCollisions(tiles, "a")).toEqual([]);

@@ -30,6 +30,7 @@ import {
   validatePromotionsForSave,
   extractFilename,
   localKey,
+  nextLocalId,
   type EditorSection,
   type EditorPromotion,
   type PromoEditorState,
@@ -367,6 +368,73 @@ describe("updatePromotion", () => {
     state = updatePromotion(state, key, { title: "Edited Draft" });
     expect(state.promotions).toHaveLength(1);
     expect(state.promotions[0].title).toBe("Edited Draft");
+  });
+});
+
+describe("localKey / localId uniqueness (FIX2)", () => {
+  it("assigns every unsaved promo a unique stable localId at creation", () => {
+    let state = createEditorState(section, []);
+    state = addPromotion(state, { title: "A", link: "/a" });
+    state = addPromotion(state, { title: "B", link: "/b" });
+    const a = state.promotions[0];
+    const b = state.promotions[1];
+    expect(a.id).toBeNull();
+    expect(b.id).toBeNull();
+    expect(a.localId).toBeTruthy();
+    expect(b.localId).toBeTruthy();
+    expect(a.localId).not.toBe(b.localId);
+    expect(localKey(a)).not.toBe(localKey(b));
+  });
+
+  it("duplicated promos get a fresh localId distinct from the source", () => {
+    let state = createEditorState(section, [serverPromo({ id: "p1" })]);
+    const duped = duplicatePromotion(state, "p1");
+    const copy = duped.promotions.find((p) => p.id === null)!;
+    expect(copy.localId).toBeTruthy();
+    expect(copy.localId).not.toBe(localKey(duped.promotions[0]));
+  });
+
+  it("the localKey of an unsaved promo is stable when it moves (position-independent)", () => {
+    let state = createEditorState(section, []);
+    state = addPromotion(state, { title: "A", link: "/a" });
+    const keyBefore = localKey(state.promotions[0]);
+    state = updatePromotion(state, keyBefore, { posX: 5, posY: 2 });
+    expect(localKey(state.promotions[0])).toBe(keyBefore);
+  });
+
+  it("edits and removes overlapping unsaved promos independently (FIX2)", () => {
+    let state = createEditorState(section, []);
+    state = addPromotion(state, { title: "A", link: "/a" });
+    state = addPromotion(state, { title: "B", link: "/b" });
+    const keyA = localKey(state.promotions[0]);
+    const keyB = localKey(state.promotions[1]);
+    // Park both on the same cell — overlap is warn-only, allowed.
+    state = updatePromotion(state, keyA, { posX: 0, posY: 0 });
+    state = updatePromotion(state, keyB, { posX: 0, posY: 0 });
+    expect(localKey(state.promotions[0])).toBe(keyA);
+    expect(localKey(state.promotions[1])).toBe(keyB);
+
+    state = updatePromotion(state, keyA, { title: "A edited" });
+    expect(state.promotions[0].title).toBe("A edited");
+    expect(state.promotions[1].title).toBe("B");
+
+    state = removePromotion(state, keyA);
+    expect(state.promotions).toHaveLength(1);
+    expect(state.promotions[0].title).toBe("B");
+    expect(state.deletedIds).toEqual([]);
+  });
+
+  it("server promos keep id-based keys and ignore localId", () => {
+    const state = createEditorState(section, [serverPromo({ id: "p1" })]);
+    expect(localKey(state.promotions[0])).toBe("p1");
+  });
+});
+
+describe("nextLocalId", () => {
+  it("returns distinct values across calls", () => {
+    const a = nextLocalId();
+    const b = nextLocalId();
+    expect(a).not.toBe(b);
   });
 });
 
