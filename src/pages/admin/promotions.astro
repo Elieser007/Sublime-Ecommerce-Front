@@ -831,25 +831,31 @@ import PromotionWall from '../../components/PromotionWall.astro';
     try {
       // 1. Upload pending blobs (best-effort per blob).
       const resolvedUrls: Record<string, string | null> = {};
-      for (const p of state.promotions) {
-        if (p.imageBlob) {
-          const key = p.id;
-          if (!key) continue; // new promos get their blob uploaded below via imageUrl passthrough
-          try {
-            const result = await uploadImageBlob(p.imageBlob, 'promo.webp', API_URL);
-            if (result.url) {
-              resolvedUrls[key] = result.url;
-              uploadedThisSave.push(result.url);
-            }
-          } catch (err) {
-            $('form-error')!.textContent = 'Error al subir imagen';
-            return;
+      // New promos have no server id yet: their uploaded URL lands directly
+      // in the payload item (toSavePayload reads state.imageUrl).
+      let saveState = state;
+      for (const p of saveState.promotions) {
+        if (!p.imageBlob) continue;
+        try {
+          const result = await uploadImageBlob(p.imageBlob, 'promo.webp', API_URL);
+          if (!result.url) throw new Error('Upload falló');
+          uploadedThisSave.push(result.url);
+          if (p.id) {
+            resolvedUrls[p.id] = result.url;
+          } else {
+            saveState = {
+              ...saveState,
+              promotions: saveState.promotions.map((pp) => (pp === p ? { ...pp, imageUrl: result.url } : pp)),
+            };
           }
+        } catch (err) {
+          $('form-error')!.textContent = 'Error al subir imagen';
+          return;
         }
       }
 
       // 2. Build payload with resolved upload URLs.
-      const payload = toSavePayload(state, resolvedUrls);
+      const payload = toSavePayload(saveState, resolvedUrls);
 
       // 3. Batch PUT.
       const res = await fetch(`${API_URL}/api/promotion-sections/${state.section.id}/promotions`, {
@@ -867,14 +873,32 @@ import PromotionWall from '../../components/PromotionWall.astro';
       const saved = await res.json();
 
       // 4. Re-sync from server truth.
+      const preSavePromotions = saveState.promotions;
+      const payloadPromotions = payload.promotions;
       state = applySavedResponse(state, saved);
       snapshot = createSnapshot(state);
       history = createHistory();
 
+      // 4b. Associate uploaded blobs with their server ids (legacy table sync).
+      const savedPromos = (saved.promotions || []) as Array<{ id: string }>;
+      for (const [key, url] of Object.entries(resolvedUrls)) {
+        const payloadIndex = payloadPromotions.findIndex((p) => p.id === key);
+        const serverId = payloadIndex >= 0 ? savedPromos[payloadIndex]?.id : undefined;
+        if (serverId && url) {
+          try {
+            await associateImage('promotions', serverId, url, API_URL, undefined, { is_primary: 1, sort_order: 0 });
+          } catch { /* best-effort association */ }
+        }
+      }
+
       // 5. Best-effort R2 cleanup: replaced/removed image URLs + removed promos.
       const cleanupTargets = new Set<string>();
-      for (const p of state.promotions) {
+      for (const p of preSavePromotions) {
         if (p.previousImageUrl && p.previousImageUrl !== p.imageUrl) cleanupTargets.add(p.previousImageUrl);
+        // Replaced associations: drop the legacy promotion_image row.
+        if (p.imageId && p.imageBlob) {
+          try { await deleteImage('promotions', p.id || '', p.imageId, API_URL); } catch { /* best-effort */ }
+        }
       }
       for (const url of state.deletedImageUrls) cleanupTargets.add(url);
       for (const url of cleanupTargets) {
