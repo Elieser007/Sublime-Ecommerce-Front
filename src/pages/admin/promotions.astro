@@ -85,6 +85,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
             <Button variant="primary" id="save-btn" type="button" disabled>Guardar</Button>
           </span>
         </div>
+        <p class="save-error" id="save-error" role="alert" aria-live="polite"></p>
 
         <!-- Onboarding hint (one-time) -->
         <div class="onboarding-hint" id="onboarding-hint">
@@ -446,7 +447,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     const from = items.indexOf(item);
     if (from < 0) return;
 
-    const pointerId = e.pointerId;
+  const pointerId = e.pointerId;
     try { item.setPointerCapture(pointerId); } catch { /* synthetic event */ }
 
     const prevState = state;
@@ -959,10 +960,12 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (!isDirty(state, snapshot)) return;
 
     // Per-tile title validation BEFORE Guardar: the backend 400s the WHOLE
-    // batch on a blank title, so name the offending tile here (F10).
+    // batch on a blank title, so name the offending tile here (F10). Surfaced
+    // in #save-error (always visible), not #form-error (hidden modal).
+    $('save-error')!.textContent = '';
     const validationError = validatePromotionsForSave(state.promotions);
     if (validationError) {
-      $('form-error')!.textContent = validationError;
+      $('save-error')!.textContent = validationError;
       return;
     }
 
@@ -992,7 +995,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
             };
           }
         } catch (err) {
-          $('form-error')!.textContent = 'Error al subir imagen';
+          $('save-error')!.textContent = 'Error al subir imagen';
           return;
         }
       }
@@ -1057,7 +1060,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
       cleanupUrls = [];
 
       renderAll();
-      $('form-error')!.textContent = '';
+      $('save-error')!.textContent = '';
       alert('Guardado correctamente');
     } catch (err: any) {
       // Orphan guard: delete blobs uploaded this save (batch failure).
@@ -1067,7 +1070,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
           try { await deleteUploadedFile(filename, API_URL); } catch { /* best-effort */ }
         }
       }
-      $('form-error')!.textContent = err.message || 'Error al guardar';
+      $('save-error')!.textContent = err.message || 'Error al guardar';
     } finally {
       setButtonDisabled('save-btn', false);
       saveBtn.textContent = 'Guardar';
@@ -1306,6 +1309,15 @@ import PromotionWall from '../../components/PromotionWall.astro';
   }
   .editor-status { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--on-surface-variant); }
   .editor-actions { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+  .save-error {
+    color: var(--error);
+    font-size: 13px;
+    padding: var(--space-xs) var(--space-md);
+    border-left: 3px solid var(--error);
+    background: var(--surface-container-high);
+    margin: 0;
+  }
+  .save-error:empty { display: none; }
 
   /* ─── Onboarding hint ────────────────────────────────────────── */
   .onboarding-hint {

@@ -149,4 +149,13 @@ describe("promotions.astro — judgment-day fixes wiring", () => {
   it("associates uploaded images by server id, not response array index (F7)", () => {
     expect(pageSource).toContain("for (const [serverId, url] of Object.entries(resolvedUrls))");
   });
+
+  it("surfaces the save validation error outside the hidden modal (FIX3)", () => {
+    expect(pageSource).toContain('id="save-error"');
+    expect(pageSource).toContain("validatePromotionsForSave(state.promotions)");
+    // The doSave validation failure must land in #save-error (always visible),
+    // NOT in #form-error (hidden inside #modal-overlay).
+    expect(pageSource).toMatch(/\$\(['"]save-error['"]\)!\.textContent\s*=\s*validationError/);
+    expect(pageSource).not.toMatch(/\$\(['"]form-error['"]\)!\.textContent\s*=\s*validationError/);
+  });
 });
