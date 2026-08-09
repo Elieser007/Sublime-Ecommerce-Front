@@ -1,0 +1,118 @@
+/**
+ * Admin Promo Editor — static-source page tests (TDD RED).
+ *
+ * The editor page's <script> wires the pure libs (promo-grid/editor/canvas)
+ * to a pointer-event session. These tests read the compiled page source and
+ * assert the wiring exists: imports, canvas rendering, pointer/keyboard
+ * handlers, the single Guardar commit, Cancelar/Revertir, the beforeunload
+ * guard, 44px touch handles, onboarding hint, and the absence of the old
+ * upload module and dead #delete-overlay markup. Refs: PM-1..PM-4, AR-2.
+ */
+
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, it, expect } from "vitest";
+
+const pageSource = readFileSync(
+  resolve(__dirname, "../pages/admin/promotions.astro"),
+  "utf-8"
+);
+
+describe("promotions.astro — pure lib wiring", () => {
+  it("imports the three pure promo libs", () => {
+    expect(pageSource).toContain("promo-grid");
+    expect(pageSource).toContain("promo-editor");
+    expect(pageSource).toContain("promo-canvas");
+  });
+
+  it("imports image-utils and processImage (image pipeline)", () => {
+    expect(pageSource).toContain("image-utils");
+    expect(pageSource).toContain("processImage");
+  });
+});
+
+describe("promotions.astro — canvas editor", () => {
+  it("renders the tile canvas with grid-lines overlay and percent tiles", () => {
+    expect(pageSource).toContain("renderTileCanvasHtml");
+    expect(pageSource).toContain("renderGridLines");
+  });
+
+  it("registers a pointerdown session for drag and resize", () => {
+    expect(pageSource).toContain("pointerdown");
+    expect(pageSource).toContain("setPointerCapture");
+    expect(pageSource).toContain("dragToCell");
+    expect(pageSource).toContain("resizeToSpans");
+  });
+
+  it("handles touch: touch-action none + 44px handle hit class", () => {
+    expect(pageSource).toContain("touch-action");
+    expect(pageSource).toContain("handle-hit");
+  });
+
+  it("shows an onboarding hint element (one-time)", () => {
+    expect(pageSource).toMatch(/onboarding|hint/i);
+  });
+
+  it("shows a collision warning without blocking placement", () => {
+    expect(pageSource).toContain("detectCollisions");
+  });
+});
+
+describe("promotions.astro — keyboard interactions", () => {
+  it("handles Escape, arrows, Delete, and undo/redo keys", () => {
+    expect(pageSource).toContain("keydown");
+    expect(pageSource).toContain("Escape");
+    expect(pageSource).toContain("Arrow");
+    expect(pageSource).toContain("Delete");
+    expect(pageSource).toContain("undoEditor");
+    expect(pageSource).toContain("redoEditor");
+  });
+});
+
+describe("promotions.astro — local state and single commit", () => {
+  it("builds state via createEditorState and tracks dirty", () => {
+    expect(pageSource).toContain("createEditorState");
+    expect(pageSource).toContain("isDirty");
+  });
+
+  it("Guardar is disabled while clean and enabled when dirty", () => {
+    expect(pageSource).toContain("Guardar");
+    expect(pageSource).toMatch(/disabled/i);
+  });
+
+  it("Cancelar/Revertir restores the snapshot via revert()", () => {
+    expect(pageSource).toMatch(/Cancelar|Revertir/i);
+    expect(pageSource).toContain("revert");
+  });
+
+  it("sends exactly one batch PUT via toSavePayload", () => {
+    expect(pageSource).toContain("toSavePayload");
+    expect(pageSource).toContain("promotion-sections");
+    expect(pageSource).toContain("promotions");
+  });
+
+  it("applies the server response via applySavedResponse", () => {
+    expect(pageSource).toContain("applySavedResponse");
+  });
+
+  it("warns before unload when dirty", () => {
+    expect(pageSource).toContain("beforeunload");
+    expect(pageSource).toContain("shouldWarnBeforeUnload");
+  });
+});
+
+describe("promotions.astro — no dead code", () => {
+  it("does not import the old promo-upload module", () => {
+    expect(pageSource).not.toContain("lib/promo-upload");
+  });
+
+  it("has no #delete-overlay markup", () => {
+    expect(pageSource).not.toContain("delete-overlay");
+  });
+
+  it("has no per-interaction network calls to /api/promotions (single commit only)", () => {
+    // The old editor PUT/POSTed per modal save. The new editor only calls the
+    // batch PUT and reads. No fetch to /api/promotions (collection) for writes.
+    expect(pageSource).not.toMatch(/fetch\([^)]*\/api\/promotions['"]/);
+  });
+});

@@ -1,20 +1,20 @@
 ---
 /**
- * Admin Promotions — Promotion Management
- * 
- * Left: Section list with grid_cols/grid_rows controls
- * Right: Promotions for selected section + live preview
+ * Admin Promotions — Visual Promo Editor (PM-1..PM-5, AR-2)
+ *
+ * Local-first WYSIWYG editor:
+ *   - tiles section → grid canvas with grid-lines, percent-positioned tiles,
+ *     8 resize handles (≥44px hit area), pointer-event drag/resize session
+ *   - carousel/split/ribbon → reorder strip; hero/banner → simple edit form
+ *   - edits are LOCAL-ONLY (zero per-interaction network); one Guardar sends
+ *     the batch PUT; Cancelar/Revertir restores the snapshot
+ *   - undo/redo (Ctrl/Cmd+Z/Y, cap 50), Esc cancels, arrows nudge, Delete
+ *     removes, Duplicate adds on first free cell; beforeunload warns when dirty
  */
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 import Button from '../../components/Button.astro';
 import PromotionWall from '../../components/PromotionWall.astro';
-import HeroPromo from '../../components/promo/HeroPromo.astro';
-import CarouselPromo from '../../components/promo/CarouselPromo.astro';
-import TilesPromo from '../../components/promo/TilesPromo.astro';
-import SplitPromo from '../../components/promo/SplitPromo.astro';
-import BannerPromo from '../../components/promo/BannerPromo.astro';
-import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 ---
 
 <AdminLayout title="Promociones — Admin">
@@ -47,24 +47,78 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
               <option value="2">2 columnas</option>
               <option value="3">3 columnas</option>
               <option value="4">4 columnas</option>
+              <option value="5">5 columnas</option>
+              <option value="6">6 columnas</option>
+              <option value="7">7 columnas</option>
+              <option value="8">8 columnas</option>
             </select>
             <select class="form-select body-md" id="grid-rows-select" aria-label="Filas del grid">
               <option value="1">1 fila</option>
               <option value="2">2 filas</option>
               <option value="3">3 filas</option>
+              <option value="4">4 filas</option>
+            </select>
+            <select class="form-select body-md" id="display-type-select" aria-label="Tipo de anuncio">
+              <option value="tiles">Tiles</option>
+              <option value="carousel">Carousel</option>
+              <option value="hero">Hero</option>
+              <option value="split">Split</option>
+              <option value="banner">Banner</option>
+              <option value="ribbon">Ribbon</option>
             </select>
             <Button variant="primary" id="add-promo-btn">+ Nuevo Anuncio</Button>
           </div>
         </div>
 
-        <!-- Preview -->
+        <div class="type-info">
+          <h4 class="label-sm type-info-title">Sobre este tipo</h4>
+          <p class="body-sm type-info-desc" id="type-info-desc"></p>
+        </div>
+
+        <!-- Editor status bar: dirty state + undo/redo -->
+        <div class="editor-bar">
+          <span class="editor-status" id="editor-status">Sin cambios</span>
+          <span class="editor-actions">
+            <Button variant="secondary" id="undo-btn" type="button">↩ Deshacer</Button>
+            <Button variant="secondary" id="redo-btn" type="button">↪ Rehacer</Button>
+            <Button variant="secondary" id="revert-btn" type="button">Cancelar</Button>
+            <Button variant="primary" id="save-btn" type="button" disabled>Guardar</Button>
+          </span>
+        </div>
+
+        <!-- Onboarding hint (one-time) -->
+        <div class="onboarding-hint" id="onboarding-hint">
+          <p class="body-sm">Arrastrá los tiles para moverlos, usá los bordes para redimensionar y los botones de abajo para editar o reordenar. Todo se guarda con un solo clic en <strong>Guardar</strong>.</p>
+          <button type="button" class="ta-btn" id="hint-dismiss">✕</button>
+        </div>
+
+        <!-- Canvas editor (tiles only) -->
+        <div class="canvas-section" id="canvas-section" style="display:none;">
+          <h3 class="label-sm">Editor de Tiles</h3>
+          <div class="canvas-scroll" id="canvas-scroll">
+            <div class="promo-canvas" id="promo-canvas"></div>
+          </div>
+          <p class="collision-hint" id="collision-hint" role="alert" style="display:none;"></p>
+        </div>
+
+        <!-- Reorder strip (carousel/split/ribbon) -->
+        <div class="strip-section" id="strip-section" style="display:none;">
+          <h3 class="label-sm">Orden de Anuncios</h3>
+          <p class="body-sm strip-hint">Arrastrá para reordenar. El orden se guarda con Guardar.</p>
+          <div class="promo-strip" id="promo-strip"></div>
+        </div>
+
+        <!-- Simple edit form (hero/banner) -->
+        <div class="simple-section" id="simple-section" style="display:none;">
+          <h3 class="label-sm">Edición Simple</h3>
+          <div class="simple-list" id="simple-list"></div>
+        </div>
+
+        <!-- Live preview -->
         <div class="preview-section">
           <h3 class="label-sm">Vista Previa</h3>
           <div id="live-preview-container"><p class="body-sm" style="color:var(--on-surface-variant);">Seleccioná una sección para ver la vista previa</p></div>
         </div>
-
-        <!-- Promotions List -->
-        <div class="promos-list" id="promos-list"></div>
       </section>
     </div>
   </main>
@@ -76,29 +130,13 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       <h3 class="headline-lg-mobile" id="modal-title">Nuevo Anuncio</h3>
       <button class="modal-close" id="modal-close">✕</button>
     </div>
-
-    <!-- Image Delete Confirmation -->
-    <div class="modal-overlay" id="delete-overlay" style="display: none;">
-      <div class="modal modal--confirm">
-        <div class="modal-header">
-          <h3 class="headline-lg-mobile">⚠️ Eliminar imagen</h3>
-          <button class="modal-close" id="delete-cancel-x">✕</button>
-        </div>
-        <div class="modal-body">
-          <p class="body-md">Esta acción no se puede deshacer. La imagen se eliminará permanentemente.</p>
-          <div class="form-actions">
-            <Button variant="secondary" id="delete-cancel">Cancelar</Button>
-            <Button variant="danger" id="delete-confirm">Eliminar</Button>
-          </div>
-        </div>
-      </div>
-    </div>
     <form class="modal-form" id="promo-form">
       <input type="hidden" id="promo-id" />
+      <input type="hidden" id="promo-image-id" />
 
       <div class="form-row">
         <div class="form-group form-group--wide">
-          <label class="label-sm">Imagen del anuncio *</label>
+          <label class="label-sm">Imagen del anuncio</label>
           <div class="promo-upload-area" id="promo-upload-area">
             <div class="promo-upload-content" id="promo-upload-content">
               <div class="promo-empty" id="promo-empty">
@@ -112,7 +150,7 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
               </div>
               <img src="" alt="" class="promo-image" id="promo-image" style="display: none;" />
             </div>
-            <button type="button" class="promo-remove-btn" id="promo-remove" style="display: none;" title="Eliminar imagen">✕</button>
+            <button type="button" class="promo-remove-btn" id="promo-remove" style="display: none;" title="Quitar imagen">✕</button>
           </div>
           <input type="file" name="promo-image" id="promo-input" accept="image/png,image/jpeg,image/webp" class="upload-input" />
           <div class="upload-status" id="promo-upload-status" style="display: none;">
@@ -128,8 +166,8 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
           <input type="text" name="title" class="form-input body-md" placeholder="Ej: Nueva Colección" />
         </div>
         <div class="form-group">
-          <label class="label-sm">Link *</label>
-          <input type="text" name="link" class="form-input body-md" required placeholder="/products/..." />
+          <label class="label-sm">Link</label>
+          <input type="text" name="link" class="form-input body-md" placeholder="/products/..." />
         </div>
       </div>
 
@@ -148,6 +186,10 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
             <option value="2">2</option>
             <option value="3">3</option>
             <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
           </select>
         </div>
         <div class="form-group">
@@ -156,15 +198,8 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
             <option value="1">1</option>
             <option value="2">2</option>
             <option value="3">3</option>
+            <option value="4">4</option>
           </select>
-        </div>
-        <div class="form-group">
-          <label class="label-sm">Posición X</label>
-          <input type="number" name="posX" class="form-input body-md" value="0" min="0" />
-        </div>
-        <div class="form-group">
-          <label class="label-sm">Posición Y</label>
-          <input type="number" name="posY" class="form-input body-md" value="0" min="0" />
         </div>
       </div>
 
@@ -179,31 +214,68 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 </AdminLayout>
 
 <script>
-  import { escapeHtml, sanitizePromoUrl } from '../../lib/escape-html';
+  import { escapeHtml } from '../../lib/escape-html';
   import { getProductImageUrl } from '../../lib/public-api';
-  import { uploadImageBlob, associateImage, deleteImage, fetchEntityImages } from '../../lib/image-utils';
+  import { buildPromoPreviewHtml, type PromoPreview } from '../../lib/promo-preview';
+  import { processImage } from '../../lib/image';
+  import { uploadImageBlob, associateImage, deleteImage, deleteUploadedFile, fetchEntityImages } from '../../lib/image-utils';
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
-  const promoModal = wrapModal('modal-overlay');
   import {
-    createEmptyPromoImageState,
-    hasPromoImage,
-    setPromoImageFromBlob,
-    setPromoImageFromUrl,
-    clearPromoImage,
-    getPromoPreviewUrl,
-    type PromoImageState,
-  } from '../../lib/promo-upload';
+    clampTile, dragToCell, resizeToSpans, detectCollisions, renumberOrder,
+    autoSuggestPosition, type Grid, type GridTile,
+  } from '../../lib/promo-grid';
+  import {
+    createEditorState, createSnapshot, isDirty, revert, toSavePayload,
+    applySavedResponse, movePromotion, removePromotion, duplicatePromotion,
+    addPromotion, updatePromotion, setSection, createHistory, pushHistory,
+    undoEditor, redoEditor, shouldWarnBeforeUnload, extractFilename,
+    type EditorPromotion, type PromoEditorState, type EditorHistory,
+  } from '../../lib/promo-editor';
+  import {
+    clientToCell, cellSizeForGrid, renderTileCanvasHtml, renderGridLines,
+  } from '../../lib/promo-canvas';
 
   const API_URL = getApiUrl();
   const $ = (id: string) => document.getElementById(id);
 
+  // ─── STATE ─────────────────────────────────────────────────────────
   let sections: any[] = [];
-  let selectedSection: any = null;
-  let promotions: any[] = [];
-  let promoImageState: PromoImageState = createEmptyPromoImageState();
+  let state: PromoEditorState | null = null;
+  let snapshot: PromoEditorState | null = null;
+  let history: EditorHistory = createHistory();
+  let selectedId: string | null = null;
+  let currentDisplayType = 'tiles';
 
-  // ─── LOAD SECTIONS ──────────────────────────────────────
+  // Modal image fields (local-only until Guardar).
+  let modalImageBlob: Blob | null = null;
+  let modalImageUrl: string | null = null;
+  let modalImageId: string | null = null;
+  let modalPreviousUrl: string | null = null;
+
+  // R2 cleanup targets gathered at save time.
+  let cleanupUrls: string[] = [];
+  let uploadedThisSave: string[] = [];
+
+  const typeInfo: Record<string, string> = {
+    tiles: "El tipo Tiles muestra tus anuncios en un grid de cuadros. Cada anuncio puede ocupar diferente cantidad de espacio (1x1, 2x2, etc). Arrastrá para mover, redimensioná desde los bordes.",
+    carousel: "El tipo Carousel muestra un anuncio a la vez como un slideshow que cambia automaticamente. Arrastrá la franja para ordenar.",
+    hero: "El tipo Hero es un banner grande que ocupa todo el ancho con imagen de fondo y texto centrado. Solo muestra el primer anuncio.",
+    split: "El tipo Split muestra imagen a un lado y texto al otro, alternando la direccion.",
+    banner: "El tipo Banner es una franja con texto centrado y borde decorativo. Sin imagenes.",
+    ribbon: "El tipo Ribbon es una cinta horizontal con varios anuncios lado a lado.",
+  };
+
+  function updateTypeInfo(type: string) {
+    const desc = $('type-info-desc');
+    if (desc) desc.textContent = typeInfo[type] || '';
+  }
+
+  function isTiles(): boolean {
+    return currentDisplayType === 'tiles';
+  }
+
+  // ─── LOAD SECTIONS ────────────────────────────────────────────────
   async function loadSections() {
     try {
       const res = await fetch(`${API_URL}/api/promotion-sections`, { credentials: 'include' });
@@ -222,22 +294,8 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
       $('sections-list')!.innerHTML = '<p class="body-sm">No hay secciones</p>';
       return;
     }
-
-    function explainSlug(slug: string): string {
-      const parts = slug.split('-');
-      const explains: Record<string, string> = {
-        always: 'Se muestra siempre',
-        catalog: 'Página de catálogo',
-        home: 'Página principal',
-        top: 'Arriba',
-        bottom: 'Abajo',
-        hero: 'Sección principal grande',
-      };
-      return parts.map(p => explains[p] || p).join(' · ');
-    }
-
     $('sections-list')!.innerHTML = sections.map((s: any) => `
-      <div class="section-card ${selectedSection?.id === s.id ? 'active' : ''}" data-id="${escapeHtml(s.id)}">
+      <div class="section-card ${selectedSectionId() === s.id ? 'active' : ''}" data-id="${escapeHtml(s.id)}">
         <div class="section-card-header">
           <div>
             <strong class="body-md">${escapeHtml(s.name)}</strong>
@@ -245,171 +303,472 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
           </div>
           <span class="badge badge--active">${escapeHtml(s.grid_cols)}×${escapeHtml(s.grid_rows)}</span>
         </div>
-        <p class="section-card-slug body-sm">${escapeHtml(explainSlug(s.slug))}</p>
       </div>
     `).join('');
 
     $('sections-list')!.querySelectorAll('.section-card').forEach((card) => {
       card.addEventListener('click', () => {
         const id = (card as HTMLElement).dataset.id;
-        selectSection(id);
+        if (id && !warnIfDirty()) selectSection(id);
       });
     });
   }
 
+  function selectedSectionId(): string | null {
+    return state ? state.section.id : null;
+  }
+
   async function selectSection(sectionId: string) {
-    selectedSection = sections.find((s: any) => s.id === sectionId);
-    if (!selectedSection) return;
+    const serverSection = sections.find((s: any) => s.id === sectionId);
+    if (!serverSection) return;
 
-    $('section-name')!.textContent = selectedSection.name;
-    $('section-slug')!.textContent = selectedSection.slug;
-    ($('grid-cols-select') as HTMLSelectElement).value = String(selectedSection.grid_cols || 4);
-    ($('grid-rows-select') as HTMLSelectElement).value = String(selectedSection.grid_rows || 1);
-    $('promo-manager')!.style.display = '';
-    $('tile-options')!.style.display = '';
-
-    renderSections();
-    await loadPromotions();
-  }
-
-  // ─── LOAD PROMOTIONS ────────────────────────────────────
-  async function loadPromotions() {
-    if (!selectedSection) return;
-
+    // Fetch promotions for the section.
+    let promotions: any[] = [];
     try {
-      const res = await fetch(`${API_URL}/api/promotions?section=${selectedSection.slug}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Error');
-      const data = await res.json();
-      promotions = data.promotions || [];
-      renderPromotions();
-      renderPreview();
-    } catch (err) {
-      $('promos-list')!.innerHTML = '<p class="body-sm">Error al cargar promociones</p>';
-    }
+      const res = await fetch(`${API_URL}/api/promotions?section=${serverSection.slug}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        promotions = data.promotions || [];
+      }
+    } catch { /* keep empty */ }
+
+    const editorSection = {
+      id: serverSection.id,
+      name: serverSection.name,
+      slug: serverSection.slug,
+      gridCols: serverSection.grid_cols || 4,
+      gridRows: serverSection.grid_rows || 1,
+      displayType: serverSection.display_type || 'tiles',
+    };
+
+    state = createEditorState(editorSection, promotions);
+    snapshot = createSnapshot(state);
+    history = createHistory();
+    currentDisplayType = editorSection.displayType;
+    selectedId = null;
+
+    $('section-name')!.textContent = editorSection.name;
+    $('section-slug')!.textContent = editorSection.slug;
+    ($('grid-cols-select') as HTMLSelectElement).value = String(editorSection.gridCols);
+    ($('grid-rows-select') as HTMLSelectElement).value = String(editorSection.gridRows);
+    ($('display-type-select') as HTMLSelectElement).value = currentDisplayType;
+    $('promo-manager')!.style.display = '';
+    updateTypeInfo(currentDisplayType);
+    renderSections();
+    renderAll();
   }
 
-  function renderPromotions() {
-    if (promotions.length === 0) {
-      $('promos-list')!.innerHTML = '<p class="body-sm empty-msg">No hay anuncios en esta sección. Crea uno nuevo.</p>';
-      return;
-    }
+  // ─── RENDERING ────────────────────────────────────────────────────
+  function renderAll() {
+    if (!state) return;
+    renderEditor();
+    renderPreview();
+    renderStatus();
+  }
 
-    $('promos-list')!.innerHTML = promotions.map((p: any) => `
-      <div class="promo-card" data-id="${escapeHtml(p.id)}">
-        <div class="promo-card-img">
-          <img src="${escapeHtml(getProductImageUrl(p.imageUrl))}" alt="${escapeHtml(p.title || '')}" />
+  function renderEditor() {
+    if (!state) return;
+    const canvasSection = $('canvas-section')!;
+    const stripSection = $('strip-section')!;
+    const simpleSection = $('simple-section')!;
+    const tileOptions = $('tile-options')!;
+
+    canvasSection.style.display = isTiles() ? '' : 'none';
+    stripSection.style.display = isTiles() ? 'none' : (currentDisplayType === 'hero' || currentDisplayType === 'banner' ? 'none' : '');
+    simpleSection.style.display = currentDisplayType === 'hero' || currentDisplayType === 'banner' ? '' : 'none';
+    tileOptions.style.display = isTiles() ? '' : 'none';
+
+    if (isTiles()) renderCanvas();
+    else if (currentDisplayType === 'hero' || currentDisplayType === 'banner') renderSimpleEdit();
+    else renderStrip();
+  }
+
+  function grid(): Grid {
+    return { cols: state?.section.gridCols || 4, rows: state?.section.gridRows || 1 };
+  }
+
+  function renderCanvas() {
+    if (!state) return;
+    const container = $('promo-canvas');
+    if (!container) return;
+
+    const scroll = $('canvas-scroll')!;
+    const desktop = window.innerWidth >= 768;
+    const availW = scroll.clientWidth || container.clientWidth || 600;
+    const cell = cellSizeForGrid(grid(), availW, desktop);
+    container.style.width = `${grid().cols * cell}px`;
+    container.style.height = `${grid().rows * cell}px`;
+
+    const tiles: Array<GridTile & { title?: string }> = state.promotions.map((p) => ({
+      id: p.id || `local-${p.posX}-${p.posY}`,
+      posX: p.posX,
+      posY: p.posY,
+      width: p.width,
+      height: p.height,
+      title: p.title,
+    }));
+
+    container.innerHTML = renderGridLines(grid(), cell) + renderTileCanvasHtml(tiles, grid());
+  }
+
+  function renderStrip() {
+    if (!state) return;
+    const strip = $('promo-strip')!;
+    strip.innerHTML = state.promotions.map((p, i) => `
+      <div class="strip-item" data-index="${i}" data-id="${escapeHtml(p.id || `local-${i}`)}" draggable="true">
+        <span class="strip-grip">⋮⋮</span>
+        ${p.imageUrl ? `<img src="${escapeHtml(getProductImageUrl(p.imageUrl))}" alt="" />` : '<span class="strip-noimg">Sin imagen</span>'}
+        <div class="strip-info">
+          <strong class="body-sm">${escapeHtml(p.title || '(sin título)')}</strong>
+          <span class="body-xs">${escapeHtml(p.link)}</span>
         </div>
-        <div class="promo-card-info">
-          <strong class="body-md">${escapeHtml(p.title || '(sin título)')}</strong>
-          <span class="body-sm">${escapeHtml(p.subtitle || '')}</span>
-          <code class="slug-badge">${escapeHtml(p.link)}</code>
-          <span class="body-sm">${escapeHtml(p.tileCols)}×${escapeHtml(p.tileRows)} · pos (${escapeHtml(p.position)})</span>
-        </div>
-        <div class="promo-card-actions">
-          <button class="ta-btn" onclick="editPromo('${escapeHtml(p.id)}')" title="Editar">✏️</button>
-          <button class="ta-btn ta-btn--delete" onclick="deletePromo('${escapeHtml(p.id)}')" title="Eliminar">🗑️</button>
-        </div>
+        <span class="badge badge--active">#${i + 1}</span>
       </div>
     `).join('');
+
+    strip.querySelectorAll<HTMLElement>('.strip-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        const id = item.dataset.id;
+        if (id) openModal(true, state!.promotions.find((p) => p.id === id || `local-${state!.promotions.indexOf(p)}` === id));
+      });
+      item.addEventListener('dragstart', (e) => {
+        e.dataTransfer?.setData('text/plain', item.dataset.index || '');
+      });
+      item.addEventListener('dragover', (e) => e.preventDefault());
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const from = parseInt(e.dataTransfer?.getData('text/plain') || '', 10);
+        const to = parseInt(item.dataset.index || '', 10);
+        if (Number.isFinite(from) && Number.isFinite(to) && from !== to && state) {
+          const prev = state;
+          state = renumberOrder(movePromotion(state, from, to));
+          history = pushHistory(history, prev);
+          selectedId = state.promotions[to]?.id || null;
+          renderAll();
+        }
+      });
+    });
   }
 
-  // ─── LIVE PREVIEW ───────────────────────────────────────
+  function renderSimpleEdit() {
+    if (!state) return;
+    const list = $('simple-list')!;
+    list.innerHTML = state.promotions.map((p, i) => `
+      <div class="simple-item" data-id="${escapeHtml(p.id || `local-${i}`)}">
+        ${p.imageUrl ? `<img src="${escapeHtml(getProductImageUrl(p.imageUrl))}" alt="" />` : '<span class="strip-noimg">Sin imagen</span>'}
+        <div class="strip-info">
+          <strong class="body-sm">${escapeHtml(p.title || '(sin título)')}</strong>
+          <span class="body-xs">${escapeHtml(p.link)}</span>
+        </div>
+        <button class="ta-btn" data-edit="${i}" title="Editar">✏️</button>
+        <button class="ta-btn ta-btn--delete" data-del="${i}" title="Eliminar">🗑️</button>
+      </div>
+    `).join('');
+
+    list.querySelectorAll<HTMLElement>('[data-edit]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.edit || '', 10);
+        const p = state!.promotions[idx];
+        if (p) openModal(true, p);
+      });
+    });
+    list.querySelectorAll<HTMLElement>('[data-del]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.del || '', 10);
+        const p = state!.promotions[idx];
+        if (p) doRemove(p.id || `local-${idx}`);
+      });
+    });
+  }
+
+  function renderStatus() {
+    if (!state || !snapshot) return;
+    const dirty = isDirty(state, snapshot);
+    $('editor-status')!.textContent = dirty ? 'Cambios sin guardar' : 'Sin cambios';
+    ($('save-btn') as HTMLButtonElement).disabled = !dirty;
+    ($('undo-btn') as HTMLButtonElement).disabled = history.past.length === 0;
+    ($('redo-btn') as HTMLButtonElement).disabled = history.future.length === 0;
+  }
+
   function renderPreview() {
+    if (!state) return;
     const container = $('live-preview-container');
-    if (!container || !selectedSection) return;
-    if (promotions.length === 0) {
+    if (!container) return;
+    if (state.promotions.length === 0) {
       container.innerHTML = '<p class="body-sm">Sin anuncios</p>';
       return;
     }
-    container.innerHTML = '';
-    // The backend only supports the tiles layout (grid_cols/grid_rows).
-    const gridCols = Number(selectedSection.grid_cols) || 4;
-    let html = '<div class="tiles-promo" style="grid-template-columns:repeat(' + gridCols + ',1fr);grid-auto-rows:160px;">';
-    promotions.forEach((pt: any) => {
-      const col = (pt.position % gridCols) + 1;
-      const row = Math.floor(pt.position / gridCols) + 1;
-      const span = pt.tileCols || 1;
-      html += `<div class="tile" style="grid-column:${col}/span ${span};grid-row:${row}/span ${pt.tileRows || 1};"><div class="tile-bg" style="background-image:url('${escapeHtml(getProductImageUrl(pt.imageUrl))}')"></div><div class="tile-overlay"></div><div class="tile-content">${pt.title ? `<h3 class="tile-title">${escapeHtml(pt.title)}</h3>` : ''}${pt.subtitle ? `<p class="tile-desc">${escapeHtml(pt.subtitle)}</p>` : ''}</div><a href="${escapeHtml(sanitizePromoUrl(pt.link))}" class="tile-link" aria-label="${escapeHtml(pt.title || 'Promocion')}"></a></div>`;
-    });
-    html += '</div>';
-    container.innerHTML = html;
+    const previews: PromoPreview[] = state.promotions.map((p) => ({
+      id: p.id || 'local',
+      title: p.title,
+      subtitle: p.subtitle,
+      imageUrl: p.imageUrl || '',
+      link: p.link,
+      position: p.posX,
+      tileCols: p.width,
+      tileRows: p.height,
+    }));
+    container.innerHTML = buildPromoPreviewHtml(currentDisplayType, previews, state.section.gridCols);
+    const carousel = container.querySelector('.carousel-promo');
+    if (carousel) initPreviewCarousel(carousel);
   }
 
-  // ─── IMAGE UPLOAD HANDLERS ──────────────────────────────
-  const promoUploadArea = $('promo-upload-area');
-  const promoInput = $('promo-input') as HTMLInputElement;
-  const promoImageEl = $('promo-image') as HTMLImageElement;
-  const promoEmpty = $('promo-empty');
-  const promoRemove = $('promo-remove');
-  const promoUploadStatus = $('promo-upload-status');
-  const promoImageUrlInput = $('promo-image-url') as HTMLInputElement;
+  function initPreviewCarousel(container: HTMLElement) {
+    const slides = container.querySelectorAll<HTMLElement>('.carousel-slide');
+    const dots = container.querySelectorAll<HTMLElement>('.carousel-dot');
+    const prevBtn = container.querySelector<HTMLElement>('.carousel-arrow--left');
+    const nextBtn = container.querySelector<HTMLElement>('.carousel-arrow--right');
+    let current = 0;
+    let timer: number | undefined;
+    if (slides.length === 0) return;
 
-  function renderPromoImage() {
-    const hasImage = hasPromoImage(promoImageState);
-    if (promoEmpty) promoEmpty.style.display = hasImage ? 'none' : 'flex';
-    if (promoImageEl) {
-      if (hasImage) {
-        promoImageEl.src = getPromoPreviewUrl(promoImageState) || '';
-        promoImageEl.style.display = 'block';
-      } else {
-        promoImageEl.style.display = 'none';
-      }
+    function goTo(index: number) {
+      slides[current].classList.remove('active');
+      dots[current]?.classList.remove('active');
+      current = index;
+      slides[current].classList.add('active');
+      dots[current]?.classList.add('active');
     }
-    if (promoRemove) promoRemove.style.display = hasImage ? 'flex' : 'none';
+    function next() { goTo((current + 1) % slides.length); }
+    function prev() { goTo((current - 1 + slides.length) % slides.length); }
+    function startAuto() { timer = window.setInterval(next, 5000); }
+    function stopAuto() { window.clearInterval(timer); }
+
+    prevBtn?.addEventListener('click', () => { stopAuto(); prev(); startAuto(); });
+    nextBtn?.addEventListener('click', () => { stopAuto(); next(); startAuto(); });
+    dots.forEach((dot) => {
+      dot.addEventListener('click', () => {
+        stopAuto();
+        goTo(parseInt(dot.dataset.slide || '0', 10));
+        startAuto();
+      });
+    });
+    container.addEventListener('mouseenter', stopAuto);
+    container.addEventListener('mouseleave', startAuto);
+    if (slides.length > 1) startAuto();
   }
 
-  async function handlePromoFile(file: File) {
-    if (file.size > 5 * 1024 * 1024) {
-      $('form-error')!.textContent = 'Imagen muy grande (max 5MB)';
+  // ─── POINTER SESSION (canvas drag/resize) ─────────────────────────
+  function canvasCellForEvent(e: PointerEvent): { x: number; y: number } | null {
+    const canvas = $('promo-canvas');
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const cell = cellSizeForGrid(grid(), canvas.clientWidth || rect.width, window.innerWidth >= 768);
+    return clientToCell(e.clientX - rect.left, e.clientY - rect.top, cell, grid());
+  }
+
+  function beginPointerSession(e: PointerEvent) {
+    if (!state) return;
+    const canvas = $('promo-canvas') as HTMLElement;
+    if (!canvas) return;
+    const target = (e.target as HTMLElement).closest('.canvas-tile') as HTMLElement | null;
+    const handleEl = (e.target as HTMLElement).closest('.resize-handle') as HTMLElement | null;
+    if (!target) return;
+
+    const tileId = target.dataset.id;
+    if (!tileId) return;
+    const promo = state.promotions.find((p) => (p.id || `local-${p.posX}-${p.posY}`) === tileId);
+    if (!promo) return;
+
+    e.preventDefault();
+    const handle = handleEl?.dataset.handle || null;
+
+    // Grab offset: keep the tile under the finger (AD "Drag anchor").
+    const cell = canvasCellForEvent(e);
+    if (!cell) return;
+    const grabDx = cell.x - promo.posX;
+    const grabDy = cell.y - promo.posY;
+
+    const pointerId = e.pointerId;
+    canvas.setPointerCapture(pointerId);
+
+    const moveHandler = (ev: PointerEvent) => {
+      if (!state) return;
+      const c = canvasCellForEvent(ev);
+      if (!c) return;
+      const tile: GridTile = {
+        id: promo.id || 'local',
+        posX: promo.posX, posY: promo.posY, width: promo.width, height: promo.height,
+      };
+      const next = handle
+        ? resizeToSpans(tile, c, handle as any, grid())
+        : dragToCell(tile, { x: c.x - grabDx, y: c.y - grabDy }, grid());
+      const promoId = promo.id;
+      state = {
+        ...state,
+        promotions: state.promotions.map((p) =>
+          (p.id === promoId && !promoId ? (state!.promotions.indexOf(p) === state!.promotions.indexOf(promo)) : p.id === promoId)
+            ? { ...p, posX: next.posX, posY: next.posY, width: next.width, height: next.height }
+            : p
+        ),
+      };
+      renderCanvas();
+      showCollisionHint(promoId || '');
+    };
+
+    const upHandler = (ev: PointerEvent) => {
+      canvas.releasePointerCapture(pointerId);
+      canvas.removeEventListener('pointermove', moveHandler);
+      canvas.removeEventListener('pointerup', upHandler);
+      canvas.removeEventListener('pointercancel', upHandler);
+      if (!state) return;
+      // One history entry per completed gesture.
+      history = pushHistory(history, state);
+      renderAll();
+    };
+
+    canvas.addEventListener('pointermove', moveHandler);
+    canvas.addEventListener('pointerup', upHandler);
+    canvas.addEventListener('pointercancel', upHandler);
+  }
+
+  function showCollisionHint(movedId: string) {
+    if (!state) return;
+    const hint = $('collision-hint')!;
+    const tiles: GridTile[] = state.promotions.map((p) => ({
+      id: p.id || 'local', posX: p.posX, posY: p.posY, width: p.width, height: p.height,
+    }));
+    const collisions = detectCollisions(tiles, movedId || tiles[0]?.id || '');
+    if (collisions.length > 0) {
+      hint.textContent = `⚠️ Este tile se superpone con otro. Podés dejarlo así o moverlo.`;
+      hint.style.display = '';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
+
+  // ─── KEYBOARD ─────────────────────────────────────────────────────
+  function onKeydown(e: KeyboardEvent) {
+    if (!state) return;
+    if ((e.target as HTMLElement)?.closest?.('input, select, textarea')) return;
+
+    const isUndo = (e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z');
+    const isRedo = (e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y');
+    if (isUndo) { e.preventDefault(); doUndo(); return; }
+    if (isRedo) { e.preventDefault(); doRedo(); return; }
+
+    if (e.key === 'Escape') {
+      selectedId = null;
+      renderCanvas();
       return;
     }
-
-    try {
-      if (promoUploadStatus) promoUploadStatus.style.display = 'flex';
-      const { processImage } = await import('/src/lib/image.ts');
-      const processedBlob = await processImage(file);
-      promoImageState = setPromoImageFromBlob(promoImageState, processedBlob);
-      renderPromoImage();
-    } catch (err: any) {
-      $('form-error')!.textContent = err.message || 'Error al procesar imagen';
-    } finally {
-      if (promoUploadStatus) promoUploadStatus.style.display = 'none';
-      if (promoInput) promoInput.value = '';
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (selectedId) { e.preventDefault(); doRemove(selectedId); }
+      return;
+    }
+    if (e.key.startsWith('Arrow') && selectedId && isTiles()) {
+      e.preventDefault();
+      if (e.repeat) return; // coalesce repeats (AD "Undo granularity")
+      const promo = state.promotions.find((p) => (p.id || `local-${p.posX}-${p.posY}`) === selectedId);
+      if (!promo) return;
+      const prev = state;
+      const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+      const dy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+      const next = clampTile(
+        { id: promo.id || 'local', posX: promo.posX + dx, posY: promo.posY + dy, width: promo.width, height: promo.height },
+        grid()
+      );
+      state = {
+        ...state,
+        promotions: state.promotions.map((p) =>
+          (p.id || `local-${p.posX}-${p.posY}`) === selectedId
+            ? { ...p, posX: next.posX, posY: next.posY }
+            : p
+        ),
+      };
+      history = pushHistory(history, prev);
+      renderAll();
     }
   }
 
-  // Upload listeners and grid/display handlers are registered inside
-  // astro:page-load below to avoid duplicate bindings.
+  function doUndo() {
+    if (!state) return;
+    const undone = undoEditor(history, state);
+    if (!undone) return;
+    state = undone.state;
+    history = undone.history;
+    renderAll();
+  }
 
-  // ─── MODAL ──────────────────────────────────────────────
-  function openModal(isEdit: boolean, promo?: any) {
+  function doRedo() {
+    if (!state) return;
+    const redone = redoEditor(history, state);
+    if (!redone) return;
+    state = redone.state;
+    history = redone.history;
+    renderAll();
+  }
+
+  // ─── MUTATIONS ────────────────────────────────────────────────────
+  function doRemove(id: string) {
+    if (!state) return;
+    const prev = state;
+    state = removePromotion(state, id);
+    history = pushHistory(history, prev);
+    selectedId = null;
+    renderAll();
+  }
+
+  function doDuplicate(id: string) {
+    if (!state) return;
+    const prev = state;
+    state = duplicatePromotion(state, id);
+    if (state !== prev) {
+      history = pushHistory(history, prev);
+      const added = state.promotions.find((p) => p.id === null && !prev.promotions.includes(p));
+      selectedId = added?.id || null;
+      renderAll();
+    }
+  }
+
+  function doAdd() {
+    if (!state) return;
+    openModal(false);
+  }
+
+  function doRevert() {
+    if (!state || !snapshot) return;
+    if (!confirm('¿Descartar los cambios sin guardar?')) return;
+    state = revert(state, snapshot);
+    history = createHistory();
+    selectedId = null;
+    renderAll();
+  }
+
+  function warnIfDirty(): boolean {
+    if (!state || !snapshot) return false;
+    if (shouldWarnBeforeUnload(state, snapshot)) {
+      return !confirm('Hay cambios sin guardar. ¿Descartarlos?');
+    }
+    return false;
+  }
+
+  // ─── MODAL ────────────────────────────────────────────────────────
+  const promoModal = wrapModal('modal-overlay');
+
+  function openModal(isEdit: boolean, promo?: EditorPromotion) {
     const form = $('promo-form') as HTMLFormElement;
     form.reset();
     $('form-error')!.textContent = '';
     $('modal-title')!.textContent = isEdit ? 'Editar Anuncio' : 'Nuevo Anuncio';
     ($('promo-id') as HTMLInputElement).value = promo?.id || '';
-    $('tile-options')!.style.display = '';
+    ($('promo-image-id') as HTMLInputElement).value = promo?.imageId || '';
 
-    // Reset image state
-    promoImageState = createEmptyPromoImageState();
-    if (promoImageUrlInput) promoImageUrlInput.value = '';
-    renderPromoImage();
+    modalImageBlob = null;
+    modalImageUrl = promo?.imageUrl || null;
+    modalImageId = promo?.imageId || null;
+    modalPreviousUrl = promo?.imageUrl || null;
+    renderModalImage();
 
     if (promo) {
       form.title.value = promo.title || '';
       form.description.value = promo.subtitle || '';
       form.link.value = promo.link || '';
-      form.width.value = promo.tileCols || 1;
-      form.height.value = promo.tileRows || 1;
-      form.posX.value = promo.position || 0;
-      form.posY.value = promo.posY || 0;
-
-      // Load existing image
-      if (promo.imageUrl) {
-        promoImageState = setPromoImageFromUrl(promoImageState, promo.imageUrl, promo.imageId || '');
-        promoImageUrlInput.value = promo.imageUrl;
-        renderPromoImage();
-      }
+      form.width.value = String(promo.width || 1);
+      form.height.value = String(promo.height || 1);
+    } else {
+      form.width.value = '1';
+      form.height.value = '1';
     }
 
     promoModal.open();
@@ -417,239 +776,397 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
 
   function closeModal() { promoModal.close(); }
 
-  (window as any).editPromo = (id: string) => {
-    const promo = promotions.find((p: any) => p.id === id);
-    if (promo) openModal(true, promo);
-  };
+  function renderModalImage() {
+    const hasImage = !!(modalImageBlob || modalImageUrl);
+    $('promo-empty')!.style.display = hasImage ? 'none' : 'flex';
+    const img = $('promo-image') as HTMLImageElement;
+    if (hasImage) {
+      img.src = modalImageBlob ? URL.createObjectURL(modalImageBlob) : getProductImageUrl(modalImageUrl!);
+      img.style.display = 'block';
+    } else {
+      img.style.display = 'none';
+    }
+    ($('promo-remove') as HTMLElement).style.display = hasImage ? 'flex' : 'none';
+    ($('promo-image-url') as HTMLInputElement).value = modalImageUrl || '';
+  }
 
-  (window as any).deletePromo = async (id: string) => {
-    if (!confirm('¿Eliminar este anuncio?')) return;
-    const res = await fetch(`${API_URL}/api/promotions/${id}`, { method: 'DELETE', credentials: 'include' });
-    if (res.ok) loadPromotions();
-  };
+  async function handlePromoFile(file: File) {
+    if (file.size > 5 * 1024 * 1024) {
+      $('form-error')!.textContent = 'Imagen muy grande (max 5MB)';
+      return;
+    }
+    try {
+      $('promo-upload-status')!.style.display = 'flex';
+      const processed = await processImage(file);
+      // If replacing an existing image, remember the old R2 url for cleanup.
+      if (modalImageUrl && !modalPreviousUrl) modalPreviousUrl = modalImageUrl;
+      modalImageBlob = processed;
+      modalImageUrl = null;
+      renderModalImage();
+    } catch (err: any) {
+      $('form-error')!.textContent = err.message || 'Error al procesar imagen';
+    } finally {
+      $('promo-upload-status')!.style.display = 'none';
+      ($('promo-input') as HTMLInputElement).value = '';
+    }
+  }
 
-  document.addEventListener('astro:page-load', () => {
-    promoUploadArea?.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('.promo-remove-btn')) return;
-      promoInput.click();
+  function removeModalImage() {
+    if (modalImageUrl && !modalPreviousUrl) modalPreviousUrl = modalImageUrl;
+    modalImageBlob = null;
+    modalImageUrl = null;
+    renderModalImage();
+  }
+
+  // ─── SAVE (single Guardar → batch PUT) ───────────────────────────
+  async function doSave() {
+    if (!state || !snapshot) return;
+    if (!isDirty(state, snapshot)) return;
+
+    const saveBtn = $('save-btn') as HTMLButtonElement;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Guardando...';
+    uploadedThisSave = [];
+
+    try {
+      // 1. Upload pending blobs (best-effort per blob).
+      const resolvedUrls: Record<string, string | null> = {};
+      for (const p of state.promotions) {
+        if (p.imageBlob) {
+          const key = p.id;
+          if (!key) continue; // new promos get their blob uploaded below via imageUrl passthrough
+          try {
+            const result = await uploadImageBlob(p.imageBlob, 'promo.webp', API_URL);
+            if (result.url) {
+              resolvedUrls[key] = result.url;
+              uploadedThisSave.push(result.url);
+            }
+          } catch (err) {
+            $('form-error')!.textContent = 'Error al subir imagen';
+            return;
+          }
+        }
+      }
+
+      // 2. Build payload with resolved upload URLs.
+      const payload = toSavePayload(state, resolvedUrls);
+
+      // 3. Batch PUT.
+      const res = await fetch(`${API_URL}/api/promotion-sections/${state.section.id}/promotions`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Error al guardar');
+      }
+
+      const saved = await res.json();
+
+      // 4. Re-sync from server truth.
+      state = applySavedResponse(state, saved);
+      snapshot = createSnapshot(state);
+      history = createHistory();
+
+      // 5. Best-effort R2 cleanup: replaced/removed image URLs + removed promos.
+      const cleanupTargets = new Set<string>();
+      for (const p of state.promotions) {
+        if (p.previousImageUrl && p.previousImageUrl !== p.imageUrl) cleanupTargets.add(p.previousImageUrl);
+      }
+      for (const url of state.deletedImageUrls) cleanupTargets.add(url);
+      for (const url of cleanupTargets) {
+        const filename = extractFilename(url);
+        if (filename) deleteUploadedFile(filename, API_URL);
+      }
+      cleanupUrls = [];
+
+      renderAll();
+      $('form-error')!.textContent = '';
+      alert('Guardado correctamente');
+    } catch (err: any) {
+      // Orphan guard: delete blobs uploaded this save (batch failure).
+      for (const url of uploadedThisSave) {
+        const filename = extractFilename(url);
+        if (filename) deleteUploadedFile(filename, API_URL);
+      }
+      $('form-error')!.textContent = err.message || 'Error al guardar';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Guardar';
+    }
+  }
+
+  // ─── WIRING ───────────────────────────────────────────────────────
+  function initCanvasEvents() {
+    const canvas = $('promo-canvas');
+    canvas?.addEventListener('pointerdown', beginPointerSession);
+
+    canvas?.addEventListener('click', (e) => {
+      if (!state) return;
+      const tile = (e.target as HTMLElement).closest('.canvas-tile') as HTMLElement | null;
+      if (!tile) return;
+      const id = tile.dataset.id;
+      const promo = state.promotions.find((p) => (p.id || `local-${p.posX}-${p.posY}`) === id);
+      if (promo) {
+        selectedId = promo.id || `local-${promo.posX}-${promo.posY}`;
+        openModal(true, promo);
+      }
     });
 
-    promoInput?.addEventListener('change', () => {
-      const file = promoInput.files?.[0];
+    // Re-select after render: highlight selected tile.
+    const highlight = () => {
+      canvas.querySelectorAll('.canvas-tile').forEach((el) => {
+        el.classList.toggle('selected', el.getAttribute('data-id') === selectedId);
+      });
+    };
+    const mo = new MutationObserver(highlight);
+    mo.observe(canvas, { childList: true, subtree: true });
+  }
+
+  function initEvents() {
+    $('grid-cols-select')?.addEventListener('change', (e) => {
+      if (!state) return;
+      const prev = state;
+      state = setSection(state, { gridCols: parseInt((e.target as HTMLSelectElement).value, 10) || 4 });
+      history = pushHistory(history, prev);
+      renderAll();
+    });
+    $('grid-rows-select')?.addEventListener('change', (e) => {
+      if (!state) return;
+      const prev = state;
+      state = setSection(state, { gridRows: parseInt((e.target as HTMLSelectElement).value, 10) || 1 });
+      history = pushHistory(history, prev);
+      renderAll();
+    });
+    $('display-type-select')?.addEventListener('change', (e) => {
+      if (!state) return;
+      const prev = state;
+      const type = (e.target as HTMLSelectElement).value;
+      state = setSection(state, { displayType: type });
+      history = pushHistory(history, prev);
+      currentDisplayType = type;
+      updateTypeInfo(type);
+      renderAll();
+    });
+
+    $('save-btn')?.addEventListener('click', doSave);
+    $('revert-btn')?.addEventListener('click', doRevert);
+    $('undo-btn')?.addEventListener('click', doUndo);
+    $('redo-btn')?.addEventListener('click', doRedo);
+    $('add-promo-btn')?.addEventListener('click', doAdd);
+    $('hint-dismiss')?.addEventListener('click', () => {
+      $('onboarding-hint')!.style.display = 'none';
+      try { localStorage.setItem('promo-editor-hint-dismissed', '1'); } catch { /* private mode */ }
+    });
+    $('modal-close')?.addEventListener('click', closeModal);
+    $('modal-cancel')?.addEventListener('click', closeModal);
+    $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+    // Image upload wiring.
+    const area = $('promo-upload-area');
+    const input = $('promo-input') as HTMLInputElement;
+    area?.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.promo-remove-btn')) return;
+      input.click();
+    });
+    input?.addEventListener('change', () => {
+      const file = input.files?.[0];
       if (file) handlePromoFile(file);
     });
-
-    promoRemove?.addEventListener('click', (e) => {
+    $('promo-remove')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      promoImageState = clearPromoImage(promoImageState);
-      if (promoImageUrlInput) promoImageUrlInput.value = '';
-      renderPromoImage();
+      removeModalImage();
     });
-
-    promoUploadArea?.addEventListener('dragover', (e) => {
+    area?.addEventListener('dragover', (e) => {
       e.preventDefault();
-      promoUploadArea.classList.add('promo-upload-area--dragover');
+      area.classList.add('promo-upload-area--dragover');
     });
-    promoUploadArea?.addEventListener('dragleave', () => {
-      promoUploadArea.classList.remove('promo-upload-area--dragover');
-    });
-    promoUploadArea?.addEventListener('drop', (e) => {
+    area?.addEventListener('dragleave', () => area.classList.remove('promo-upload-area--dragover'));
+    area?.addEventListener('drop', (e) => {
       e.preventDefault();
-      promoUploadArea.classList.remove('promo-upload-area--dragover');
+      area.classList.remove('promo-upload-area--dragover');
       const file = e.dataTransfer?.files?.[0];
       if (file && file.type.startsWith('image/')) handlePromoFile(file);
     });
 
-    const saveSectionGrid = async () => {
-      if (!selectedSection) return;
-      const gridCols = parseInt(($('grid-cols-select') as HTMLSelectElement).value) || 4;
-      const gridRows = parseInt(($('grid-rows-select') as HTMLSelectElement).value) || 1;
-      const res = await fetch(`${API_URL}/api/promotion-sections/${selectedSection.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ gridCols, gridRows }),
-      });
-
-      if (res.ok) {
-        selectedSection.grid_cols = gridCols;
-        selectedSection.grid_rows = gridRows;
-        renderSections();
-        renderPreview();
-      }
-    };
-
-    $('grid-cols-select')?.addEventListener('change', saveSectionGrid);
-    $('grid-rows-select')?.addEventListener('change', saveSectionGrid);
-
-    $('promo-form')?.addEventListener('submit', async (e) => {
+    // Modal submit → update local state only (zero network).
+    $('promo-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
+      if (!state) return;
       const form = e.target as HTMLFormElement;
       const id = ($('promo-id') as HTMLInputElement).value;
-      const isEdit = !!id;
-      const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+      const prev = state;
 
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Guardando...';
-
-      try {
-        let imageUrl = promoImageUrlInput.value;
-        if (promoImageState.isNew && promoImageState.blob) {
-          const uploadResult = await uploadImageBlob(promoImageState.blob, 'promo.webp', API_URL);
-          if (!uploadResult.url) {
-            $('form-error')!.textContent = uploadResult.error || 'Error al subir imagen';
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Guardar';
-            return;
-          }
-          imageUrl = uploadResult.url;
-        }
-
-        if (!imageUrl) {
-          $('form-error')!.textContent = 'La imagen es requerida';
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Guardar';
-          return;
-        }
-
-        const body: any = {
-          sectionId: selectedSection.id,
-          imageUrl,
-          title: form.title.value || null,
+      if (id) {
+        const patch: Partial<EditorPromotion> = {
+          title: form.title.value || '',
           subtitle: form.description.value || null,
-          link: form.link.value,
-          posX: parseInt(form.posX.value) || 0,
-          posY: parseInt(form.posY.value) || 0,
-          width: parseInt(form.width.value) || 1,
-          height: parseInt(form.height.value) || 1,
+          link: form.link.value || '/',
+          width: parseInt(form.width.value, 10) || 1,
+          height: parseInt(form.height.value, 10) || 1,
+          imageBlob: modalImageBlob,
+          imageUrl: modalImageBlob ? null : modalImageUrl,
+          previousImageUrl: modalPreviousUrl && (modalImageBlob || modalImageUrl !== modalPreviousUrl) ? modalPreviousUrl : null,
         };
-
-        const res = await fetch(isEdit ? `${API_URL}/api/promotions/${id}` : `${API_URL}/api/promotions`, {
-          method: isEdit ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(body),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          $('form-error')!.textContent = err.error || 'Error al guardar';
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Guardar';
-          return;
-        }
-
-        const result = await res.json();
-        const promoId = result.promotion?.id || id;
-
-        if (promoImageState.isNew && promoId) {
-          await associateImage('promotions', promoId, imageUrl, API_URL, form.title.value || undefined, { is_primary: 1, sort_order: 0 });
-        }
-
-        closeModal();
-        await loadPromotions();
-      } catch (err: any) {
-        $('form-error')!.textContent = err.message || 'Error al guardar';
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Guardar';
+        state = updatePromotion(state, id, patch);
+      } else {
+        // New promo: image is either an existing url or a pending blob.
+        const fields: Partial<EditorPromotion> = {
+          title: form.title.value || '',
+          subtitle: form.description.value || null,
+          link: form.link.value || '/',
+          width: parseInt(form.width.value, 10) || 1,
+          height: parseInt(form.height.value, 10) || 1,
+          imageBlob: modalImageBlob,
+          imageUrl: modalImageBlob ? null : modalImageUrl,
+        };
+        state = addPromotion(state, fields);
       }
+
+      history = pushHistory(history, prev);
+      closeModal();
+      renderAll();
     });
 
-    $('add-promo-btn')?.addEventListener('click', () => openModal(false));
-    $('modal-close')?.addEventListener('click', closeModal);
-    $('modal-cancel')?.addEventListener('click', closeModal);
-    $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+    window.addEventListener('keydown', onKeydown);
+    window.addEventListener('beforeunload', (e) => {
+      if (!state || !snapshot) return;
+      if (shouldWarnBeforeUnload(state, snapshot)) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+    window.addEventListener('resize', () => { if (isTiles()) renderCanvas(); });
+  }
+
+  document.addEventListener('astro:page-load', () => {
+    initCanvasEvents();
+    initEvents();
+
+    // One-time onboarding hint.
+    let dismissed = '0';
+    try { dismissed = localStorage.getItem('promo-editor-hint-dismissed') || '0'; } catch { /* private mode */ }
+    if (dismissed !== '1') {
+      $('onboarding-hint')!.style.display = 'flex';
+    }
 
     loadSections();
   });
 </script>
 
 <style is:global>
-      /* ─── PREVIEW: Hero ─────────────────────────────────── */
-      .hero-promo { position: relative; width: 100%; min-height: 300px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
-      .hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
-      .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 100%); }
-      .hero-content { position: relative; z-index: 2; text-align: center; padding: var(--space-3xl) var(--space-2xl); color: white; max-width: 800px; }
-      .hero-title { font-family: var(--font-display); font-size: clamp(32px, 6vw, 64px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-md); text-shadow: 0 4px 20px rgba(0,0,0,0.6); }
-      .hero-desc { font-size: clamp(16px, 2vw, 20px); opacity: 0.9; margin-bottom: var(--space-xl); text-shadow: 0 2px 8px rgba(0,0,0,0.4); }
-      .hero-btn { display: inline-block; padding: var(--space-md) var(--space-2xl); background: var(--primary); color: var(--on-primary); text-decoration: none; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; transition: all 0.2s ease; }
-      .hero-btn:hover { background: white; color: black; text-decoration: none; }
+  /* ─── Canvas editor ─────────────────────────────────────────── */
+  .canvas-section { display: flex; flex-direction: column; gap: var(--space-md); }
+  .canvas-scroll { overflow-x: auto; max-width: 100%; border: var(--border-width) solid var(--outline-variant); background: var(--surface-container); padding: var(--space-md); }
+  .promo-canvas { position: relative; touch-action: none; }
+  .grid-lines { position: absolute; inset: 0; pointer-events: none; }
+  .gl-v, .gl-h { position: absolute; background: rgba(130, 207, 255, 0.18); }
+  .gl-v { top: 0; bottom: 0; width: 1px; }
+  .gl-h { left: 0; right: 0; height: 1px; }
 
-      /* ─── PREVIEW: Carousel ─────────────────────────────── */
-      .carousel-promo { position: relative; width: 100%; }
-      .carousel-track { position: relative; width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
-      .carousel-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
-      .carousel-slide.active { opacity: 1; pointer-events: auto; }
-      .slide-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
-      .slide-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 40%, transparent 100%); }
-      .slide-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-xl) var(--space-2xl); z-index: 2; color: white; }
-      .slide-title { font-family: var(--font-display); font-size: clamp(24px, 4vw, 48px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-sm); text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
-      .slide-desc { font-size: clamp(14px, 1.5vw, 18px); opacity: 0.9; text-shadow: 0 1px 6px rgba(0,0,0,0.4); }
-      .slide-link { position: absolute; inset: 0; z-index: 3; }
+  .canvas-tile {
+    position: absolute;
+    background: var(--surface-container-high);
+    border: 1px solid var(--primary);
+    cursor: grab;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-end;
+    min-width: 0;
+  }
+  .canvas-tile.selected { border-color: var(--secondary); box-shadow: 0 0 0 2px rgba(255, 176, 204, 0.4); }
+  .tile-title {
+    position: absolute;
+    bottom: 4px; left: 6px; right: 6px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--on-surface);
+    pointer-events: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .resize-handle { position: absolute; width: 12px; height: 12px; background: var(--secondary); border: 1px solid var(--surface); }
+  /* ≥44px hit area (AR-2): a ::before expands the target, handle stays visual. */
+  .handle-hit::before { content: ''; position: absolute; inset: -16px; }
+  .resize-handle--n { top: -6px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+  .resize-handle--s { bottom: -6px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+  .resize-handle--e { right: -6px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+  .resize-handle--w { left: -6px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+  .resize-handle--ne { top: -6px; right: -6px; cursor: nesw-resize; }
+  .resize-handle--nw { top: -6px; left: -6px; cursor: nwse-resize; }
+  .resize-handle--se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+  .resize-handle--sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
 
-      /* ─── PREVIEW: Carousel Dots & Arrows ─────────────────── */
-      .carousel-dots { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); position: absolute; bottom: var(--space-md); right: var(--space-md); z-index: 10; }
-      .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); border: none; cursor: pointer; transition: all 0.2s ease; padding: 0; }
-      .carousel-dot:hover { background: rgba(255,255,255,0.7); }
-      .carousel-dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
-      .carousel-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 10; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; cursor: pointer; opacity: 0; transition: opacity 0.2s ease, background 0.2s ease; }
-      .carousel-promo:hover .carousel-arrow { opacity: 1; }
-      .carousel-arrow:hover { background: rgba(0,0,0,0.8); }
-      .carousel-arrow--left { left: var(--space-md); }
-      .carousel-arrow--right { right: var(--space-md); }
+  .collision-hint {
+    color: var(--tertiary);
+    font-size: 13px;
+    padding: var(--space-xs) var(--space-md);
+    border-left: 3px solid var(--tertiary);
+    background: var(--surface-container-high);
+  }
 
+  /* ─── Editor status bar ──────────────────────────────────────── */
+  .editor-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+    padding: var(--space-sm) 0;
+  }
+  .editor-status { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--on-surface-variant); }
+  .editor-actions { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
 
-      /* ─── PREVIEW: Tiles ────────────────────────────────── */
-      .tiles-promo { display: grid; gap: var(--space-md); grid-auto-flow: dense; }
-      .tile { position: relative; overflow: hidden; border: var(--border-width) solid var(--outline-variant); min-height: 120px; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
-      .tile:hover { border-color: var(--primary); box-shadow: 0 0 20px rgba(130,207,255,0.12); }
-      .tile:hover .tile-bg { transform: scale(1.06); }
-      .tile-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
-      .tile-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 50%, transparent 100%); }
-      .tile-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-lg); z-index: 2; color: white; }
-      .tile-title { font-family: var(--font-display); font-size: clamp(16px, 2vw, 24px); text-transform: uppercase; line-height: 1.1; margin-bottom: var(--space-xs); text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
-      .tile-desc { font-size: clamp(12px, 1vw, 14px); opacity: 0.9; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
-      .tile-link { position: absolute; inset: 0; z-index: 3; }
+  /* ─── Onboarding hint ────────────────────────────────────────── */
+  .onboarding-hint {
+    display: none;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: var(--surface-container-high);
+    border: 1px solid var(--primary);
+    border-left: 4px solid var(--primary);
+  }
+  .onboarding-hint p { flex: 1; margin: 0; }
 
-      /* ─── PREVIEW: Split ────────────────────────────────── */
-      .split-promo { display: flex; flex-direction: column; }
-      .split-item { display: flex; flex-direction: row; text-decoration: none; color: inherit; border: var(--border-width) solid var(--outline-variant); border-bottom: none; transition: background 0.2s ease; }
-      .split-item:last-child { border-bottom: var(--border-width) solid var(--outline-variant); }
-      .split-item:hover { background: var(--surface-container-high); text-decoration: none; }
-      .split-item--reverse { flex-direction: row-reverse; }
-      .split-img { flex: 1; min-height: 200px; overflow: hidden; }
-      .split-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
-      .split-item:hover .split-img img { transform: scale(1.05); }
-      .split-text { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--space-xl) var(--space-2xl); gap: var(--space-md); }
-      .split-title { font-family: var(--font-display); font-size: clamp(20px, 3vw, 32px); text-transform: uppercase; line-height: 1.1; color: var(--on-surface); }
-      .split-desc { font-size: 15px; color: var(--on-surface-variant); line-height: 1.5; }
-      .split-link { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); }
+  /* ─── Reorder strip ──────────────────────────────────────────── */
+  .promo-strip { display: flex; flex-direction: column; gap: var(--space-sm); }
+  .strip-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border: var(--border-width) solid var(--outline-variant);
+    background: var(--surface-container);
+    cursor: grab;
+  }
+  .strip-item img { width: 56px; height: 40px; object-fit: cover; border: 1px solid var(--outline-variant); }
+  .strip-grip { color: var(--on-surface-variant); font-family: var(--font-mono); }
+  .strip-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .strip-info strong { color: var(--on-surface); }
+  .strip-noimg { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 40px; background: var(--surface-container-high); color: var(--on-surface-variant); font-size: 10px; }
+  .strip-hint { color: var(--on-surface-variant); }
 
-      /* ─── PREVIEW: Banner ───────────────────────────────── */
-      .banner-promo { display: flex; flex-direction: column; }
-      .banner-item { display: flex; align-items: center; justify-content: center; gap: var(--space-lg); padding: var(--space-lg) var(--space-xl); background: linear-gradient(135deg, var(--surface-container-high), var(--surface-container)); border: var(--border-width) solid var(--outline-variant); text-decoration: none; transition: all 0.2s ease; position: relative; overflow: hidden; }
-      .banner-item::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(to bottom, var(--primary), var(--secondary)); }
-      .banner-item:hover { background: linear-gradient(135deg, var(--surface-container-highest), var(--surface-container-high)); border-color: var(--primary); text-decoration: none; }
-      .banner-title { font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--on-surface); font-weight: 600; }
-      .banner-desc { font-size: 13px; color: var(--primary); }
+  /* ─── Simple edit list (hero/banner) ─────────────────────────── */
+  .simple-list { display: flex; flex-direction: column; gap: var(--space-sm); }
+  .simple-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border: var(--border-width) solid var(--outline-variant);
+    background: var(--surface-container);
+  }
+  .simple-item img { width: 56px; height: 40px; object-fit: cover; border: 1px solid var(--outline-variant); }
 
-      /* ─── PREVIEW: Ribbon ───────────────────────────────── */
-      .ribbon-promo { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; border: var(--border-width) solid var(--outline-variant); }
-      .ribbon-promo::-webkit-scrollbar { display: none; }
-      .ribbon-item { flex: 1; min-width: 200px; position: relative; overflow: hidden; text-decoration: none; color: white; display: flex; align-items: center; justify-content: center; min-height: 80px; }
-      .ribbon-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
-      .ribbon-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); transition: background 0.2s ease; }
-      .ribbon-item:hover .ribbon-overlay { background: rgba(0,0,0,0.4); }
-      .ribbon-content { position: relative; z-index: 2; display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); }
-      .ribbon-title { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
-      .ribbon-desc { font-size: 12px; opacity: 0.8; white-space: nowrap; }
-
-  /* ─── Promo Layout ──────────────────────────────────────── */
+  /* ─── Promo layout (kept from previous editor) ───────────────── */
   .promo-layout { display: grid; grid-template-columns: 1fr; gap: var(--space-2xl); }
   @media (min-width: 1024px) { .promo-layout { grid-template-columns: 300px 1fr; } }
-
-  /* Sections */
   .promo-sections { display: flex; flex-direction: column; gap: var(--space-md); }
   .sections-title { color: var(--primary); margin-bottom: var(--space-sm); }
   .sections-list { display: flex; flex-direction: column; gap: var(--space-sm); }
@@ -662,173 +1179,90 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
   }
   .section-card:hover { border-color: var(--primary); }
   .section-card.active { border-color: var(--primary); background: var(--surface-container-high); }
-
-  .section-card-slug {
-    color: var(--primary);
-    font-size: 11px;
-    margin-top: var(--space-xs);
-    opacity: 0.9;
-  }
-  .type-info {
-    margin-top: var(--space-md);
-    padding: var(--space-md);
-    background: var(--surface-container-high);
-    border-left: 3px solid var(--primary);
-  }
-  .type-info-title {
-    color: var(--primary);
-    margin-bottom: var(--space-xs);
-  }
-  .type-info-desc {
-    color: var(--on-surface-variant);
-    line-height: 1.5;
-  }
-
   .section-card-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
   .section-card-header div { display: flex; flex-direction: column; gap: var(--space-xs); }
-
-  /* Manager */
   .promo-manager { display: flex; flex-direction: column; gap: var(--space-xl); }
   .manager-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-md); }
   .manager-header h2 { color: var(--on-surface); }
-  .manager-actions { display: flex; gap: var(--space-md); align-items: center; }
-
-  /* Preview */
+  .manager-actions { display: flex; gap: var(--space-md); align-items: center; flex-wrap: wrap; }
+  .type-info { margin-top: var(--space-md); padding: var(--space-md); background: var(--surface-container-high); border-left: 3px solid var(--primary); }
+  .type-info-title { color: var(--primary); margin-bottom: var(--space-xs); }
+  .type-info-desc { color: var(--on-surface-variant); line-height: 1.5; }
   .preview-section { display: flex; flex-direction: column; gap: var(--space-md); }
   .preview-section h3 { color: var(--primary); }
-  .live-preview {
-    border: var(--border-width) solid var(--outline-variant);
-    background: var(--surface-container);
-    padding: var(--space-md);
-    min-height: 120px;
-    overflow: hidden;
-  }
 
-  /* Preview: Carousel */
-  .preview-carousel { position: relative; height: 160px; }
-  .preview-slide {
-    position: absolute; inset: 0; opacity: 0; transition: opacity 0.4s;
-    display: flex; align-items: center; gap: var(--space-md);
-    padding: var(--space-md);
-  }
-  .preview-slide.active { opacity: 1; }
-  .preview-slide img { height: 120px; width: auto; object-fit: cover; border: 1px solid var(--outline-variant); }
-  .preview-slide-content { display: flex; flex-direction: column; gap: var(--space-xs); }
-  .preview-slide-content strong { color: var(--on-surface); }
-  .preview-slide-content span { color: var(--on-surface-variant); font-size: 13px; }
-  .preview-dots { position: absolute; bottom: 8px; right: 8px; display: flex; gap: 4px; }
-  .preview-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--outline); }
-  .preview-dot.active { background: var(--primary); width: 16px; border-radius: 3px; }
+  /* ─── Preview styles (hero/carousel/tiles/split/banner/ribbon) ── */
+  .hero-promo { position: relative; width: 100%; min-height: 300px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
+  .hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
+  .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 100%); }
+  .hero-content { position: relative; z-index: 2; text-align: center; padding: var(--space-3xl) var(--space-2xl); color: white; max-width: 800px; }
+  .hero-title { font-family: var(--font-display); font-size: clamp(32px, 6vw, 64px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-md); text-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+  .hero-desc { font-size: clamp(16px, 2vw, 20px); opacity: 0.9; margin-bottom: var(--space-xl); text-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+  .hero-btn { display: inline-block; padding: var(--space-md) var(--space-2xl); background: var(--primary); color: var(--on-primary); text-decoration: none; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; transition: all 0.2s ease; }
+  .hero-btn:hover { background: white; color: black; text-decoration: none; }
 
-  /* Preview: Tiles */
-  .preview-tiles {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 80px;
-    gap: var(--space-sm);
-  }
-  .preview-tile {
-    position: relative; overflow: hidden; border: 1px solid var(--outline-variant);
-  }
-  .preview-tile img { width: 100%; height: 100%; object-fit: cover; }
-  .preview-tile-content {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    padding: var(--space-xs) var(--space-sm);
-    background: linear-gradient(transparent, rgba(0,0,0,0.7));
-    color: white; font-size: 11px;
-  }
+  .carousel-promo { position: relative; width: 100%; }
+  .carousel-track { position: relative; width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border: var(--border-width) solid var(--outline-variant); }
+  .carousel-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
+  .carousel-slide.active { opacity: 1; pointer-events: auto; }
+  .slide-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
+  .slide-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 40%, transparent 100%); }
+  .slide-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-xl) var(--space-2xl); z-index: 2; color: white; }
+  .slide-title { font-family: var(--font-display); font-size: clamp(24px, 4vw, 48px); text-transform: uppercase; line-height: 1; margin-bottom: var(--space-sm); text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
+  .slide-desc { font-size: clamp(14px, 1.5vw, 18px); opacity: 0.9; text-shadow: 0 1px 6px rgba(0,0,0,0.4); }
+  .slide-link { position: absolute; inset: 0; z-index: 3; }
+  .carousel-dots { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); position: absolute; bottom: var(--space-md); right: var(--space-md); z-index: 10; }
+  .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); border: none; cursor: pointer; transition: all 0.2s ease; padding: 0; }
+  .carousel-dot:hover { background: rgba(255,255,255,0.7); }
+  .carousel-dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
+  .carousel-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 10; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); color: white; cursor: pointer; opacity: 0; transition: opacity 0.2s ease, background 0.2s ease; }
+  .carousel-promo:hover .carousel-arrow { opacity: 1; }
+  .carousel-arrow:hover { background: rgba(0,0,0,0.8); }
+  .carousel-arrow--left { left: var(--space-md); }
+  .carousel-arrow--right { right: var(--space-md); }
 
-  /* Preview: Ribbon */
-  .preview-ribbon { display: flex; gap: 0; overflow: hidden; border: 1px solid var(--outline-variant); }
-  .preview-ribbon-item {
-    flex: 1; display: flex; align-items: center; gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md); background: var(--surface-container-high);
-    text-decoration: none; color: var(--on-surface); font-size: 12px;
-    border-right: 1px solid var(--outline-variant);
-  }
-  .preview-ribbon-item img { width: 32px; height: 32px; object-fit: cover; }
+  .tiles-promo { display: grid; gap: var(--space-md); grid-auto-flow: dense; }
+  .tile { position: relative; overflow: hidden; border: var(--border-width) solid var(--outline-variant); min-height: 120px; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+  .tile:hover { border-color: var(--primary); box-shadow: 0 0 20px rgba(130,207,255,0.12); }
+  .tile:hover .tile-bg { transform: scale(1.06); }
+  .tile-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  .tile-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 50%, transparent 100%); }
+  .tile-content { position: absolute; bottom: 0; left: 0; right: 0; padding: var(--space-lg); z-index: 2; color: white; }
+  .tile-title-pv { font-family: var(--font-display); font-size: clamp(16px, 2vw, 24px); text-transform: uppercase; line-height: 1.1; margin-bottom: var(--space-xs); text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+  .tile-desc { font-size: clamp(12px, 1vw, 14px); opacity: 0.9; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+  .tile-link { position: absolute; inset: 0; z-index: 3; }
 
-  /* Promos List */
-  .promos-list { display: flex; flex-direction: column; gap: var(--space-sm); }
-  .empty-msg { text-align: center; padding: var(--space-2xl); color: var(--on-surface-variant); }
-  .promo-card {
-    display: flex; align-items: center; gap: var(--space-md);
-    padding: var(--space-md); border: var(--border-width) solid var(--outline-variant);
-    background: var(--surface-container);
-  }
-  .promo-card-img { width: 80px; height: 60px; flex-shrink: 0; overflow: hidden; border: 1px solid var(--outline-variant); }
-  .promo-card-img img { width: 100%; height: 100%; object-fit: cover; }
-  .promo-card-info { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .promo-card-info strong { color: var(--on-surface); }
-  .promo-card-info span { color: var(--on-surface-variant); font-size: 13px; }
-  .promo-card-actions { display: flex; gap: 6px; opacity: 0.6; transition: opacity 0.2s; }
-  .promo-card:hover .promo-card-actions { opacity: 1; }
+  .split-promo { display: flex; flex-direction: column; }
+  .split-item { display: flex; flex-direction: row; text-decoration: none; color: inherit; border: var(--border-width) solid var(--outline-variant); border-bottom: none; transition: background 0.2s ease; }
+  .split-item:last-child { border-bottom: var(--border-width) solid var(--outline-variant); }
+  .split-item:hover { background: var(--surface-container-high); text-decoration: none; }
+  .split-item--reverse { flex-direction: row-reverse; }
+  .split-img { flex: 1; min-height: 200px; overflow: hidden; }
+  .split-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+  .split-item:hover .split-img img { transform: scale(1.05); }
+  .split-text { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--space-xl) var(--space-2xl); gap: var(--space-md); }
+  .split-title { font-family: var(--font-display); font-size: clamp(20px, 3vw, 32px); text-transform: uppercase; line-height: 1.1; color: var(--on-surface); }
+  .split-desc { font-size: 15px; color: var(--on-surface-variant); line-height: 1.5; }
+  .split-link { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); }
 
-  /* Promo-specific form overrides */
+  .banner-promo { display: flex; flex-direction: column; }
+  .banner-item { display: flex; align-items: center; justify-content: center; gap: var(--space-lg); padding: var(--space-lg) var(--space-xl); background: linear-gradient(135deg, var(--surface-container-high), var(--surface-container)); border: var(--border-width) solid var(--outline-variant); text-decoration: none; transition: all 0.2s ease; position: relative; overflow: hidden; }
+  .banner-item::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(to bottom, var(--primary), var(--secondary)); }
+  .banner-item:hover { background: linear-gradient(135deg, var(--surface-container-highest), var(--surface-container-high)); border-color: var(--primary); text-decoration: none; }
+  .banner-title { font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--on-surface); font-weight: 600; }
+  .banner-desc { font-size: 13px; color: var(--primary); }
+
+  .ribbon-promo { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; border: var(--border-width) solid var(--outline-variant); }
+  .ribbon-promo::-webkit-scrollbar { display: none; }
+  .ribbon-item { flex: 1; min-width: 200px; position: relative; overflow: hidden; text-decoration: none; color: white; display: flex; align-items: center; justify-content: center; min-height: 80px; }
+  .ribbon-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: var(--surface-container); }
+  .ribbon-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); transition: background 0.2s ease; }
+  .ribbon-item:hover .ribbon-overlay { background: rgba(0,0,0,0.4); }
+  .ribbon-content { position: relative; z-index: 2; display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); }
+  .ribbon-title { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
+  .ribbon-desc { font-size: 12px; opacity: 0.8; white-space: nowrap; }
+
   .form-group--wide { flex: 2; }
-  .image-preview { margin-top: var(--space-sm); border: 1px solid var(--outline-variant); overflow: hidden; max-height: 160px; }
-  .image-preview img { width: 100%; height: auto; max-height: 160px; object-fit: cover; }
-
-  .type-hint {
-    color: var(--on-surface-variant);
-    font-size: 12px;
-    margin-top: var(--space-xs);
-    font-style: italic;
-  }
-
-  /* Upload area */
-  .upload-area {
-    border: 2px dashed var(--outline-variant);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    min-height: 120px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .upload-area:hover { border-color: var(--primary); }
-  .upload-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-sm);
-    color: var(--on-surface-variant);
-    padding: var(--space-lg);
-    text-align: center;
-  }
-  .upload-placeholder svg { opacity: 0.5; }
-  .upload-hint { font-size: 11px; color: var(--outline); }
-  .upload-preview {
-    position: relative;
-    width: 100%;
-    max-height: 200px;
-    overflow: hidden;
-  }
-  .upload-preview img {
-    width: 100%;
-    height: auto;
-    max-height: 200px;
-    object-fit: cover;
-    display: block;
-  }
-  .upload-remove {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 28px;
-    height: 28px;
-    background: rgba(0,0,0,0.7);
-    border: 1px solid rgba(255,255,255,0.3);
-    color: white;
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .upload-remove:hover { background: var(--error); }
-
-  /* Promo Upload Area */
   .promo-upload-area {
     border: 2px dashed var(--outline-variant);
     cursor: pointer;
@@ -842,37 +1276,15 @@ import RibbonPromo from '../../components/promo/RibbonPromo.astro';
   .promo-upload-area:hover { border-color: var(--primary); }
   .promo-upload-area--dragover { border-color: var(--primary); background: rgba(130, 207, 255, 0.05); }
   .promo-upload-content { width: 100%; }
-  .promo-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-sm);
-    color: var(--on-surface-variant);
-    padding: var(--space-lg);
-    text-align: center;
-  }
+  .promo-empty { display: flex; flex-direction: column; align-items: center; gap: var(--space-sm); color: var(--on-surface-variant); padding: var(--space-lg); text-align: center; }
   .promo-empty svg { opacity: 0.5; }
-  .promo-image {
-    width: 100%;
-    max-height: 200px;
-    object-fit: cover;
-    display: block;
-  }
+  .promo-image { width: 100%; max-height: 200px; object-fit: cover; display: block; }
   .promo-remove-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 28px;
-    height: 28px;
-    background: rgba(0,0,0,0.7);
-    border: 1px solid rgba(255,255,255,0.3);
-    color: white;
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 5;
+    position: absolute; top: 8px; right: 8px;
+    width: 28px; height: 28px;
+    background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.3);
+    color: white; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; z-index: 5;
   }
   .promo-remove-btn:hover { background: var(--error); }
 </style>

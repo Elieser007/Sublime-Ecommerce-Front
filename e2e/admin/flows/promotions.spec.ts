@@ -58,6 +58,25 @@ test("lists promotion sections and shows the seeded promo", async ({ page }) => 
   await expect(card).toContainText(SEEDED_PROMO_SUBTITLE);
 });
 
+test("switches display type in the live preview and restores the original", async ({ page }) => {
+  await selectHeroSection(page);
+
+  const displaySelect = page.locator("#display-type-select");
+  await expect(displaySelect).toBeVisible();
+  await expect(displaySelect.locator("option")).toHaveCount(6);
+
+  const originalType = await displaySelect.inputValue();
+  expect(originalType).not.toBe("");
+
+  // Switch to carousel → the preview renders a .carousel-promo (PUT persists).
+  await displaySelect.selectOption("carousel");
+  await expect(page.locator("#live-preview-container .carousel-promo")).toBeVisible();
+
+  // Restore the original type so later serial tests are unaffected.
+  await displaySelect.selectOption(originalType);
+  await expect(page.locator(`#live-preview-container .${originalType}-promo`)).toBeVisible();
+});
+
 /** Selects the hero section and creates a promotion via the modal. */
 async function createPromo(page: Page, title: string, description: string): Promise<void> {
   await selectHeroSection(page);
