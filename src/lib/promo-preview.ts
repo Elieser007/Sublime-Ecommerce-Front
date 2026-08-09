@@ -16,8 +16,9 @@ export interface PromoPreview {
   tileRows: number;
 }
 
-const EDIT_AFFORDANCE =
-  '<button type="button" class="pv-edit" data-action="edit" aria-label="Editar anuncio" style="position:absolute;top:8px;right:8px;z-index:20;">✎</button>';
+function editAffordance(key: string): string {
+  return `<button type="button" class="pv-edit" data-action="edit" data-local-key="${escapeHtml(key)}" aria-label="Editar anuncio" style="position:absolute;top:8px;right:8px;z-index:20;">✎</button>`;
+}
 
 function imageAttr(p: PromoPreview): string {
   return escapeHtml(resolvePromoImage(p));
@@ -25,7 +26,7 @@ function imageAttr(p: PromoPreview): string {
 
 function buildHero(first?: PromoPreview): string {
   if (!first) return "";
-  return `<div class="hero-promo"><div class="hero-bg" style="background-image:url('${imageAttr(first)}')"></div><div class="hero-overlay"></div><div class="hero-content">${first.title ? `<h2 class="hero-title">${escapeHtml(first.title)}</h2>` : ""}${first.subtitle ? `<p class="hero-desc">${escapeHtml(first.subtitle)}</p>` : ""}<a href="${escapeHtml(sanitizePromoUrl(first.link))}" class="hero-btn">Ver más</a></div>${EDIT_AFFORDANCE}</div>`;
+  return `<div class="hero-promo"><div class="hero-bg" style="background-image:url('${imageAttr(first)}')"></div><div class="hero-overlay"></div><div class="hero-content">${first.title ? `<h2 class="hero-title">${escapeHtml(first.title)}</h2>` : ""}${first.subtitle ? `<p class="hero-desc">${escapeHtml(first.subtitle)}</p>` : ""}<a href="${escapeHtml(sanitizePromoUrl(first.link))}" class="hero-btn">Ver más</a></div>${editAffordance(first.id)}</div>`;
 }
 
 function buildCarousel(promotions: PromoPreview[]): string {
@@ -45,7 +46,7 @@ function buildCarousel(promotions: PromoPreview[]): string {
     html += `<button class="carousel-arrow carousel-arrow--left" aria-label="Anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>`;
     html += `<button class="carousel-arrow carousel-arrow--right" aria-label="Siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`;
   }
-  html += `${EDIT_AFFORDANCE}</div>`;
+  html += `${editAffordance(promotions[0]?.id ?? "")}</div>`;
   return html;
 }
 
@@ -60,7 +61,7 @@ function buildTiles(promotions: PromoPreview[], gridCols: number): string {
       width: pt.tileCols || 1,
       height: pt.tileRows || 1,
     });
-    html += `<div class="tile" style="grid-column:${col}/span ${pt.tileCols || 1};grid-row:${row}/span ${pt.tileRows || 1};">${renderPromoTileContent(pt)}${EDIT_AFFORDANCE}</div>`;
+    html += `<div class="tile" style="grid-column:${col}/span ${pt.tileCols || 1};grid-row:${row}/span ${pt.tileRows || 1};">${renderPromoTileContent(pt)}${editAffordance(pt.id)}</div>`;
   });
   html += "</div>";
   return html;
@@ -72,16 +73,16 @@ function buildSplit(promotions: PromoPreview[]): string {
     const rev = i % 2 === 1 ? " split-item--reverse" : "";
     html += `<a href="${escapeHtml(sanitizePromoUrl(pt.link))}" class="split-item${rev}"><div class="split-img"><img src="${imageAttr(pt)}" alt="${escapeHtml(pt.title || "")}" /></div><div class="split-text">${pt.title ? `<h3 class="split-title">${escapeHtml(pt.title)}</h3>` : ""}${pt.subtitle ? `<p class="split-desc">${escapeHtml(pt.subtitle)}</p>` : ""}<span class="split-link">Ver más →</span></div></a>`;
   });
-  html += `${EDIT_AFFORDANCE}</div>`;
+  html += `${editAffordance(promotions[0]?.id ?? "")}</div>`;
   return html;
 }
 
 function buildBanner(promotions: PromoPreview[]): string {
   let html = `<div class="banner-promo">`;
   promotions.forEach((pt) => {
-    html += `<a href="${escapeHtml(sanitizePromoUrl(pt.link))}" class="banner-item">${pt.title ? `<span class="banner-title">${escapeHtml(pt.title)}</span>` : ""}${pt.subtitle ? `<span class="banner-desc">${escapeHtml(pt.subtitle)}</span>` : ""}</a>`;
+    html += `<div class="banner-item-wrap" style="position:relative;"><a href="${escapeHtml(sanitizePromoUrl(pt.link))}" class="banner-item">${pt.title ? `<span class="banner-title">${escapeHtml(pt.title)}</span>` : ""}${pt.subtitle ? `<span class="banner-desc">${escapeHtml(pt.subtitle)}</span>` : ""}</a>${editAffordance(pt.id)}</div>`;
   });
-  html += `${EDIT_AFFORDANCE}</div>`;
+  html += `</div>`;
   return html;
 }
 
@@ -90,7 +91,7 @@ function buildRibbon(promotions: PromoPreview[]): string {
   promotions.forEach((pt) => {
     html += `<a href="${escapeHtml(sanitizePromoUrl(pt.link))}" class="ribbon-item"><div class="ribbon-bg" style="background-image:url('${imageAttr(pt)}')"></div><div class="ribbon-overlay"></div><div class="ribbon-content">${pt.title ? `<span class="ribbon-title">${escapeHtml(pt.title)}</span>` : ""}${pt.subtitle ? `<span class="ribbon-desc">${escapeHtml(pt.subtitle)}</span>` : ""}</div></a>`;
   });
-  html += `${EDIT_AFFORDANCE}</div>`;
+  html += `${editAffordance(promotions[0]?.id ?? "")}</div>`;
   return html;
 }
 
