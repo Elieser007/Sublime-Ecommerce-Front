@@ -167,4 +167,11 @@ describe("promotions.astro — judgment-day fixes wiring", () => {
     expect(pageSource).toMatch(/document\.removeEventListener\(['"]click['"],\s*previous,\s*true\)/);
     expect(pageSource).toMatch(/document\.addEventListener\(['"]click['"],\s*handler,\s*true\)/);
   });
+
+  it("scopes the SPA nav guard to the promotions editor path", () => {
+    expect(pageSource).toContain("isPromoEditorRoute");
+    // The guard must bail on other admin pages so a stale dirty closure cannot
+    // pop a confirm dialog after ClientRouter navigation away from the editor.
+    expect(pageSource).toMatch(/if \(!isPromoEditorRoute\(location\.pathname\)\) return;/);
+  });
 });

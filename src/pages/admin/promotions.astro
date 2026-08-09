@@ -231,7 +231,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     applySavedResponse, movePromotion, removePromotion, duplicatePromotion,
     addPromotion, updatePromotion, setSection, createHistory, pushHistory,
     undoEditor, redoEditor, shouldWarnBeforeUnload, validatePromotionsForSave,
-    extractFilename, localKey, stripHoverIndex,
+    extractFilename, localKey, stripHoverIndex, isPromoEditorRoute,
     type EditorPromotion, type PromoEditorState, type EditorHistory,
   } from '../../lib/promo-editor';
   import {
@@ -1229,6 +1229,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
       win[NAV_GUARD_KEY] = undefined;
     }
     const handler = (e: MouseEvent) => {
+      if (!isPromoEditorRoute(location.pathname)) return;
       if (!state || !snapshot) return;
       if (!shouldWarnBeforeUnload(state, snapshot)) return;
       const raw = (e.composedPath?.() || [])[0] || e.target;

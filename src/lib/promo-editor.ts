@@ -97,6 +97,10 @@ export function stripHoverIndex(items: StripItemBox[], pointerY: number): number
   return nearest;
 }
 
+export function isPromoEditorRoute(pathname: string): boolean {
+  return pathname.startsWith("/admin/promotions");
+}
+
 function toEditorPromotion(p: ServerPromotion): EditorPromotion {
   return {
     id: p.id,

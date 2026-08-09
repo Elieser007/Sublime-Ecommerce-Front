@@ -32,6 +32,7 @@ import {
   localKey,
   nextLocalId,
   stripHoverIndex,
+  isPromoEditorRoute,
   type EditorSection,
   type EditorPromotion,
   type PromoEditorState,
@@ -488,6 +489,19 @@ describe("stripHoverIndex (FIX1)", () => {
 
   it("returns -1 for an empty strip", () => {
     expect(stripHoverIndex([], 50)).toBe(-1);
+  });
+});
+
+describe("isPromoEditorRoute", () => {
+  it("matches the promotions editor page path", () => {
+    expect(isPromoEditorRoute("/admin/promotions")).toBe(true);
+    expect(isPromoEditorRoute("/admin/promotions/")).toBe(true);
+  });
+
+  it("rejects other admin routes", () => {
+    expect(isPromoEditorRoute("/admin")).toBe(false);
+    expect(isPromoEditorRoute("/admin/products")).toBe(false);
+    expect(isPromoEditorRoute("/")).toBe(false);
   });
 });
 
