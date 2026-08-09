@@ -342,7 +342,12 @@ import PromotionWall from '../../components/PromotionWall.astro';
       displayType: serverSection.display_type || 'tiles',
     };
 
-    state = createEditorState(editorSection, promotions);
+    const outgoing = state;
+    const nextState = createEditorState(editorSection, promotions);
+    if (outgoing) {
+      orphanedDraftUrls(outgoing.promotions, nextState.promotions, { past: [], future: [] }).forEach((u) => URL.revokeObjectURL(u));
+    }
+    state = nextState;
     snapshot = createSnapshot(state);
     history = createHistory();
     currentDisplayType = editorSection.displayType;
@@ -531,10 +536,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
     }));
     list.innerHTML = buildPromoPreviewHtml(currentDisplayType, previews, grid().cols);
     list.querySelectorAll<HTMLElement>('[data-action="edit"]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const p = state!.promotions[0];
-        if (p) openModal(true, p);
-      });
+      const key = btn.dataset.localKey;
+      const p = key ? state!.promotions.find((pp) => localKey(pp) === key) : undefined;
+      if (p) btn.addEventListener('click', () => openModal(true, p));
     });
   }
 
@@ -638,6 +642,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
     // stable outside the canvas.
     try { canvas.setPointerCapture(pointerId); } catch { /* synthetic event */ }
 
+    // Pre-gesture snapshot: undo must return the tile to its prior cell
+    // (PM-3), so the history entry is the pointerdown state, not the end one.
+    const gestureStart = state;
+
     // Set once the gesture actually moves the tile; used to suppress the
     // click that follows a real drag (so dragging does NOT open the modal).
     let didDrag = false;
@@ -690,8 +698,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
         }
       }
       if (!state) return;
-      // One history entry per completed gesture.
-      history = pushHistory(history, state);
+      // One history entry per completed gesture: the PRE-gesture snapshot,
+      // so Ctrl+Z returns the tile to its prior cell instead of a no-op.
+      history = pushHistory(history, gestureStart);
       renderAll();
     };
 
@@ -763,6 +772,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (!state) return;
     const undone = undoEditor(history, state);
     if (!undone) return;
+    orphanedDraftUrls(state.promotions, undone.state.promotions, undone.history).forEach((u) => URL.revokeObjectURL(u));
     state = undone.state;
     history = undone.history;
     renderAll();
@@ -772,6 +782,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (!state) return;
     const redone = redoEditor(history, state);
     if (!redone) return;
+    orphanedDraftUrls(state.promotions, redone.state.promotions, redone.history).forEach((u) => URL.revokeObjectURL(u));
     state = redone.state;
     history = redone.history;
     renderAll();
@@ -827,11 +838,22 @@ import PromotionWall from '../../components/PromotionWall.astro';
   }
 
   // ─── MODAL ────────────────────────────────────────────────────────
-  const promoModal = wrapModal('modal-overlay');
+  // Esc/browser-back close via modalStack.closeTop() never reaches
+  // cancelModal, so onClose owns the cleanup for an uncommitted draft.
+  let modalSubmitted = false;
+
+  const promoModal = wrapModal('modal-overlay', {
+    onClose: () => {
+      if (modalSubmitted) return;
+      discardModalDraft();
+      renderAll();
+    },
+  });
 
   function openModal(isEdit: boolean, promo?: EditorPromotion) {
     const form = $('promo-form') as HTMLFormElement;
     form.reset();
+    modalSubmitted = false;
     $('form-error')!.textContent = '';
     $('modal-title')!.textContent = isEdit ? 'Editar Anuncio' : 'Nuevo Anuncio';
     // Key the modal by localKey so editing an UNSAVED promo updates the working
@@ -863,7 +885,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
   function closeModal() { promoModal.close(); }
 
-  function cancelModal() {
+  function discardModalDraft() {
     if (state) {
       const id = ($('promo-id') as HTMLInputElement).value;
       if (id) {
@@ -877,6 +899,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
       URL.revokeObjectURL(modalDraftUrl);
     }
     modalDraftUrl = null;
+  }
+
+  function cancelModal() {
+    discardModalDraft();
     promoModal.close();
   }
 
@@ -928,9 +954,19 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
   function removeModalImage() {
     if (modalImageUrl && !modalPreviousUrl) modalPreviousUrl = modalImageUrl;
+    // Drop the session draft; the pre-modal draft stays alive until
+    // Cancelar/Guardar decides its fate.
+    if (modalDraftUrl && modalDraftUrl !== modalPrevDraftUrl) URL.revokeObjectURL(modalDraftUrl);
     modalImageBlob = null;
     modalImageUrl = null;
     modalDraftUrl = null;
+    // The draft was applied to the working promo at pick time: clear it there
+    // too so the surface never holds a revoked URL (cancel restores the old).
+    const id = ($('promo-id') as HTMLInputElement).value;
+    if (id && state) {
+      state = updatePromotion(state, id, { localImageUrl: null });
+      renderAll();
+    }
     renderModalImage();
   }
 
@@ -1185,6 +1221,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
       modalDraftUrl = null;
       modalPrevDraftUrl = null;
+      modalSubmitted = true;
       history = pushHistory(history, prev);
       closeModal();
       renderAll();

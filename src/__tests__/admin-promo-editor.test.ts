@@ -18,6 +18,11 @@ const pageSource = readFileSync(
   "utf-8"
 );
 
+const previewSource = readFileSync(
+  resolve(__dirname, "../lib/promo-preview.ts"),
+  "utf-8"
+);
+
 describe("promotions.astro — pure lib wiring", () => {
   it("imports the three pure promo libs", () => {
     expect(pageSource).toContain("promo-grid");
@@ -173,5 +178,94 @@ describe("promotions.astro — judgment-day fixes wiring", () => {
     // The guard must bail on other admin pages so a stale dirty closure cannot
     // pop a confirm dialog after ClientRouter navigation away from the editor.
     expect(pageSource).toMatch(/if \(!isPromoEditorRoute\(location\.pathname\)\) return;/);
+  });
+});
+
+describe("promotions.astro — draft object-URL lifecycle", () => {
+  it("revokes uncommitted drafts when the modal closes via Esc/back (onClose)", () => {
+    // Esc/browser-back close goes through modalStack.closeTop(), which never
+    // reaches the ✕/Cancelar handlers — the wrapModal onClose owns the cleanup.
+    expect(pageSource).toMatch(/wrapModal\(['"]modal-overlay['"],\s*\{\s*\n\s*onClose:/);
+    expect(pageSource).toContain("discardModalDraft");
+    expect(pageSource).toMatch(/URL\.revokeObjectURL\(modalDraftUrl\)/);
+  });
+
+  it("skips the draft cleanup after a Guardar submit (modalSubmitted guard)", () => {
+    expect(pageSource).toContain("modalSubmitted");
+    expect(pageSource).toMatch(/modalSubmitted\s*=\s*true/);
+    expect(pageSource).toMatch(/onClose:\s*\(\)\s*=>\s*\{\s*\n\s*if \(modalSubmitted\) return;/);
+  });
+
+  it("revokes drafts abandoned when switching sections", () => {
+    // selectSection resets history, so the orphan scan runs with empty stacks.
+    expect(pageSource).toContain(
+      "orphanedDraftUrls(outgoing.promotions, nextState.promotions, { past: [], future: [] }).forEach((u) => URL.revokeObjectURL(u))"
+    );
+  });
+
+  it("undo/redo revoke only true orphans, keeping drafts reachable via history", () => {
+    // The scan passes the remaining past/future stacks, so a draft still
+    // reachable through a redo/future snapshot is NOT revoked.
+    expect(pageSource).toContain(
+      "orphanedDraftUrls(state.promotions, undone.state.promotions, undone.history)"
+    );
+    expect(pageSource).toContain(
+      "orphanedDraftUrls(state.promotions, redone.state.promotions, redone.history)"
+    );
+  });
+
+  it("removeModalImage revokes the dropped draft and clears it from the working promo", () => {
+    expect(pageSource).toContain(
+      "if (modalDraftUrl && modalDraftUrl !== modalPrevDraftUrl) URL.revokeObjectURL(modalDraftUrl);"
+    );
+    expect(pageSource).toContain("updatePromotion(state, id, { localImageUrl: null })");
+  });
+});
+
+describe("promotions.astro — draft object-URL lifecycle", () => {
+  it("revokes the dropped draft when the modal ✕ removes the image", () => {
+    // The session draft (≠ the pre-modal one, which lives until Cancelar/
+    // Guardar) is revoked, and the working promo stops referencing it.
+    expect(pageSource).toMatch(/if \(modalDraftUrl && modalDraftUrl !== modalPrevDraftUrl\) URL\.revokeObjectURL\(modalDraftUrl\)/);
+    expect(pageSource).toMatch(/updatePromotion\(state, id, \{ localImageUrl: null \}\)/);
+  });
+
+  it("runs cancelModal's cleanup on Esc/back close via the modal onClose hook", () => {
+    // Esc/browser-back close via modalStack.closeTop() never reaches
+    // cancelModal: wrapModal's onClose must discard the uncommitted draft.
+    expect(pageSource).toMatch(/wrapModal\('modal-overlay', \{[^}]*onClose/);
+    expect(pageSource).toContain("discardModalDraft");
+    expect(pageSource).toMatch(/modalSubmitted/);
+  });
+
+  it("revokes abandoned drafts when switching sections after the discard confirm", () => {
+    expect(pageSource).toMatch(/orphanedDraftUrls\(outgoing\.promotions, nextState\.promotions, \{ past: \[\], future: \[\] \}\)/);
+  });
+
+  it("undo/redo revoke orphans with history-aware scans", () => {
+    // A draft still reachable via the remaining past/future stacks must NOT be
+    // revoked, so the scan receives the post-step history.
+    expect(pageSource).toMatch(/orphanedDraftUrls\(state\.promotions, undone\.state\.promotions, undone\.history\)/);
+    expect(pageSource).toMatch(/orphanedDraftUrls\(state\.promotions, redone\.state\.promotions, redone\.history\)/);
+  });
+
+  it("captures the pre-gesture snapshot at pointerdown so undo returns the tile to its prior cell (PM-3)", () => {
+    // The canvas drag history entry is the pointerdown state, not the
+    // post-gesture one, so Ctrl+Z after a drag is not a no-op.
+    expect(pageSource).toMatch(/const gestureStart = state;/);
+    expect(pageSource).toMatch(/history = pushHistory\(history, gestureStart\);/);
+  });
+});
+
+describe("promotions.astro — per-item banner edit binding", () => {
+  it("binds each edit affordance to the promo matching its data-local-key", () => {
+    expect(pageSource).toMatch(/btn\.dataset\.localKey/);
+    expect(pageSource).toMatch(/localKey\(pp\) === key/);
+  });
+
+  it("emits one key-carrying edit affordance per banner item in the preview builder", () => {
+    expect(previewSource).toMatch(/banner-item-wrap/);
+    expect(previewSource).toMatch(/editAffordance\(pt\.id\)/);
+    expect(previewSource).toMatch(/data-local-key=/);
   });
 });
