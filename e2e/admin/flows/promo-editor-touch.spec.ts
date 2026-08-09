@@ -38,20 +38,28 @@ async function tileId(page: Page, title: string): Promise<string> {
   return id!;
 }
 
+/** Current section grid dims (the canvas mirrors local state selects). */
+async function gridDims(page: Page): Promise<{ cols: number; rows: number }> {
+  const cols = parseInt(await page.locator("#grid-cols-select").inputValue(), 10) || 8;
+  const rows = parseInt(await page.locator("#grid-rows-select").inputValue(), 10) || 2;
+  return { cols, rows };
+}
+
 async function tilePos(
   page: Page,
   tileId: string
 ): Promise<{ x: number; y: number; w: number; h: number }> {
-  return page.evaluate((id) => {
+  const { cols, rows } = await gridDims(page);
+  return page.evaluate(({ id, cols, rows }) => {
     const el = document.querySelector(`.canvas-tile[data-id="${id}"]`) as HTMLElement;
     const pct = (v: string) => parseFloat(v);
     return {
-      x: Math.round((pct(el.style.left) / 100) * 8),
-      y: Math.round((pct(el.style.top) / 100) * 4),
-      w: Math.round((pct(el.style.width) / 100) * 8),
-      h: Math.round((pct(el.style.height) / 100) * 4),
+      x: Math.round((pct(el.style.left) / 100) * cols),
+      y: Math.round((pct(el.style.top) / 100) * rows),
+      w: Math.round((pct(el.style.width) / 100) * cols),
+      h: Math.round((pct(el.style.height) / 100) * rows),
     };
-  }, tileId);
+  }, { id: tileId, cols, rows });
 }
 
 test("touch drag moves a tile to the same snapped cell as mouse", async ({ page }) => {
@@ -62,17 +70,18 @@ test("touch drag moves a tile to the same snapped cell as mouse", async ({ page 
     return canvas.getBoundingClientRect().width / 8;
   });
 
-  // Touch drag with pointerType 'touch': top-left to cell (3,1).
+  // Touch drag with pointerType 'touch': top-left to cell (3,0). The tile is
+  // full-height (h:2 in a 2-row grid) so only the X moves — same as mouse.
   await dispatchPointerDrag(
     page,
     { x: 10, y: 10 },
-    { x: 3 * pxPerCell, y: 1 * pxPerCell },
+    { x: 3 * pxPerCell, y: 10 },
     "touch"
   );
 
   const pos = await tilePos(page, a);
   expect(pos.x).toBe(3);
-  expect(pos.y).toBe(1);
+  expect(pos.y).toBe(0);
   await expect(page.locator("#save-btn")).toBeEnabled();
 
   // Restore so later serial tests are unaffected.
@@ -135,17 +144,17 @@ test("resize handles keep ≥44px hit areas on touch (AR-2)", async ({ page }) =
   });
   const pxPerRow = await page.evaluate(() => {
     const canvas = document.getElementById("promo-canvas")!;
-    return canvas.getBoundingClientRect().height / 4;
+    return canvas.getBoundingClientRect().height / 2; // section grid_rows = 2
   });
   await dispatchPointerDrag(
     page,
     { x: 4 * pxPerCell - 4, y: 2 * pxPerRow - 4 },
-    { x: 5 * pxPerCell, y: 3 * pxPerRow },
+    { x: 5 * pxPerCell, y: 1 * pxPerRow },
     "touch"
   );
   const pos = await tilePos(page, a);
   expect(pos.w).toBe(6);
-  expect(pos.h).toBe(4);
+  expect(pos.h).toBe(2);
 
   // Restore state for later serial tests.
   page.once("dialog", (dialog) => void dialog.accept());
