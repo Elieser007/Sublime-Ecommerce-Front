@@ -197,10 +197,13 @@ describe("promotions.astro — draft object-URL lifecycle", () => {
   });
 
   it("revokes drafts abandoned when switching sections", () => {
-    // selectSection resets history, so the orphan scan runs with empty stacks.
+    // selectSection resets history, so the union covers the discarded stacks,
+    // removed-promo drafts, and the orphan scan in one pass.
     expect(pageSource).toContain(
-      "orphanedDraftUrls(outgoing.promotions, nextState.promotions, { past: [], future: [] }).forEach((u) => URL.revokeObjectURL(u))"
+      "...orphanedDraftUrls(outgoing.promotions, nextState.promotions, { past: [], future: [] })"
     );
+    expect(pageSource).toContain("...outgoing.removedDraftUrls,");
+    expect(pageSource).toContain("revokeDraftUrlsOnce(discardedDrafts, state.promotions)");
   });
 
   it("undo/redo revoke only true orphans, keeping drafts reachable via history", () => {
@@ -278,24 +281,29 @@ describe("promotions.astro — history-aware draft revocation (W-UNDO-REVOKED)",
     expect(pageSource).not.toMatch(/orphanedDraftUrls\(before, next\.promotions\)\.forEach/);
   });
 
-  it("doSave captures removed promos' drafts before the response resets state, revoking only unreferenced URLs", () => {
-    // removePromotion records the removed promo's localImageUrl on the state;
-    // doSave captures it before applySavedResponse resets it, then revokes it
-    // after history is cleared — unless a surviving promo still references it.
+  it("doSave gathers history-only drafts before clearing, then revokes each candidate once", () => {
+    // Superseded picks survive only in history snapshots: their URLs are
+    // captured before createHistory() discards the stacks, then released by
+    // the union along with removed-promo and orphan-scan drafts.
+    expect(pageSource).toMatch(/const discardedDrafts = historyDraftUrls\(history\);/);
     expect(pageSource).toMatch(/const removedDraftUrls = \[\.\.\.saveState\.removedDraftUrls\];/);
-    expect(pageSource).toMatch(/for \(const u of new Set\(removedDraftUrls\)\) \{/);
-    expect(pageSource).toMatch(/if \(!draftUrlReferenced\(u, preSavePromotions\)\) URL\.revokeObjectURL\(u\);/);
+    expect(pageSource).toMatch(/\[\.\.\.discardedDrafts, \.\.\.removedDraftUrls, \.\.\.orphanedDraftUrls\(preSavePromotions, state\.promotions\)\]/);
+    expect(pageSource).toMatch(/revokeDraftUrlsOnce\(/);
   });
 
-  it("doRevert revokes removed promos' drafts when the working copy is discarded", () => {
-    // The removed promo is absent from the pre-revert promotions array, so the
-    // orphan scan cannot see it; removedDraftUrls closes that gap.
-    expect(pageSource).toMatch(/const removedDrafts = \[\.\.\.state\.removedDraftUrls\];/);
-    expect(pageSource).toMatch(/for \(const u of new Set\(removedDrafts\)\) \{/);
+  it("doRevert revokes removed promos' and history-only drafts when the working copy is discarded", () => {
+    // The removed promo is absent from the pre-revert promotions array, and
+    // superseded picks live only in the discarded stacks: the union covers both.
+    expect(pageSource).toContain("const discardedDrafts = [");
+    expect(pageSource).toContain("...historyDraftUrls(history),");
+    expect(pageSource).toContain("...orphanedDraftUrls(before, snapshot.promotions),");
+    expect(pageSource).toContain("...state.removedDraftUrls,");
+    expect(pageSource).toContain("revokeDraftUrlsOnce(discardedDrafts, state.promotions)");
   });
 
-  it("selectSection revokes removed promos' drafts when switching sections", () => {
-    expect(pageSource).toMatch(/for \(const u of new Set\(outgoing\.removedDraftUrls\)\) \{/);
+  it("selectSection revokes removed promos' and history-only drafts when switching sections", () => {
+    expect(pageSource).toContain("...outgoing.removedDraftUrls,");
+    expect(pageSource).toContain("revokeDraftUrlsOnce(discardedDrafts, state.promotions)");
   });
 });
 

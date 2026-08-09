@@ -226,6 +226,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     addPromotion, updatePromotion, setSection, createHistory, pushHistory,
     undoEditor, redoEditor, shouldWarnBeforeUnload, validatePromotionsForSave,
     extractFilename, resolvePromoImage, orphanedDraftUrls, draftUrlReferenced, localKey,
+    historyDraftUrls, revokeDraftUrlsOnce,
     stripHoverIndex, isPromoEditorRoute,
     type EditorPromotion, type PromoEditorState, type EditorHistory,
   } from '../../lib/promo-editor';
@@ -344,17 +345,19 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
     const outgoing = state;
     const nextState = createEditorState(editorSection, promotions);
-    if (outgoing) {
-      orphanedDraftUrls(outgoing.promotions, nextState.promotions, { past: [], future: [] }).forEach((u) => URL.revokeObjectURL(u));
-      // Removed promos are absent from the orphan scan's `before`: revoke
-      // their drafts too, unless a promo of the outgoing copy still holds one.
-      for (const u of new Set(outgoing.removedDraftUrls)) {
-        if (!draftUrlReferenced(u, outgoing.promotions)) URL.revokeObjectURL(u);
-      }
-    }
+    const discardedDrafts = outgoing
+      ? [
+          ...historyDraftUrls(history),
+          ...orphanedDraftUrls(outgoing.promotions, nextState.promotions, { past: [], future: [] }),
+          ...outgoing.removedDraftUrls,
+        ]
+      : [];
     state = nextState;
     snapshot = createSnapshot(state);
     history = createHistory();
+    // Superseded picks survive only in discarded history stacks: release them
+    // once, skipping any draft the new section state still holds.
+    revokeDraftUrlsOnce(discardedDrafts, state.promotions);
     currentDisplayType = editorSection.displayType;
     selectedId = null;
 
@@ -828,15 +831,16 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (!state || !snapshot) return;
     if (!confirm('¿Descartar los cambios sin guardar?')) return;
     const before = state.promotions;
-    const removedDrafts = [...state.removedDraftUrls];
+    const discardedDrafts = [
+      ...historyDraftUrls(history),
+      ...orphanedDraftUrls(before, snapshot.promotions),
+      ...state.removedDraftUrls,
+    ];
     state = revert(state, snapshot);
-    orphanedDraftUrls(before, state.promotions).forEach((u) => URL.revokeObjectURL(u));
-    // Removed promos never appear in `before`: their drafts are released here,
-    // skipping any URL the orphan scan already released via a surviving promo.
-    for (const u of new Set(removedDrafts)) {
-      if (!draftUrlReferenced(u, before)) URL.revokeObjectURL(u);
-    }
     history = createHistory();
+    // Superseded picks and removed promos die with the discarded stacks: the
+    // union revokes each once, skipping drafts the reverted state still holds.
+    revokeDraftUrlsOnce(discardedDrafts, state.promotions);
     selectedId = null;
     renderAll();
   }
@@ -1055,17 +1059,18 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
       // 4. Re-sync from server truth.
       const preSavePromotions = saveState.promotions;
+      // Superseded picks live only in history snapshots: gather them before
+      // createHistory() discards the stacks.
+      const discardedDrafts = historyDraftUrls(history);
       state = applySavedResponse(state, saved);
       snapshot = createSnapshot(state);
       history = createHistory();
-      // Draft object URLs are replaced by server URLs: release them.
-      orphanedDraftUrls(preSavePromotions, state.promotions).forEach((u) => URL.revokeObjectURL(u));
-      // Removed promos are not in preSavePromotions, so the scan above cannot
-      // see their drafts: revoke them now, unless a surviving promo still
-      // references the same URL (a duplicate — released once by the scan).
-      for (const u of new Set(removedDraftUrls)) {
-        if (!draftUrlReferenced(u, preSavePromotions)) URL.revokeObjectURL(u);
-      }
+      // Draft object URLs are replaced by server URLs: the union releases the
+      // orphan scan, removed-promo, and history-only drafts, each exactly once.
+      revokeDraftUrlsOnce(
+        [...discardedDrafts, ...removedDraftUrls, ...orphanedDraftUrls(preSavePromotions, state.promotions)],
+        state.promotions
+      );
 
       // 4b. Associate uploaded blobs with their server ids (legacy table sync).
       // resolvedUrls is keyed by the payload item's OWN server id, so the

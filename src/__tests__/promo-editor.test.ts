@@ -38,11 +38,14 @@ import {
   resolvePromoImage,
   orphanedDraftUrls,
   draftUrlReferenced,
+  historyDraftUrls,
+  revokeDraftUrlsOnce,
   HISTORY_LIMIT,
   type EditorSection,
   type EditorPromotion,
   type PromoEditorState,
   type EditorHistory,
+  type SavedPromotionsResponse,
 } from "../lib/promo-editor";
 
 const section: EditorSection = {
@@ -986,6 +989,196 @@ describe("history-aware draft revocation (W-UNDO-REVOKED)", () => {
       }
       expect(revoke).toHaveBeenCalledTimes(1);
       expect(revoke).toHaveBeenCalledWith(draft);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+});
+
+describe("history discard revocation (W-HISTORY-LEAK)", () => {
+  const draft = "blob:https://example.com/d1";
+  const alt = "blob:https://example.com/a";
+
+  function stateWithPromo(): PromoEditorState {
+    return createEditorState(section, [serverPromo({ id: "p1" })]);
+  }
+
+  function submitPick(
+    history: EditorHistory,
+    state: PromoEditorState,
+    url: string
+  ): { state: PromoEditorState; history: EditorHistory } {
+    const prev = state;
+    return { state: updatePromotion(state, "p1", { localImageUrl: url }), history: pushHistory(history, prev) };
+  }
+
+  function savedResponse(): SavedPromotionsResponse {
+    return {
+      section,
+      promotions: [
+        {
+          id: "p1",
+          title: "Summer Sale",
+          subtitle: null,
+          imageUrl: "https://media.sublimepy.store/saved.webp",
+          link: "/products/remera",
+          position: 0,
+          posY: 0,
+          tileCols: 2,
+          tileRows: 1,
+        },
+      ],
+    };
+  }
+
+  it("doSave revokes the superseded history-only draft once, and the live draft once", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      // pick U, submit → the pushed snapshot keeps U referenced.
+      let state = stateWithPromo();
+      let history = createHistory();
+      ({ state, history } = submitPick(history, state, draft));
+      // pick V, submit → U is deferred: still referenced by the past stack.
+      const prevV = state;
+      ({ state, history } = submitPick(history, state, alt));
+      expect(draftUrlReferenced(draft, state.promotions, history, [prevV])).toBe(true);
+      expect(revoke).not.toHaveBeenCalled();
+      // doSave: server truth replaces the working copy, stacks are discarded.
+      const preSavePromotions = state.promotions;
+      const removedDraftUrls = [...state.removedDraftUrls];
+      const discardedDrafts = historyDraftUrls(history);
+      state = applySavedResponse(state, savedResponse());
+      history = createHistory();
+      revokeDraftUrlsOnce(
+        [...discardedDrafts, ...removedDraftUrls, ...orphanedDraftUrls(preSavePromotions, state.promotions)],
+        state.promotions
+      );
+      // U was reachable only through history: released exactly once. V, the
+      // current draft, is released once by the orphan scan, never twice.
+      expect(revoke).toHaveBeenCalledTimes(2);
+      expect(revoke).toHaveBeenCalledWith(draft);
+      expect(revoke).toHaveBeenCalledWith(alt);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("doRevert revokes the superseded history-only draft once when the working copy is discarded", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      let state = stateWithPromo();
+      let history = createHistory();
+      ({ state, history } = submitPick(history, state, draft));
+      ({ state, history } = submitPick(history, state, alt));
+      const before = state.promotions;
+      const discardedDrafts = [
+        ...historyDraftUrls(history),
+        ...orphanedDraftUrls(before, createSnapshot(stateWithPromo()).promotions),
+        ...state.removedDraftUrls,
+      ];
+      state = revert(state, createSnapshot(stateWithPromo()));
+      history = createHistory();
+      revokeDraftUrlsOnce(discardedDrafts, state.promotions);
+      expect(revoke).toHaveBeenCalledTimes(2);
+      expect(revoke).toHaveBeenCalledWith(draft);
+      expect(revoke).toHaveBeenCalledWith(alt);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("selectSection revokes the superseded history-only draft once when switching sections", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      let state = stateWithPromo();
+      let history = createHistory();
+      ({ state, history } = submitPick(history, state, draft));
+      ({ state, history } = submitPick(history, state, alt));
+      const outgoing = state;
+      const otherSection: EditorSection = { ...section, id: "sec-2", slug: "home-bottom" };
+      const nextState = createEditorState(otherSection, []);
+      const discardedDrafts = [
+        ...historyDraftUrls(history),
+        ...orphanedDraftUrls(outgoing.promotions, nextState.promotions, { past: [], future: [] }),
+        ...outgoing.removedDraftUrls,
+      ];
+      revokeDraftUrlsOnce(discardedDrafts, nextState.promotions);
+      expect(revoke).toHaveBeenCalledTimes(2);
+      expect(revoke).toHaveBeenCalledWith(draft);
+      expect(revoke).toHaveBeenCalledWith(alt);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("undo-to-U then save keeps U live until the last reference dies", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      let state = stateWithPromo();
+      let history = createHistory();
+      ({ state, history } = submitPick(history, state, draft));
+      ({ state, history } = submitPick(history, state, alt));
+      // Ctrl+Z back to U: the undo scan keeps U (state + history reference it).
+      const undone = undoEditor(history, state)!;
+      orphanedDraftUrls(state.promotions, undone.state.promotions, undone.history).forEach((u) => URL.revokeObjectURL(u));
+      state = undone.state;
+      history = undone.history;
+      expect(state.promotions[0].localImageUrl).toBe(draft);
+      expect(revoke).not.toHaveBeenCalled();
+      // Save: server truth kills the last reference → U revoked exactly once.
+      const preSavePromotions = state.promotions;
+      const discardedDrafts = historyDraftUrls(history);
+      state = applySavedResponse(state, savedResponse());
+      history = createHistory();
+      revokeDraftUrlsOnce(
+        [...discardedDrafts, ...state.removedDraftUrls, ...orphanedDraftUrls(preSavePromotions, state.promotions)],
+        state.promotions
+      );
+      expect(revoke).toHaveBeenCalledTimes(2);
+      expect(revoke).toHaveBeenCalledWith(draft);
+      expect(revoke).toHaveBeenCalledWith(alt);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("duplicate sharing U across history and removedDraftUrls is not double-revoked at save", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      let state = stateWithPromo();
+      let history = createHistory();
+      ({ state, history } = submitPick(history, state, draft));
+      // Duplicate shares U; remove the source → U lands in removedDraftUrls.
+      state = duplicatePromotion(state, "p1");
+      history = pushHistory(history, state);
+      state = removePromotion(state, "p1");
+      expect(state.removedDraftUrls).toEqual([draft]);
+      expect(state.promotions.some((p) => p.localImageUrl === draft)).toBe(true);
+      // doSave: U is a candidate from the history stacks AND removedDraftUrls.
+      const preSavePromotions = state.promotions;
+      const removedDraftUrls = [...state.removedDraftUrls];
+      const discardedDrafts = historyDraftUrls(history);
+      state = applySavedResponse(state, savedResponse());
+      history = createHistory();
+      revokeDraftUrlsOnce(
+        [...discardedDrafts, ...removedDraftUrls, ...orphanedDraftUrls(preSavePromotions, state.promotions)],
+        state.promotions
+      );
+      expect(revoke).toHaveBeenCalledTimes(1);
+      expect(revoke).toHaveBeenCalledWith(draft);
+    } finally {
+      revoke.mockRestore();
+    }
+  });
+
+  it("revokeDraftUrlsOnce skips URLs the post-swap state still references, revoking each candidate once", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    try {
+      const live = [{ localImageUrl: alt }];
+      revokeDraftUrlsOnce([draft, alt, draft], live);
+      expect(revoke).toHaveBeenCalledTimes(1);
+      expect(revoke).toHaveBeenCalledWith(draft);
+      expect(revoke).not.toHaveBeenCalledWith(alt);
     } finally {
       revoke.mockRestore();
     }

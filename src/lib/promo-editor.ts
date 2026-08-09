@@ -149,6 +149,33 @@ export function draftUrlReferenced(
   return false;
 }
 
+export function historyDraftUrls(history: EditorHistory): string[] {
+  const urls = new Set<string>();
+  for (const snap of [...history.past, ...history.future]) {
+    for (const p of snap.promotions) {
+      if (p.localImageUrl) urls.add(p.localImageUrl);
+    }
+  }
+  return [...urls];
+}
+
+export function revokeDraftUrlsOnce(
+  urls: Iterable<string>,
+  liveAfter: Array<{ localImageUrl?: string | null }>,
+  revoke: (url: string) => void = (url) => URL.revokeObjectURL(url)
+): void {
+  const live = new Set<string>();
+  for (const p of liveAfter) {
+    if (p.localImageUrl) live.add(p.localImageUrl);
+  }
+  const revoked = new Set<string>();
+  for (const url of urls) {
+    if (revoked.has(url) || live.has(url)) continue;
+    revoked.add(url);
+    revoke(url);
+  }
+}
+
 export function resolvePromoImage(promo: {
   localImageUrl?: string | null;
   imageUrl?: string | null;
