@@ -112,6 +112,20 @@ describe('data-table-widget row rendering (DOM contract)', () => {
     expect(tbody.innerHTML).toContain('<button>Editar</button>');
   });
 
+  it('emits rowAttrs attributes on the tr', () => {
+    const { container, tbody } = makeContainer(PRODUCT_THS);
+    const table = createDataTable({
+      container,
+      renderCell: (col, row: any) => String(row[col.key] ?? ''),
+      rowAttrs: (row: any) => ({ 'data-module-id': row.id }),
+      emptyMessage: 'No hay productos',
+    });
+
+    table.setRows([{ id: 'mod-1', name: 'Color' }], { total: 1, totalPages: 1 });
+
+    expect(tbody.innerHTML).toContain('<tr data-module-id="mod-1">');
+  });
+
   it('sorts only when the column is sortable', () => {
     const { container, tbody } = makeContainer(PRODUCT_THS);
     const table = createDataTable({

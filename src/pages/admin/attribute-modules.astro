@@ -241,6 +241,7 @@ const COMPONENT_OPTIONS = [
     container: document.getElementById('modules-table')!,
     renderCell: renderModuleCell,
     rowClass: (m: any) => `module-row${expandedModuleId === m.id ? ' expanded' : ''}`,
+    rowAttrs: (m: any) => ({ 'data-module-id': m.id }),
     renderRowSuffix: (m: any) =>
       expandedModuleId === m.id
         ? `<tr class="values-row"><td colspan="7"><div class="values-panel" id="values-${escapeHtml(m.id)}"><div class="values-loading">Cargando valores...</div></div></td></tr>`

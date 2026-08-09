@@ -13,6 +13,7 @@ export interface CreateDataTableOptions {
   container: HTMLElement;
   renderCell: (column: DataTableColumn, row: any) => string;
   rowClass?: (row: any) => string;
+  rowAttrs?: (row: any) => Record<string, string>;
   renderRowSuffix?: (row: any) => string;
   emptyMessage?: string;
   onPageChange?: (page: number) => void;
@@ -157,7 +158,12 @@ export function createDataTable(options: CreateDataTableOptions): DataTableHandl
           )
           .join('');
         const suffix = options.renderRowSuffix ? options.renderRowSuffix(row) : '';
-        return `<tr${options.rowClass ? ` class="${options.rowClass(row)}"` : ''}>${cells}</tr>${suffix}`;
+        const attrs = options.rowAttrs
+          ? Object.entries(options.rowAttrs(row))
+              .map(([key, value]) => ` ${key}="${escapeHtml(value)}"`)
+              .join('')
+          : '';
+        return `<tr${attrs}${options.rowClass ? ` class="${options.rowClass(row)}"` : ''}>${cells}</tr>${suffix}`;
       })
       .join('');
     renderFooter();

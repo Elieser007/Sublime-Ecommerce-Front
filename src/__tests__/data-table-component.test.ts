@@ -136,8 +136,9 @@ describe('data-table-widget.ts — Client Controller Contract', () => {
       expect(widgetSource).toContain('renderCell:');
     });
 
-    it('supports rowClass, renderRowSuffix and emptyMessage', () => {
+    it('supports rowClass, rowAttrs, renderRowSuffix and emptyMessage', () => {
       expect(widgetSource).toContain('rowClass?:');
+      expect(widgetSource).toContain('rowAttrs?:');
       expect(widgetSource).toContain('renderRowSuffix?:');
       expect(widgetSource).toContain('emptyMessage?:');
     });
