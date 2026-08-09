@@ -1,4 +1,5 @@
 import { clampTile, autoSuggestPosition, type Grid } from "./promo-grid";
+import { getProductImageUrl } from "./public-api";
 
 export interface EditorPromotion {
   id: string | null;
@@ -6,6 +7,7 @@ export interface EditorPromotion {
   title: string;
   subtitle: string | null;
   imageUrl: string | null;
+  localImageUrl: string | null;
   link: string;
   posX: number;
   posY: number;
@@ -101,6 +103,21 @@ export function isPromoEditorRoute(pathname: string): boolean {
   return pathname.startsWith("/admin/promotions");
 }
 
+export function setLocalImage(
+  promo: EditorPromotion,
+  objectUrl: string
+): EditorPromotion {
+  return { ...promo, localImageUrl: objectUrl };
+}
+
+export function clearLocalImage(promo: EditorPromotion): EditorPromotion {
+  return { ...promo, localImageUrl: null };
+}
+
+export function resolvePromoImage(promo: EditorPromotion): string {
+  return promo.localImageUrl || getProductImageUrl(promo.imageUrl);
+}
+
 function toEditorPromotion(p: ServerPromotion): EditorPromotion {
   return {
     id: p.id,
@@ -108,6 +125,7 @@ function toEditorPromotion(p: ServerPromotion): EditorPromotion {
     title: p.title || "",
     subtitle: p.subtitle,
     imageUrl: p.imageUrl,
+    localImageUrl: null,
     link: p.link || "/",
     posX: p.position,
     posY: p.posY ?? 0,
@@ -157,6 +175,7 @@ function project(p: EditorPromotion): Record<string, unknown> {
     height: p.height,
     isActive: p.isActive,
     imageBlob: p.imageBlob ? "<blob>" : null,
+    localImageUrl: p.localImageUrl,
   };
 }
 
@@ -337,6 +356,7 @@ export function addPromotion(
     title: fields.title ?? "",
     subtitle: fields.subtitle ?? null,
     imageUrl: fields.imageUrl ?? null,
+    localImageUrl: fields.localImageUrl ?? null,
     link: fields.link ?? "",
     posX: suggested.x,
     posY: suggested.y,

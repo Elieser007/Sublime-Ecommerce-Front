@@ -33,6 +33,9 @@ import {
   nextLocalId,
   stripHoverIndex,
   isPromoEditorRoute,
+  setLocalImage,
+  clearLocalImage,
+  resolvePromoImage,
   type EditorSection,
   type EditorPromotion,
   type PromoEditorState,
@@ -73,6 +76,7 @@ describe("createEditorState", () => {
       title: "Summer Sale",
       subtitle: "50% off",
       imageUrl: "https://media.sublimepy.store/promo1.webp",
+      localImageUrl: null,
       link: "/products/remera",
       posX: 2,
       posY: 0,
@@ -370,6 +374,87 @@ describe("updatePromotion", () => {
     state = updatePromotion(state, key, { title: "Edited Draft" });
     expect(state.promotions).toHaveLength(1);
     expect(state.promotions[0].title).toBe("Edited Draft");
+  });
+});
+
+describe("draft image lifecycle (localImageUrl)", () => {
+  it("addPromotion starts with no local image", () => {
+    const state = createEditorState(section, []);
+    const added = addPromotion(state, { title: "Draft", link: "/draft" });
+    expect(added.promotions[0].localImageUrl).toBeNull();
+  });
+
+  it("setLocalImage returns a new promo with the object URL and no mutation", () => {
+    const state = createEditorState(section, [serverPromo()]);
+    const promo = state.promotions[0];
+    const updated = setLocalImage(promo, "blob:https://example.com/draft");
+    expect(updated).not.toBe(promo);
+    expect(updated.localImageUrl).toBe("blob:https://example.com/draft");
+    expect(promo.localImageUrl).toBeNull();
+  });
+
+  it("clearLocalImage returns a new promo with localImageUrl null and no mutation", () => {
+    const state = createEditorState(section, [serverPromo()]);
+    const promo = setLocalImage(state.promotions[0], "blob:https://example.com/draft");
+    const cleared = clearLocalImage(promo);
+    expect(cleared).not.toBe(promo);
+    expect(cleared.localImageUrl).toBeNull();
+    expect(promo.localImageUrl).toBe("blob:https://example.com/draft");
+  });
+
+  it("resolvePromoImage prefers the local object URL over the server image URL", () => {
+    const state = createEditorState(section, [serverPromo()]);
+    const promo = setLocalImage(state.promotions[0], "blob:https://example.com/draft");
+    expect(resolvePromoImage(promo)).toBe("blob:https://example.com/draft");
+  });
+
+  it("resolvePromoImage falls back to the server image URL", () => {
+    const state = createEditorState(section, [serverPromo()]);
+    expect(resolvePromoImage(state.promotions[0])).toBe(
+      "https://media.sublimepy.store/promo1.webp"
+    );
+  });
+
+  it("resolvePromoImage falls back to the placeholder when nothing is available", () => {
+    const state = createEditorState(section, [serverPromo({ imageUrl: null })]);
+    expect(resolvePromoImage(state.promotions[0])).toBe("/placeholder-product.svg");
+  });
+
+  it("applySavedResponse clears a pending local image (server response has no local field)", () => {
+    let state = createEditorState(section, []);
+    state = addPromotion(state, { title: "Fresh", link: "/products/fresh" });
+    state = updatePromotion(state, localKey(state.promotions[0]), {
+      localImageUrl: "blob:https://example.com/draft",
+    });
+    const synced = applySavedResponse(state, {
+      section: { ...section, gridCols: 8, gridRows: 4, displayType: "tiles" },
+      promotions: [
+        {
+          id: "server-1",
+          title: "Fresh",
+          subtitle: null,
+          imageUrl: "https://media.sublimepy.store/fresh.webp",
+          link: "/products/fresh",
+          position: 0,
+          posY: 0,
+          tileCols: 1,
+          tileRows: 1,
+        },
+      ],
+    });
+    expect(synced.promotions[0].localImageUrl).toBeNull();
+  });
+
+  it("duplicatePromotion copies the source's local image so both show the same draft", () => {
+    let state = createEditorState(section, [
+      serverPromo({ id: "p1", position: 0, posY: 0, tileCols: 2, tileRows: 1 }),
+    ]);
+    state = updatePromotion(state, "p1", {
+      localImageUrl: "blob:https://example.com/draft",
+    });
+    const duped = duplicatePromotion(state, "p1");
+    const copy = duped.promotions.find((p) => p.id === null)!;
+    expect(copy.localImageUrl).toBe("blob:https://example.com/draft");
   });
 });
 
