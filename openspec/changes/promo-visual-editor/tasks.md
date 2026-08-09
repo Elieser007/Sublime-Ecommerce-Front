@@ -41,8 +41,8 @@ Chain strategy: size-exception
 - [x] **1.2 [U1 GREEN]** Create `src/lib/promo-grid.ts` (pure, no DOM): `GridTile`, `Grid`, `ResizeHandle`, all 8 fns per §Interfaces. Dep: 1.1. AC: 1.1 green.
 - [x] **2.1 [U2 RED]** Write `src/__tests__/promo-editor.test.ts` (front): `createEditorState` from `PromotionResponse[]`; `isDirty` false clean / true after move-edit; `imageBlob → '<blob>'` projection; `revert` restores snapshot + clears history; `toSavePayload` shape (null `imageUrl`, `deletePromotionIds`, `resolvedUrls` re-key); `applySavedResponse` re-key ids/clear blob+deleted/new snapshot; move/remove/duplicate; `pushHistory` cap 50 (oldest evicted); undo/redo null at ends; `shouldWarnBeforeUnload`; `extractFilename`. Refs: PM-3, PM-5, AD "Undo granularity"/"Batch response sync". Verify: RED.
 - [x] **2.2 [U2 GREEN]** Create `src/lib/promo-editor.ts` per §Interfaces. Dep: 2.1. AC: 2.1 green.
-- [ ] **3.1 [U3 RED]** Write `src/__tests__/promo-canvas.test.ts` (front): `clientToCell` floor semantics (floor snaps past cell origin); `cellSizeForGrid` desktop clamp 72–120 full-width + mobile fixed 80 overflow-x branches; tile HTML percent placement (`left: posX/cols*100%`, `top: posY/rows*100%`, `width/height` spans) + 8 handle elements; grid-lines overlay builder. Refs: PM-1, PM-4, AR-2, AD "Canvas sizing"/"Drag anchor". Verify: RED.
-- [ ] **3.2 [U3 GREEN]** Create `src/lib/promo-canvas.ts` (pure geometry + HTML strings; no event binding). Dep: 3.1. AC: 3.1 green.
+- [x] **3.1 [U3 RED]** Write `src/__tests__/promo-canvas.test.ts` (front): `clientToCell` floor semantics (floor snaps past cell origin); `cellSizeForGrid` desktop clamp 72–120 full-width + mobile fixed 80 overflow-x branches; tile HTML percent placement (`left: posX/cols*100%`, `top: posY/rows*100%`, `width/height` spans) + 8 handle elements; grid-lines overlay builder. Refs: PM-1, PM-4, AR-2, AD "Canvas sizing"/"Drag anchor". Verify: RED.
+- [x] **3.2 [U3 GREEN]** Create `src/lib/promo-canvas.ts` (pure geometry + HTML strings; no event binding). Dep: 3.1. AC: 3.1 green.
 
 ## Phase 2: Backend API — pos_y + batch route (TDD)
 
