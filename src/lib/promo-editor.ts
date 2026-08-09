@@ -381,7 +381,7 @@ export function removePromotion(s: PromoEditorState, key: string): PromoEditorSt
 }
 
 export function duplicatePromotion(s: PromoEditorState, id: string): PromoEditorState {
-  const source = s.promotions.find((p) => p.id === id);
+  const source = s.promotions.find((p) => localKey(p) === id);
   if (!source) return s;
 
   const grid: Grid = { cols: s.section.gridCols, rows: s.section.gridRows };
@@ -462,7 +462,7 @@ export function clampPromotionTile(s: PromoEditorState, id: string): PromoEditor
   return {
     ...s,
     promotions: s.promotions.map((p) =>
-      p.id === id
+      localKey(p) === id
         ? {
             ...p,
             ...clampTile(

@@ -1362,6 +1362,27 @@ describe("duplicatePromotion", () => {
     expect(copy.width).toBe(1);
     expect(copy.height).toBe(1);
   });
+
+  it("duplicates an unsaved tile by its local key into two independent working copies", () => {
+    let state = createEditorState(section, []);
+    state = addPromotion(state, {
+      title: "Draft",
+      link: "/draft",
+      localImageUrl: "blob:draft-1",
+    });
+    const source = state.promotions[0];
+    const duped = duplicatePromotion(state, localKey(source));
+    expect(duped.promotions).toHaveLength(2);
+    const [orig, copy] = duped.promotions;
+    expect(orig).toEqual(source);
+    expect(copy.id).toBeNull();
+    expect(copy.title).toBe("Draft");
+    expect(copy.link).toBe("/draft");
+    expect(copy.localImageUrl).toBe("blob:draft-1");
+    expect(copy.localId).toBeTruthy();
+    expect(copy.localId).not.toBe(orig.localId);
+    expect(localKey(copy)).not.toBe(localKey(orig));
+  });
 });
 
 describe("setSection", () => {
