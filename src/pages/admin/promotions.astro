@@ -264,6 +264,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
   // R2 cleanup targets gathered at save time.
   let cleanupUrls: string[] = [];
   let uploadedThisSave: string[] = [];
+  // Auto-clear timer for the success status shown in #save-error.
+  let saveStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
   const typeInfo: Record<string, string> = {
     tiles: "El tipo Tiles muestra tus anuncios en un grid de cuadros. Cada anuncio puede ocupar diferente cantidad de espacio (1x1, 2x2, etc). Arrastrá para mover, redimensioná desde los bordes.",
@@ -1086,6 +1088,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
     // Per-tile title validation BEFORE Guardar: the backend 400s the WHOLE
     // batch on a blank title, so name the offending tile here (F10). Surfaced
     // in #save-error (always visible), not #form-error (hidden modal).
+    if (saveStatusTimer) { clearTimeout(saveStatusTimer); saveStatusTimer = null; }
+    $('save-error')!.classList.remove('save-error--success');
     $('save-error')!.textContent = '';
     const validationError = validatePromotionsForSave(state.promotions);
     if (validationError) {
@@ -1196,8 +1200,15 @@ import PromotionWall from '../../components/PromotionWall.astro';
       cleanupUrls = [];
 
       renderAll();
-      $('save-error')!.textContent = '';
-      alert('Guardado correctamente');
+      $('save-error')!.classList.add('save-error--success');
+      $('save-error')!.textContent = 'Guardado correctamente';
+      saveStatusTimer = setTimeout(() => {
+        const el = $('save-error');
+        if (el) {
+          el.textContent = '';
+          el.classList.remove('save-error--success');
+        }
+      }, 3000);
     } catch (err: any) {
       // Orphan guard: delete blobs uploaded this save (batch failure).
       for (const url of uploadedThisSave) {
@@ -1517,6 +1528,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     margin: 0;
   }
   .save-error:empty { display: none; }
+  .save-error--success { color: var(--success); border-left-color: var(--success); }
 
   /* ─── Onboarding hint ────────────────────────────────────────── */
   .onboarding-hint {

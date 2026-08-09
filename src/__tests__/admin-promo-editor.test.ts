@@ -128,6 +128,27 @@ describe("promotions.astro — local state and single commit", () => {
   });
 });
 
+describe("promotions.astro — non-blocking save feedback", () => {
+  it("never calls alert() (blocking modal removed)", () => {
+    expect(pageSource).not.toMatch(/alert\(/);
+  });
+
+  it("shows the success status in #save-error with the success class and auto-clears it", () => {
+    expect(pageSource).toMatch(/save-error--success/);
+    expect(pageSource).toContain("$('save-error')!.classList.add('save-error--success');");
+    expect(pageSource).toContain("$('save-error')!.textContent = 'Guardado correctamente';");
+    expect(pageSource).toMatch(/setTimeout\(\(\) => \{\s*\n\s*const el = \$\(['"]save-error['"]\);/);
+    expect(pageSource).toMatch(/}, 3000\);/);
+  });
+
+  it("clears pending success feedback before showing errors (errors keep error styling)", () => {
+    // The success class must be stripped at the start of every save attempt,
+    // before the validation error or the catch block writes an error message.
+    expect(pageSource).toMatch(/if \(saveStatusTimer\) \{ clearTimeout\(saveStatusTimer\); saveStatusTimer = null; \}/);
+    expect(pageSource).toMatch(/\$\(['"]save-error['"]\)!\.classList\.remove\('save-error--success'\);\s*\n\s*\$\(['"]save-error['"]\)!\.textContent = '';/);
+  });
+});
+
 describe("promotions.astro — no dead code", () => {
   it("does not import the old promo-upload module", () => {
     expect(pageSource).not.toContain("lib/promo-upload");
