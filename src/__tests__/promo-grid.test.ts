@@ -253,6 +253,13 @@ describe("autoSuggestPosition", () => {
     expect(autoSuggestPosition(grid, tiles)).toEqual({ x: 2, y: 0 });
   });
 
+  it("places a new tile inside a full-grid tile, not at its top-left corner (hero-home)", () => {
+    // Single full-grid tile (seeded hero-home 8×4): fallback lands on the last
+    // row-major cell, inside the big tile but away from the origin.
+    const tiles: GridTile[] = [tile({ id: "hero", width: 8, height: 4 })];
+    expect(autoSuggestPosition(grid, tiles)).toEqual({ x: 7, y: 3 });
+  });
+
   it("returns the origin when the grid is full", () => {
     const tiles: GridTile[] = Array.from({ length: grid.cols * grid.rows }, (_, i) =>
       tile({ id: `t${i}`, posX: i % grid.cols, posY: Math.floor(i / grid.cols) })

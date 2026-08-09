@@ -106,20 +106,19 @@ export function autoSuggestPosition(
   grid: Grid,
   tiles: GridTile[]
 ): { x: number; y: number } {
-  const occupied = new Set<string>();
-  for (const t of tiles) {
-    for (let y = t.posY; y < t.posY + t.height; y++) {
-      for (let x = t.posX; x < t.posX + t.width; x++) {
-        occupied.add(`${x},${y}`);
-      }
-    }
-  }
+  const isFullyCovered = (x: number, y: number) =>
+    tiles.some(
+      (t) =>
+        x >= t.posX && x < t.posX + t.width && y >= t.posY && y < t.posY + t.height
+    );
 
   for (let y = 0; y < grid.rows; y++) {
     for (let x = 0; x < grid.cols; x++) {
-      if (!occupied.has(`${x},${y}`)) return { x, y };
+      if (!isFullyCovered(x, y)) return { x, y };
     }
   }
+
+  if (tiles.length === 1) return { x: grid.cols - 1, y: grid.rows - 1 };
   return { x: 0, y: 0 };
 }
 
