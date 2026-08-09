@@ -452,12 +452,38 @@ describe("stripHoverIndex (FIX1)", () => {
     expect(stripHoverIndex(items, 100)).toBe(2);
   });
 
+  it("returns the containing index for a pointer in an item's upper half", () => {
+    expect(stripHoverIndex(items, 30)).toBe(0);
+    expect(stripHoverIndex(items, 70)).toBe(1);
+  });
+
   it("snaps a pointer above the first item to index 0", () => {
     expect(stripHoverIndex(items, -10)).toBe(0);
   });
 
   it("snaps a pointer below the last item to the last index", () => {
     expect(stripHoverIndex(items, 500)).toBe(2);
+  });
+
+  it("snaps a middle-gap drop to the gap's nearest slot, never the strip end", () => {
+    const five = [
+      { top: 0, bottom: 40 },
+      { top: 44, bottom: 84 },
+      { top: 88, bottom: 128 },
+      { top: 132, bottom: 172 },
+      { top: 176, bottom: 216 },
+    ];
+    // Gap between items 2 and 3 spans (128, 132); its midpoint is 130.
+    expect(stripHoverIndex(five, 129)).toBe(2);
+    expect(stripHoverIndex(five, 131)).toBe(3);
+    expect(stripHoverIndex(five, 130)).not.toBe(4);
+  });
+
+  it("keeps a single-item strip anchored to index 0 on either side", () => {
+    const single = [{ top: 10, bottom: 60 }];
+    expect(stripHoverIndex(single, 0)).toBe(0);
+    expect(stripHoverIndex(single, 35)).toBe(0);
+    expect(stripHoverIndex(single, 1000)).toBe(0);
   });
 
   it("returns -1 for an empty strip", () => {

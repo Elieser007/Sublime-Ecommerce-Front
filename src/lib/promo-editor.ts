@@ -83,12 +83,18 @@ export interface StripItemBox {
 }
 
 export function stripHoverIndex(items: StripItemBox[], pointerY: number): number {
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    if (pointerY >= item.top && pointerY <= item.bottom) return i;
-  }
   if (items.length === 0) return -1;
-  return pointerY < items[0].top ? 0 : items.length - 1;
+  let nearest = 0;
+  let best = Infinity;
+  for (let i = 0; i < items.length; i++) {
+    const midpoint = (items[i].top + items[i].bottom) / 2;
+    const distance = Math.abs(midpoint - pointerY);
+    if (distance < best) {
+      best = distance;
+      nearest = i;
+    }
+  }
+  return nearest;
 }
 
 function toEditorPromotion(p: ServerPromotion): EditorPromotion {
