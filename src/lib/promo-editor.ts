@@ -43,7 +43,7 @@ export interface ServerPromotion {
   id: string;
   title: string | null;
   subtitle: string | null;
-  imageUrl: string;
+  imageUrl: string | null;
   link: string | null;
   position: number;
   posY?: number;
@@ -61,8 +61,12 @@ export interface SavedSectionResponse {
 }
 
 export interface SavedPromotionsResponse {
-  section: SavedSectionResponse;
+  section: SavedSectionResponse | null;
   promotions: ServerPromotion[];
+}
+
+export function localKey(p: Pick<EditorPromotion, "id" | "posX" | "posY">): string {
+  return p.id || `local-${p.posX}-${p.posY}`;
 }
 
 function toEditorPromotion(p: ServerPromotion): EditorPromotion {
@@ -201,19 +205,29 @@ export function applySavedResponse(
   s: PromoEditorState,
   res: SavedPromotionsResponse
 ): PromoEditorState {
+  const section = res.section
+    ? {
+        id: res.section.id,
+        name: res.section.name,
+        slug: res.section.slug,
+        gridCols: res.section.gridCols,
+        gridRows: res.section.gridRows,
+        displayType: res.section.displayType,
+      }
+    : { ...s.section };
   return {
-    section: {
-      id: res.section.id,
-      name: res.section.name,
-      slug: res.section.slug,
-      gridCols: res.section.gridCols,
-      gridRows: res.section.gridRows,
-      displayType: res.section.displayType,
-    },
+    section,
     promotions: res.promotions.map(toEditorPromotion),
     deletedIds: [],
     deletedImageUrls: [],
   };
+}
+
+export function validatePromotionsForSave(promotions: EditorPromotion[]): string | null {
+  const blank = promotions.find((p) => !p.title.trim());
+  if (!blank) return null;
+  const name = blank.title.trim() || "(sin título)";
+  return `El anuncio "${name}" (celda ${blank.posX + 1},${blank.posY + 1}) necesita un título`;
 }
 
 export function movePromotion(s: PromoEditorState, from: number, to: number): PromoEditorState {
@@ -226,16 +240,17 @@ export function movePromotion(s: PromoEditorState, from: number, to: number): Pr
   return { ...s, promotions };
 }
 
-export function removePromotion(s: PromoEditorState, id: string): PromoEditorState {
-  const promo = s.promotions.find((p) => p.id === id);
+export function removePromotion(s: PromoEditorState, key: string): PromoEditorState {
+  const promo = s.promotions.find((p) => localKey(p) === key);
   const deletedIds = promo?.id ? [...s.deletedIds, promo.id] : s.deletedIds;
-  const deletedImageUrls =
-    promo?.imageUrl && !promo.previousImageUrl
-      ? [...s.deletedImageUrls, promo.imageUrl]
-      : s.deletedImageUrls;
+  const deletedImageUrls = promo ? [...s.deletedImageUrls] : s.deletedImageUrls;
+  if (promo?.imageUrl && !promo.previousImageUrl) deletedImageUrls.push(promo.imageUrl);
+  if (promo?.previousImageUrl && promo.previousImageUrl !== promo.imageUrl) {
+    deletedImageUrls.push(promo.previousImageUrl);
+  }
   return {
     ...s,
-    promotions: s.promotions.filter((p) => p.id !== id),
+    promotions: s.promotions.filter((p) => localKey(p) !== key),
     deletedIds,
     deletedImageUrls,
   };
@@ -263,13 +278,13 @@ export function duplicatePromotion(s: PromoEditorState, id: string): PromoEditor
 
 export function updatePromotion(
   s: PromoEditorState,
-  id: string,
+  key: string,
   patch: Partial<Omit<EditorPromotion, "id">>
 ): PromoEditorState {
   return {
     ...s,
     promotions: s.promotions.map((p) =>
-      p.id === id ? { ...p, ...patch } : p
+      localKey(p) === key ? { ...p, ...patch } : p
     ),
   };
 }

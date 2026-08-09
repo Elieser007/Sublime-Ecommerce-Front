@@ -27,7 +27,9 @@ import {
   undoEditor,
   redoEditor,
   shouldWarnBeforeUnload,
+  validatePromotionsForSave,
   extractFilename,
+  localKey,
   type EditorSection,
   type EditorPromotion,
   type PromoEditorState,
@@ -271,6 +273,24 @@ describe("applySavedResponse", () => {
     expect(synced.promotions).toHaveLength(1);
     expect(synced.promotions[0].id).toBe("p2");
   });
+
+  it("preserves gridRows from the saved response (C2)", () => {
+    const state = createEditorState(section, []);
+    const synced = applySavedResponse(state, {
+      section: { ...section, gridRows: 3 },
+      promotions: [],
+    });
+    expect(synced.section.gridRows).toBe(3);
+  });
+
+  it("keeps the current section identity when the response section is null (F8)", () => {
+    const state = createEditorState(section, [serverPromo()]);
+    const synced = applySavedResponse(state, { section: null, promotions: [] });
+    expect(synced.section.id).toBe("sec-1");
+    expect(synced.section.gridRows).toBe(4);
+    expect(synced.promotions).toEqual([]);
+    expect(synced.deletedImageUrls).toEqual([]);
+  });
 });
 
 describe("movePromotion", () => {
@@ -312,9 +332,56 @@ describe("removePromotion", () => {
   it("does not add a local-only promo to deletedIds", () => {
     let state = createEditorState(section, []);
     state = addPromotion(state, { title: "X", link: "/x" });
-    state = removePromotion(state, state.promotions[0].id as string);
+    state = removePromotion(state, localKey(state.promotions[0]));
     expect(state.deletedIds).toEqual([]);
     expect(state.promotions).toHaveLength(0);
+  });
+
+  it("removes an unsaved promo keyed by its localKey (F3)", () => {
+    let state = createEditorState(section, []);
+    state = addPromotion(state, { title: "X", link: "/x", imageUrl: "https://media.sublimepy.store/x.webp" });
+    state = removePromotion(state, localKey(state.promotions[0]));
+    expect(state.promotions).toHaveLength(0);
+    expect(state.deletedIds).toEqual([]);
+    // The unsaved promo's image URL still enters the R2 cleanup set.
+    expect(state.deletedImageUrls).toEqual(["https://media.sublimepy.store/x.webp"]);
+  });
+
+  it("records the replaced-away image URL when a promo with previousImageUrl is removed (F6)", () => {
+    let state = createEditorState(section, [serverPromo({ id: "p1" })]);
+    state = updatePromotion(state, "p1", {
+      imageUrl: "https://media.sublimepy.store/new.webp",
+      previousImageUrl: "https://media.sublimepy.store/old.webp",
+    });
+    state = removePromotion(state, "p1");
+    expect(state.deletedImageUrls).toContain("https://media.sublimepy.store/old.webp");
+    expect(state.deletedIds).toEqual(["p1"]);
+  });
+});
+
+describe("updatePromotion", () => {
+  it("updates an unsaved promo by its localKey (F5)", () => {
+    let state = createEditorState(section, []);
+    state = addPromotion(state, { title: "Draft", link: "/draft" });
+    const key = localKey(state.promotions[0]);
+    state = updatePromotion(state, key, { title: "Edited Draft" });
+    expect(state.promotions).toHaveLength(1);
+    expect(state.promotions[0].title).toBe("Edited Draft");
+  });
+});
+
+describe("validatePromotionsForSave", () => {
+  it("returns null when every promo has a title", () => {
+    const state = createEditorState(section, [serverPromo()]);
+    expect(validatePromotionsForSave(state.promotions)).toBeNull();
+  });
+
+  it("names the offending tile when a promo title is blank (F10)", () => {
+    let state = createEditorState(section, [serverPromo({ id: "p1", title: "Ok" })]);
+    state = addPromotion(state, { title: "", link: "/x" });
+    const error = validatePromotionsForSave(state.promotions);
+    expect(error).not.toBeNull();
+    expect(error!).toContain("celda 1,1");
   });
 });
 
