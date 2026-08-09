@@ -22,3 +22,40 @@ describe("PromotionWall promo link sanitization", () => {
     expect(promotionWallSource).toContain("sanitizePromoUrl");
   });
 });
+
+describe("PromotionWall G8 — gridCols + posY pass-through (PM-1)", () => {
+  it("passes gridCols from sectionInfo to TilesPromo", () => {
+    expect(promotionWallSource).toContain("gridCols");
+    expect(promotionWallSource).toMatch(/sectionInfo\??\.gridCols/);
+  });
+
+  it("passes posY through to the tile component props", () => {
+    expect(promotionWallSource).toContain("posY");
+  });
+
+  it("passes position through unchanged for TilesPromo to map", () => {
+    expect(promotionWallSource).toContain("position");
+  });
+});
+
+describe("TilesPromo G8 — real gridCols + posY rows", () => {
+  const tilesSource = readFileSync(
+    resolve(__dirname, "../components/promo/TilesPromo.astro"),
+    "utf-8"
+  );
+
+  it("derives gridCols from sectionInfo.gridCols || 4", () => {
+    expect(tilesSource).toContain("gridCols");
+    expect(tilesSource).toMatch(/gridCols\s*\|\|\s*4/);
+  });
+
+  it("renders grid-row from posY (posY+1 / span height)", () => {
+    expect(tilesSource).toContain("posY");
+    expect(tilesSource).toMatch(/grid-row/);
+  });
+
+  it("maps legacy position to posX via tilePlacement", () => {
+    expect(tilesSource).toContain("tilePlacement");
+    expect(tilesSource).toContain("posX: promo.position");
+  });
+});

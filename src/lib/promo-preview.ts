@@ -1,5 +1,6 @@
 import { escapeHtml, sanitizePromoUrl } from "./escape-html";
 import { getProductImageUrl } from "./public-api";
+import { tilePlacement } from "./promo-grid";
 
 export interface PromoPreview {
   id: string;
@@ -8,6 +9,7 @@ export interface PromoPreview {
   imageUrl: string;
   link: string;
   position: number;
+  posY: number;
   tileCols: number;
   tileRows: number;
 }
@@ -46,10 +48,16 @@ function buildTiles(promotions: PromoPreview[], gridCols: number): string {
   const cols = gridCols > 0 ? gridCols : 4;
   let html = `<div class="tiles-promo" style="grid-template-columns:repeat(${cols},1fr);grid-auto-rows:160px;">`;
   promotions.forEach((pt) => {
-    const col = (pt.position % cols) + 1;
-    const row = Math.floor(pt.position / cols) + 1;
-    const span = pt.tileCols || 1;
-    html += `<div class="tile" style="grid-column:${col}/span ${span};grid-row:${row}/span ${pt.tileRows || 1};"><div class="tile-bg" style="background-image:url('${imageAttr(pt.imageUrl)}')"></div><div class="tile-overlay"></div><div class="tile-content">${pt.title ? `<h3 class="tile-title">${escapeHtml(pt.title)}</h3>` : ""}${pt.subtitle ? `<p class="tile-desc">${escapeHtml(pt.subtitle)}</p>` : ""}</div><a href="${escapeHtml(sanitizePromoUrl(pt.link))}" class="tile-link" aria-label="${escapeHtml(pt.title || "Promocion")}"></a></div>`;
+    // 1-based CSS grid coords from posX/posY (PM-1/G8); posY defaults to 0 so
+    // legacy rows without posY stay at the top row.
+    const { col, row } = tilePlacement({
+      id: pt.id,
+      posX: pt.position,
+      posY: pt.posY || 0,
+      width: pt.tileCols || 1,
+      height: pt.tileRows || 1,
+    });
+    html += `<div class="tile" style="grid-column:${col}/span ${pt.tileCols || 1};grid-row:${row}/span ${pt.tileRows || 1};"><div class="tile-bg" style="background-image:url('${imageAttr(pt.imageUrl)}')"></div><div class="tile-overlay"></div><div class="tile-content">${pt.title ? `<h3 class="tile-title">${escapeHtml(pt.title)}</h3>` : ""}${pt.subtitle ? `<p class="tile-desc">${escapeHtml(pt.subtitle)}</p>` : ""}</div><a href="${escapeHtml(sanitizePromoUrl(pt.link))}" class="tile-link" aria-label="${escapeHtml(pt.title || "Promocion")}"></a></div>`;
   });
   html += "</div>";
   return html;

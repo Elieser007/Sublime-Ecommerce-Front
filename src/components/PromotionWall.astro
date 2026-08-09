@@ -30,6 +30,7 @@ interface Promotion {
   imageUrl: string;
   link: string;
   position: number;
+  posY: number;
   tileCols: number;
   tileRows: number;
 }
@@ -38,6 +39,7 @@ interface SectionInfo {
   id: string;
   slug: string;
   displayType: string;
+  gridCols?: number;
 }
 
 interface Props {
@@ -55,9 +57,11 @@ const {
 } = Astro.props;
 
 const displayType = sectionInfo?.displayType || "tiles";
+const gridCols = sectionInfo?.gridCols || 4;
 const hasPromotions = promotions.length > 0;
 const safePromotions = promotions.map((promo) => ({
   ...promo,
+  posY: promo.posY || 0,
   imageUrl: getProductImageUrl(promo.imageUrl),
   link: sanitizePromoUrl(promo.link),
 }));
@@ -71,7 +75,7 @@ const safePromotions = promotions.map((promo) => ({
     <CarouselPromo promotions={safePromotions} id={section} />
   )}
   {hasPromotions && displayType === 'tiles' && (
-    <TilesPromo promotions={safePromotions} />
+    <TilesPromo promotions={safePromotions} gridCols={gridCols} />
   )}
   {hasPromotions && displayType === 'split' && (
     <SplitPromo promotions={safePromotions} />

@@ -22,6 +22,7 @@ function promo(overrides: Partial<PromoPreview> = {}): PromoPreview {
     imageUrl: "https://cdn.example.com/promo.webp",
     link: "/products/remera-sublime-basica-algodon",
     position: 0,
+    posY: 0,
     tileCols: 1,
     tileRows: 1,
     ...overrides,
@@ -34,10 +35,31 @@ describe("buildPromoPreviewHtml tiles", () => {
     expect(html).toContain("grid-template-columns:repeat(3,1fr)");
   });
 
-  it("positions tiles by position within gridCols", () => {
+  it("positions tiles by posX (position) directly, not modulo gridCols", () => {
+    // position IS posX now: posX=4 → column 5 (1-based), no wrap to row 2.
     const html = buildPromoPreviewHtml("tiles", [promo({ position: 4, tileCols: 2, tileRows: 2 })], 4);
-    expect(html).toContain("grid-column:1/span 2");
+    expect(html).toContain("grid-column:5/span 2");
+    expect(html).toContain("grid-row:1/span 2");
+  });
+});
+
+describe("buildPromoPreviewHtml tiles — posX/posY placement (PM-1, G8)", () => {
+  it("places a tile at grid-column posX+1 / span width and grid-row posY+1 / span height", () => {
+    // posX=2, posY=1, width=3, height=2 → col 3/span 3, row 2/span 2.
+    const html = buildPromoPreviewHtml("tiles", [promo({ position: 2, posY: 1, tileCols: 3, tileRows: 2 })], 8);
+    expect(html).toContain("grid-column:3/span 3");
     expect(html).toContain("grid-row:2/span 2");
+  });
+
+  it("maps the origin tile to col 1 row 1", () => {
+    const html = buildPromoPreviewHtml("tiles", [promo({ position: 0, posY: 0, tileCols: 1, tileRows: 1 })], 8);
+    expect(html).toContain("grid-column:1/span 1");
+    expect(html).toContain("grid-row:1/span 1");
+  });
+
+  it("defaults missing posY to row 1 (legacy rows stay at the top)", () => {
+    const html = buildPromoPreviewHtml("tiles", [promo({ position: 0, tileCols: 1, tileRows: 1 })], 8);
+    expect(html).toContain("grid-row:1/span 1");
   });
 });
 

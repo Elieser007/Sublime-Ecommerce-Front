@@ -1,9 +1,13 @@
 ---
 /**
- * TilesPromo — CSS Grid with variable tile sizes
- * 
- * Each promotion specifies tileCols and tileRows for grid placement.
+ * TilesPromo — CSS Grid with variable tile sizes (PM-1, G8)
+ *
+ * gridCols comes from the section's real grid (sectionInfo.gridCols || 4).
+ * Each promotion places at grid-column posX+1 / span tileCols and
+ * grid-row posY+1 / span tileRows (1-based CSS coords via tilePlacement).
  */
+import { tilePlacement } from '../../lib/promo-grid';
+
 interface Promotion {
   id: string;
   title?: string;
@@ -13,20 +17,27 @@ interface Promotion {
   tileCols: number;
   tileRows: number;
   position: number;
+  posY: number;
 }
 
 interface Props {
   promotions: Promotion[];
+  gridCols?: number;
 }
 
 const { promotions } = Astro.props;
-const gridCols = 4;
+const gridCols = Astro.props.gridCols || 4;
 ---
 
 <div class="tiles-promo" style={`grid-template-columns: repeat(${gridCols}, 1fr); grid-auto-rows: 160px;`}>
   {promotions.map((promo) => {
-    const col = (promo.position % gridCols) + 1;
-    const row = Math.floor(promo.position / gridCols) + 1;
+    const { col, row } = tilePlacement({
+      id: promo.id,
+      posX: promo.position,
+      posY: promo.posY || 0,
+      width: promo.tileCols,
+      height: promo.tileRows,
+    });
     return (
       <div class="tile" style={`grid-column: ${col} / span ${promo.tileCols}; grid-row: ${row} / span ${promo.tileRows};`}>
         <div class="tile-bg" style={`background-image: url('${promo.imageUrl}');`}></div>
@@ -105,13 +116,5 @@ const gridCols = 4;
     position: absolute;
     inset: 0;
     z-index: 3;
-  }
-
-  @media (max-width: 767px) {
-    .tiles-promo {
-      grid-template-columns: repeat(2, 1fr) !important;
-      grid-auto-rows: 120px !important;
-    }
-    .tile-content { padding: var(--space-md); }
   }
 </style>
