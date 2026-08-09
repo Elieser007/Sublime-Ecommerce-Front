@@ -36,6 +36,7 @@ import {
   setLocalImage,
   clearLocalImage,
   resolvePromoImage,
+  orphanedDraftUrls,
   type EditorSection,
   type EditorPromotion,
   type PromoEditorState,
@@ -455,6 +456,46 @@ describe("draft image lifecycle (localImageUrl)", () => {
     const duped = duplicatePromotion(state, "p1");
     const copy = duped.promotions.find((p) => p.id === null)!;
     expect(copy.localImageUrl).toBe("blob:https://example.com/draft");
+  });
+});
+
+describe("orphanedDraftUrls", () => {
+  it("returns object URLs present before but not after", () => {
+    const before = [
+      { localImageUrl: "blob:a" },
+      { localImageUrl: "blob:b" },
+      { localImageUrl: null },
+    ];
+    const after = [{ localImageUrl: "blob:b" }];
+    expect(orphanedDraftUrls(before, after)).toEqual(["blob:a"]);
+  });
+
+  it("keeps a URL another promo still references (duplicate safety)", () => {
+    const before = [
+      { localImageUrl: "blob:d" },
+      { localImageUrl: "blob:d" },
+    ];
+    const after = [{ localImageUrl: "blob:d" }];
+    expect(orphanedDraftUrls(before, after)).toEqual([]);
+  });
+
+  it("returns an empty array when nothing changed", () => {
+    const before = [{ localImageUrl: "blob:a" }];
+    const after = [{ localImageUrl: "blob:a" }];
+    expect(orphanedDraftUrls(before, after)).toEqual([]);
+  });
+
+  it("dedupes repeated orphaned URLs", () => {
+    const before = [
+      { localImageUrl: "blob:x" },
+      { localImageUrl: "blob:x" },
+    ];
+    expect(orphanedDraftUrls(before, [])).toEqual(["blob:x"]);
+  });
+
+  it("ignores promos with no draft in the after state", () => {
+    const before = [{ localImageUrl: "blob:y" }];
+    expect(orphanedDraftUrls(before, [{ localImageUrl: null }])).toEqual(["blob:y"]);
   });
 });
 
