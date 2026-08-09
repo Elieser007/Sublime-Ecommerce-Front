@@ -102,6 +102,34 @@ export function renumberOrder(tiles: GridTile[]): GridTile[] {
   return tiles.map((t, i) => ({ ...t, posX: i }));
 }
 
+export function renumberWithoutOverlap(tiles: GridTile[], grid: Grid): GridTile[] {
+  const placed: GridTile[] = [];
+
+  const intersects = (a: GridTile, b: GridTile): boolean => {
+    const x = a.posX <= b.posX + b.width - 1 && b.posX <= a.posX + a.width - 1;
+    const y = a.posY <= b.posY + b.height - 1 && b.posY <= a.posY + a.height - 1;
+    return x && y;
+  };
+
+  const firstFreeCell = (tile: GridTile): { x: number; y: number } => {
+    for (let y = 0; y + tile.height <= grid.rows; y++) {
+      for (let x = 0; x + tile.width <= grid.cols; x++) {
+        const candidate = { ...tile, posX: x, posY: y };
+        if (!placed.some((p) => intersects(p, candidate))) return { x, y };
+      }
+    }
+    return { x: 0, y: 0 };
+  };
+
+  return tiles.map((t) => {
+    const clamped = clampTile(t, grid);
+    const cell = firstFreeCell(clamped);
+    const placedTile = { ...clamped, posX: cell.x, posY: cell.y };
+    placed.push(placedTile);
+    return placedTile;
+  });
+}
+
 export function autoSuggestPosition(
   grid: Grid,
   tiles: GridTile[]
