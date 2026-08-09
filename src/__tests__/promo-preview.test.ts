@@ -148,3 +148,92 @@ describe("buildPromoPreviewHtml escaping", () => {
     expect(html).toContain("href=\"#\"");
   });
 });
+
+describe("buildPromoPreviewHtml real per-type visuals", () => {
+  it("hero renders the real image, overlay, title, subtitle and CTA link", () => {
+    const html = buildPromoPreviewHtml("hero", [promo()], 4);
+    expect(html).toContain("background-image:url('https://cdn.example.com/promo.webp')");
+    expect(html).toContain("hero-overlay");
+    expect(html).toContain("Promo title");
+    expect(html).toContain("Promo subtitle");
+    expect(html).toContain("hero-btn");
+  });
+
+  it("carousel renders the real image, overlay and slide content for every slide", () => {
+    const html = buildPromoPreviewHtml("carousel", [
+      promo({ id: "a", title: "Slide A", subtitle: "Desc A" }),
+      promo({ id: "b", title: "Slide B", subtitle: "Desc B" }),
+    ], 4);
+    expect(html).toContain("background-image:url('https://cdn.example.com/promo.webp')");
+    expect(html).toContain("slide-overlay");
+    expect(html).toContain("Slide A");
+    expect(html).toContain("Desc A");
+    expect(html).toContain("Slide B");
+    expect(html).toContain("Desc B");
+  });
+
+  it("split renders the real image via img src plus title and subtitle", () => {
+    const html = buildPromoPreviewHtml("split", [promo()], 4);
+    expect(html).toContain('src="https://cdn.example.com/promo.webp"');
+    expect(html).toContain("Promo title");
+    expect(html).toContain("Promo subtitle");
+    expect(html).toContain("split-link");
+  });
+
+  it("ribbon renders the real background image and overlay", () => {
+    const html = buildPromoPreviewHtml("ribbon", [promo()], 4);
+    expect(html).toContain("background-image:url('https://cdn.example.com/promo.webp')");
+    expect(html).toContain("ribbon-overlay");
+    expect(html).toContain("Promo title");
+  });
+
+  it("banner renders title and subtitle with no image", () => {
+    const html = buildPromoPreviewHtml("banner", [promo()], 4);
+    expect(html).toContain("Promo title");
+    expect(html).toContain("Promo subtitle");
+    expect(html).not.toContain("cdn.example.com");
+  });
+});
+
+describe("buildPromoPreviewHtml tiles visuals", () => {
+  it("delegates tiles to the shared tile builder (bg, overlay, title, subtitle, link)", () => {
+    const html = buildPromoPreviewHtml("tiles", [promo()], 4);
+    expect(html).toContain("background-image:url('https://cdn.example.com/promo.webp')");
+    expect(html).toContain("tile-overlay");
+    expect(html).toContain("Promo title");
+    expect(html).toContain("Promo subtitle");
+    expect(html).toContain("tile-link");
+  });
+
+  it("sanitizes the tile link href", () => {
+    const html = buildPromoPreviewHtml("tiles", [promo({ link: "javascript:alert(1)" })], 4);
+    expect(html).not.toContain("javascript:");
+    expect(html).toContain("href=\"#\"");
+  });
+});
+
+describe("buildPromoPreviewHtml image resolution", () => {
+  it("lets the local image URL win over the server image URL", () => {
+    const html = buildPromoPreviewHtml("hero", [
+      promo({ localImageUrl: "blob:https://example.com/draft" }),
+    ], 4);
+    expect(html).toContain("background-image:url('blob:https://example.com/draft')");
+    expect(html).not.toContain("cdn.example.com");
+  });
+
+  it("falls back to the placeholder when no image is available", () => {
+    const html = buildPromoPreviewHtml("tiles", [
+      promo({ imageUrl: "", localImageUrl: null }),
+    ], 4);
+    expect(html).toContain("placeholder-product.svg");
+  });
+});
+
+describe("buildPromoPreviewHtml editor chrome", () => {
+  it("adds an edit affordance to every display type", () => {
+    for (const type of ["hero", "carousel", "tiles", "split", "banner", "ribbon"]) {
+      const html = buildPromoPreviewHtml(type, [promo(), promo()], 4);
+      expect(html).toContain('data-action="edit"');
+    }
+  });
+});
