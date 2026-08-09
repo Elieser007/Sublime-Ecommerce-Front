@@ -66,8 +66,8 @@ Chain strategy: size-exception
 
 ## Phase 5: E2E — mouse + touch
 
-- [ ] **9.1 [U9 RED]** Rewrite `e2e/admin/flows/promotions.spec.ts` (local-save model): drag→Guardar→reload→posX/posY; resize→reload→spans; carousel reorder→reload order; revert restores; `beforeunload` dialog; R2 proof (`page.request.get(old upload URL)` → 404 after replace/remove). Refs: E2E-1 scenarios 1,2,4,5,6; design Testing Strategy. Verify: RED.
-- [ ] **9.2 [U9 RED]** Create `e2e/admin/flows/promo-editor-touch.spec.ts`: `test.use({ hasTouch: true, isMobile: true, viewport: '375x667' })`; drag/resize via `page.evaluate` dispatching PointerEvents `pointerType:'touch'`; assert same snapped cell as mouse; 8-col canvas scrolls horizontally, document has no overflow, ≥44px targets. Add `dispatchPointerDrag`/touch-context helper to `e2e/admin/helpers.ts`. Refs: E2E-1 scenario 3, AR-2. Verify: RED.
+- [x] **9.1 [U9 RED]** Rewrite `e2e/admin/flows/promotions.spec.ts` (local-save model): drag→Guardar→reload→posX/posY; resize→reload→spans; carousel reorder→reload order; revert restores; `beforeunload` dialog; R2 proof (`page.request.get(old upload URL)` → 404 after replace/remove). Refs: E2E-1 scenarios 1,2,4,5,6; design Testing Strategy. Verify: RED.
+- [x] **9.2 [U9 RED]** Create `e2e/admin/flows/promo-editor-touch.spec.ts`: `test.use({ hasTouch: true, isMobile: true, viewport: '375x667' })`; drag/resize via `page.evaluate` dispatching PointerEvents `pointerType:'touch'`; assert same snapped cell as mouse; 8-col canvas scrolls horizontally, document has no overflow, ≥44px targets. Add `dispatchPointerDrag`/touch-context helper to `e2e/admin/helpers.ts`. Refs: E2E-1 scenario 3, AR-2. Verify: RED.
 - [ ] **9.3 [U9 GREEN]** Fix surfaced bugs until both specs green (needs U4, U5, U6, U8 landed — backend batch live). Gate: `npm test` (front) + `npm run build` + `npm exec playwright test e2e/admin/flows/promotions.spec.ts e2e/admin/flows/promo-editor-touch.spec.ts` (orchestrator stops dev servers first).
 
 ## Phase 6: Polish + docs

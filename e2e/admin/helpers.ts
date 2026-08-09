@@ -97,3 +97,88 @@ export async function loginAsAdmin(page: Page): Promise<void> {
 export function reseedE2E(): void {
   execSync("pnpm run seed:e2e", { cwd: BACK_REPO_DIR, stdio: "inherit" });
 }
+
+/**
+ * Dispatch a pointer drag on the promo canvas (mouse or touch) via
+ * page.evaluate. Real PointerEvents are dispatched with pointerType
+ * 'mouse' (default) or 'touch', so the editor's pointer session runs
+ * identically for both input types (E2E-1 scenario 3, AR-2).
+ *
+ * `from`/`to` are canvas-relative pixel coordinates. The editor's
+ * setPointerCapture is best-effort for synthetic events, so the session
+ * still tracks via the document-level move/up listeners the page installs.
+ */
+export async function dispatchPointerDrag(
+  page: Page,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  pointerType: "mouse" | "touch" = "mouse"
+): Promise<void> {
+  await page.evaluate(
+    ({ from, to, pointerType }) => {
+      const canvas = document.getElementById("promo-canvas");
+      if (!canvas) throw new Error("#promo-canvas not found");
+      const rect = canvas.getBoundingClientRect();
+
+      const fire = (type: string, x: number, y: number) => {
+        canvas.dispatchEvent(
+          new PointerEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            pointerId: 1,
+            pointerType,
+            isPrimary: true,
+            clientX: rect.left + x,
+            clientY: rect.top + y,
+          })
+        );
+      };
+
+      fire("pointerdown", from.x, from.y);
+      // A few intermediate moves so the session snaps through cells.
+      const steps = 4;
+      for (let i = 1; i <= steps; i++) {
+        fire(
+          "pointermove",
+          from.x + ((to.x - from.x) * i) / steps,
+          from.y + ((to.y - from.y) * i) / steps
+        );
+      }
+      fire("pointerup", to.x, to.y);
+    },
+    { from, to, pointerType }
+  );
+}
+
+/**
+ * Touch-first context for the promo editor (AR-2): 375×667 viewport,
+ * hasTouch + isMobile so the editor's mobile branch (fixed 80px cells,
+ * horizontal scroll) is exercised exactly like a real device.
+ */
+export const TOUCH_CONTEXT = {
+  viewport: { width: 375, height: 667 },
+  hasTouch: true,
+  isMobile: true,
+} as const;
+
+/** Read a tile's snapped cell from its rendered percent style. */
+export async function tileCell(
+  page: Page,
+  tileId: string
+): Promise<{ x: number; y: number; w: number; h: number }> {
+  return page.evaluate((tileId) => {
+    const el = document.querySelector(`.canvas-tile[data-id="${tileId}"]`);
+    if (!el) throw new Error(`tile ${tileId} not found`);
+    const style = (el as HTMLElement).style;
+    const grid = document.getElementById("promo-canvas");
+    const g = grid?.getBoundingClientRect();
+    const toCell = (pct: string, total: number) =>
+      Math.round((parseFloat(pct) / 100) * (g ? total : 1));
+    return {
+      x: toCell(style.left, 8),
+      y: toCell(style.top, 4),
+      w: toCell(style.width, 8),
+      h: toCell(style.height, 4),
+    };
+  }, tileId);
+}

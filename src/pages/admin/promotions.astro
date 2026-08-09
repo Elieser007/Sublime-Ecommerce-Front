@@ -568,7 +568,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
 
     const tileId = target.dataset.id;
     if (!tileId) return;
-    const promo = state.promotions.find((p) => (p.id || `local-${p.posX}-${p.posY}`) === tileId);
+    const promoIndex = state.promotions.findIndex((p) => (p.id || `local-${p.posX}-${p.posY}`) === tileId);
+    const promo = state.promotions[promoIndex];
     if (!promo) return;
 
     e.preventDefault();
@@ -581,7 +582,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
     const grabDy = cell.y - promo.posY;
 
     const pointerId = e.pointerId;
-    canvas.setPointerCapture(pointerId);
+    // Synthetic PointerEvents (e2e touch dispatch) have no active pointer, so
+    // capture is best-effort — real input still captures to keep tracking
+    // stable outside the canvas.
+    try { canvas.setPointerCapture(pointerId); } catch { /* synthetic event */ }
 
     const moveHandler = (ev: PointerEvent) => {
       if (!state) return;
@@ -594,21 +598,21 @@ import PromotionWall from '../../components/PromotionWall.astro';
       const next = handle
         ? resizeToSpans(tile, c, handle as any, grid())
         : dragToCell(tile, { x: c.x - grabDx, y: c.y - grabDy }, grid());
-      const promoId = promo.id;
+      const localKey = promo.id || `local-${promo.posX}-${promo.posY}`;
       state = {
         ...state,
-        promotions: state.promotions.map((p) =>
-          (p.id === promoId && !promoId ? (state!.promotions.indexOf(p) === state!.promotions.indexOf(promo)) : p.id === promoId)
+        promotions: state.promotions.map((p, i) =>
+          i === promoIndex
             ? { ...p, posX: next.posX, posY: next.posY, width: next.width, height: next.height }
             : p
         ),
       };
       renderCanvas();
-      showCollisionHint(promoId || '');
+      showCollisionHint(localKey);
     };
 
     const upHandler = (ev: PointerEvent) => {
-      canvas.releasePointerCapture(pointerId);
+      try { canvas.releasePointerCapture(pointerId); } catch { /* synthetic event */ }
       canvas.removeEventListener('pointermove', moveHandler);
       canvas.removeEventListener('pointerup', upHandler);
       canvas.removeEventListener('pointercancel', upHandler);

@@ -1,142 +1,273 @@
 /**
- * Admin E2E — Promotions flow (tasks 2.8–2.9, design D7/D8).
+ * Admin E2E — Promo visual editor (mouse) (E2E-1 scenarios 1,2,4,5,6, design
+ * Testing Strategy).
  *
- * Serial per file (shared seeded D1); storageState from auth.setup (single
- * login, credentials never re-submitted). `reseedE2E()` in beforeAll re-runs
- * the deterministic Back seed so every run starts from identical rows.
+ * Local-save model: edits are local-only; Guardar fires ONE batch PUT; the
+ * reload proves persistence (posX/posY, spans, order). Covers:
+ *   - drag → Guardar → reload → posX/posY persisted
+ *   - resize → Guardar → reload → width/height spans persisted
+ *   - carousel reorder → Guardar → reload → order persisted
+ *   - Cancelar (revert) restores the snapshot
+ *   - beforeunload dialog when dirty
+ *   - R2 proof: old upload URL 404s after replace
  *
- * Coverage (spec "Admin Flows E2E" #6): promotion sections list, seeded
- * promo-e2e-1 verification in the hero section, create (image upload +
- * valid relative link — the form blocks saves without an imageUrl and the
- * backend rejects non-http(s)/non-relative link schemes), edit the title,
- * and delete (🗑️ + native confirm — promotions hard-delete). "Toggle status"
- * is N/A for this UI: the promotions manager exposes no status control, so
- * the delete surface the spec requires is the 🗑️ action (same "borrar si
- * aplica" convention as P7 categories). All mutations run against a
- * promotion created by the flow; the seeded promo-e2e-1 is only asserted.
+ * Serial per file (shared seeded D1); storageState from auth.setup.
  */
 import { test, expect, type Page } from "@playwright/test";
-import { ADMIN_URLS, reseedE2E } from "../helpers";
+import { ADMIN_URLS, reseedE2E, dispatchPointerDrag } from "../helpers";
 
 test.describe.configure({ mode: "serial" });
 
-/** Seeded promotion (Back scripts/seed-e2e.ts, fixed id promo-e2e-1). */
-const SEEDED_PROMO_TITLE = "E2E Promo Test";
-const SEEDED_PROMO_SUBTITLE = "Promoción fija para los flujos e2e del panel admin";
-/** Valid relative link (backend rule: "/" prefix or http(s) only). */
-const VALID_PROMO_LINK = "/products/remera-sublime-basica-algodon";
+/** Seeded catalog tiles section: 2 promos at (0,0,4,2) and (4,0,4,2). */
+const TILES_SECTION_ID = "promo-home-top";
+const TILE_A = "Remeras Personalizadas";
+const TILE_B = "Tazas Mágicas";
 
-/** 1×1 PNG — the promo image pipeline resizes ≤1000px and re-encodes to WebP. */
+/** 1×1 PNG for the image-replace R2 proof. */
 const PNG_1X1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64"
 );
 
-/** The create/edit/delete flow only ever touches its own promotion. */
-function uniquePromoTitle(): string {
-  return `E2E P8 Promo ${Date.now()}`;
-}
-
 test.beforeAll(() => {
   reseedE2E();
 });
 
-/** Opens /admin/promotions and selects the seeded hero section. */
-async function selectHeroSection(page: Page): Promise<void> {
+/** Opens /admin/promotions and selects the seeded tiles section. */
+async function openTilesSection(page: Page): Promise<void> {
   await page.goto(ADMIN_URLS.promotions);
-  await page.locator('.section-card[data-id="promo-hero"]').click();
+  await page.locator(`.section-card[data-id="${TILES_SECTION_ID}"]`).click();
   await expect(page.locator("#promo-manager")).toBeVisible();
-  await expect(page.locator("#section-name")).toHaveText("Hero Home");
+  await expect(page.locator("#canvas-section")).toBeVisible();
+  await expect(page.locator(".canvas-tile")).toHaveCount(2);
 }
 
-test("lists promotion sections and shows the seeded promo", async ({ page }) => {
-  await selectHeroSection(page);
+/** Tile data-id is the server promo id — resolve it from the canvas. */
+async function tileId(page: Page, title: string): Promise<string> {
+  const id = await page
+    .locator(`.canvas-tile`, { hasText: title })
+    .getAttribute("data-id");
+  expect(id).toBeTruthy();
+  return id!;
+}
 
-  // Seeded fixed-ID promo in the hero section (title + subtitle).
-  const card = page.locator(".promo-card", { hasText: SEEDED_PROMO_TITLE });
-  await expect(card).toBeVisible();
-  await expect(card).toContainText(SEEDED_PROMO_SUBTITLE);
+/** Tile position on the canvas (percent → cell). */
+async function tilePos(
+  page: Page,
+  tileId: string
+): Promise<{ x: number; y: number; w: number; h: number }> {
+  return page.evaluate((id) => {
+    const el = document.querySelector(`.canvas-tile[data-id="${id}"]`) as HTMLElement;
+    const pct = (v: string) => parseFloat(v);
+    return {
+      x: Math.round((pct(el.style.left) / 100) * 8),
+      y: Math.round((pct(el.style.top) / 100) * 4),
+      w: Math.round((pct(el.style.width) / 100) * 8),
+      h: Math.round((pct(el.style.height) / 100) * 4),
+    };
+  }, tileId);
+}
+
+test("shows the seeded tiles section on the canvas", async ({ page }) => {
+  await openTilesSection(page);
+  const a = await tileId(page, TILE_A);
+  const pos = await tilePos(page, a);
+  expect(pos).toEqual({ x: 0, y: 0, w: 4, h: 2 });
 });
 
-test("switches display type in the live preview and restores the original", async ({ page }) => {
-  await selectHeroSection(page);
+test("mouse drag snaps posX/posY and persists after Guardar + reload (E2E-1 #1)", async ({ page }) => {
+  await openTilesSection(page);
+  const a = await tileId(page, TILE_A);
 
-  const displaySelect = page.locator("#display-type-select");
-  await expect(displaySelect).toBeVisible();
-  await expect(displaySelect.locator("option")).toHaveCount(6);
+  // Tile A is 4×2 at cell (0,0); its pixel origin is the canvas top-left.
+  const before = await tilePos(page, a);
+  const cellPx = 80; // desktop: availW/8 clamped 72..120 — canvas reports actual
+  // Compute actual px per cell from the rendered width.
+  const pxPerCell = await page.evaluate(() => {
+    const canvas = document.getElementById("promo-canvas")!;
+    return canvas.getBoundingClientRect().width / 8;
+  });
 
-  const originalType = await displaySelect.inputValue();
-  expect(originalType).not.toBe("");
+  // Drag the tile so its top-left lands on cell (2,1): target pixel = cell*px.
+  await dispatchPointerDrag(
+    page,
+    { x: 10, y: 10 },
+    { x: 2 * pxPerCell, y: 1 * pxPerCell }
+  );
 
-  // Switch to carousel → the preview renders a .carousel-promo (PUT persists).
-  await displaySelect.selectOption("carousel");
-  await expect(page.locator("#live-preview-container .carousel-promo")).toBeVisible();
+  const moved = await tilePos(page, a);
+  expect(moved.x).toBe(2);
+  expect(moved.y).toBe(1);
+  await expect(page.locator("#save-btn")).toBeEnabled();
 
-  // Restore the original type so later serial tests are unaffected.
-  await displaySelect.selectOption(originalType);
-  await expect(page.locator(`#live-preview-container .${originalType}-promo`)).toBeVisible();
+  // Guardar → one batch PUT → reload → persisted.
+  await page.locator("#save-btn").click();
+  await expect(page.locator("#editor-status")).toHaveText("Sin cambios");
+
+  await page.reload();
+  await page.locator(`.section-card[data-id="${TILES_SECTION_ID}"]`).click();
+  await expect(page.locator("#canvas-section")).toBeVisible();
+  const after = await tilePos(page, await tileId(page, TILE_A));
+  expect(after.x).toBe(2);
+  expect(after.y).toBe(1);
+  expect(before.w).toBe(after.w); // spans unchanged by drag
+  expect(before.h).toBe(after.h);
 });
 
-/** Selects the hero section and creates a promotion via the modal. */
-async function createPromo(page: Page, title: string, description: string): Promise<void> {
-  await selectHeroSection(page);
-  await page.locator("#add-promo-btn").click();
+test("mouse resize drags a corner handle and persists spans after reload (E2E-1 #2)", async ({ page }) => {
+  await openTilesSection(page);
+  const a = await tileId(page, TILE_A);
+  const pxPerCell = await page.evaluate(() => {
+    const canvas = document.getElementById("promo-canvas")!;
+    return canvas.getBoundingClientRect().width / 8;
+  });
+  const pxPerRow = await page.evaluate(() => {
+    const canvas = document.getElementById("promo-canvas")!;
+    return canvas.getBoundingClientRect().height / 4;
+  });
+
+  // A is 4×2 at (0,0): grab its SE handle (bottom-right of the tile) and pull
+  // to cell (5,3) → width 6, height 4 (clamped by rows).
+  await dispatchPointerDrag(
+    page,
+    { x: 4 * pxPerCell - 4, y: 2 * pxPerRow - 4 },
+    { x: 5 * pxPerCell, y: 3 * pxPerRow }
+  );
+
+  const resized = await tilePos(page, a);
+  expect(resized.w).toBe(6);
+  expect(resized.h).toBe(4);
+
+  await page.locator("#save-btn").click();
+  await expect(page.locator("#editor-status")).toHaveText("Sin cambios");
+
+  await page.reload();
+  await page.locator(`.section-card[data-id="${TILES_SECTION_ID}"]`).click();
+  await expect(page.locator("#canvas-section")).toBeVisible();
+  const after = await tilePos(page, await tileId(page, TILE_A));
+  expect(after.w).toBe(6);
+  expect(after.h).toBe(4);
+});
+
+test("carousel reorder persists order after Guardar + reload (E2E-1 #4)", async ({ page }) => {
+  await openTilesSection(page);
+  const a = await tileId(page, TILE_A);
+  const b = await tileId(page, TILE_B);
+
+  // Switch the section to carousel (local edit on the working copy).
+  await page.locator("#display-type-select").selectOption("carousel");
+  await expect(page.locator("#strip-section")).toBeVisible();
+  await expect(page.locator(".strip-item")).toHaveCount(2);
+
+  // Drag strip item B (index 1) to the front (index 0) via HTML5 drag.
+  const stripB = page.locator(".strip-item", { hasText: TILE_B });
+  const stripA = page.locator(".strip-item", { hasText: TILE_A });
+  await stripB.dragTo(stripA);
+  // Order in the working copy: B first.
+  await expect(page.locator(".strip-item").first()).toContainText(TILE_B);
+
+  await page.locator("#save-btn").click();
+  await expect(page.locator("#editor-status")).toHaveText("Sin cambios");
+
+  await page.reload();
+  await page.locator(`.section-card[data-id="${TILES_SECTION_ID}"]`).click();
+  await expect(page.locator("#strip-section")).toBeVisible();
+  await expect(page.locator(".strip-item").first()).toContainText(TILE_B);
+  // Restore display type + order so later serial tests are unaffected.
+  await page.locator("#display-type-select").selectOption("tiles");
+  await page.locator("#save-btn").click();
+  await expect(page.locator("#editor-status")).toHaveText("Sin cambios");
+});
+
+test("Cancelar (revert) restores the snapshot and clears dirty (E2E-1 #5)", async ({ page }) => {
+  await openTilesSection(page);
+  const a = await tileId(page, TILE_A);
+  const pxPerCell = await page.evaluate(() => {
+    const canvas = document.getElementById("promo-canvas")!;
+    return canvas.getBoundingClientRect().width / 8;
+  });
+
+  await dispatchPointerDrag(page, { x: 10, y: 10 }, { x: 5 * pxPerCell, y: 10 });
+  const moved = await tilePos(page, a);
+  expect(moved.x).toBe(5);
+  await expect(page.locator("#save-btn")).toBeEnabled();
+
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.locator("#revert-btn").click();
+
+  await expect(page.locator("#save-btn")).toBeDisabled();
+  const reverted = await tilePos(page, a);
+  expect(reverted.x).toBe(0);
+  expect(reverted.y).toBe(0);
+});
+
+test("beforeunload warns when leaving a dirty editor (E2E-1 #5)", async ({ page }) => {
+  await openTilesSection(page);
+  const a = await tileId(page, TILE_A);
+  const pxPerCell = await page.evaluate(() => {
+    const canvas = document.getElementById("promo-canvas")!;
+    return canvas.getBoundingClientRect().width / 8;
+  });
+
+  await dispatchPointerDrag(page, { x: 10, y: 10 }, { x: 3 * pxPerCell, y: 10 });
+  await expect(page.locator("#save-btn")).toBeEnabled();
+
+  const dialogPromise = page.waitForEvent("dialog");
+  await page.evaluate(() => {
+    window.location.href = "/admin";
+  });
+  const dialog = await dialogPromise;
+  expect(dialog.type()).toBe("beforeunload");
+  await dialog.dismiss();
+});
+
+test("replacing an image deletes the old R2 object (E2E-1 #6)", async ({ page }) => {
+  await openTilesSection(page);
+  const a = await tileId(page, TILE_A);
+
+  // Upload a first image for tile A (promo is 'text' seeded, no image).
+  await page.locator(`.canvas-tile[data-id="${a}"]`).click();
   const modal = page.locator("#modal-overlay");
   await expect(modal).toBeVisible();
-
-  // Image upload is required: the form refuses to save without an imageUrl.
   await modal.locator("#promo-input").setInputFiles({
-    name: "promo.png",
+    name: "first.png",
     mimeType: "image/png",
     buffer: PNG_1X1,
   });
   await expect(modal.locator("#promo-image")).toBeVisible();
-
-  await modal.locator('#promo-form input[name="title"]').fill(title);
-  await modal.locator('#promo-form input[name="link"]').fill(VALID_PROMO_LINK);
-  await modal.locator('#promo-form input[name="description"]').fill(description);
   await modal.locator('#promo-form button[type="submit"]').click();
   await expect(modal).toBeHidden();
-}
 
-test("creates a promotion with an image and valid link", async ({ page }) => {
-  const title = uniquePromoTitle();
-  const description = "Promo creada por el flujo e2e";
-  await createPromo(page, title, description);
+  // Uploads fire at Guardar time — capture the URL from the POST response.
+  const uploadPromise = page.waitForResponse(
+    (res) => res.url().includes("/api/upload") && res.request().method() === "POST"
+  );
+  await page.locator("#save-btn").click();
+  await expect(page.locator("#editor-status")).toHaveText("Sin cambios");
+  const uploadResponse = await uploadPromise;
+  const uploadBody = (await uploadResponse.json()) as { url?: string };
+  expect(uploadBody.url).toBeTruthy();
+  const oldUrl = uploadBody.url!;
+  const oldFilename = oldUrl.split("/").pop()!;
+  const oldUpload = await page.request.get(`http://localhost:8787/api/upload/${oldFilename}`);
+  expect(oldUpload.status()).toBe(200);
 
-  // POST /api/promotions → the reloaded list shows the new card.
-  const card = page.locator(".promo-card", { hasText: title });
-  await expect(card).toBeVisible();
-  await expect(card).toContainText(description);
-  await expect(card).toContainText(VALID_PROMO_LINK);
-});
-
-test("edits the promotion title", async ({ page }) => {
-  const title = uniquePromoTitle();
-  await createPromo(page, title, "Promo editada");
-  let card = page.locator(".promo-card", { hasText: title });
-  await expect(card).toBeVisible();
-
-  await card.getByTitle("Editar").click();
-  const modal = page.locator("#modal-overlay");
+  // Replace the image with a second upload → old R2 object must be deleted.
+  await page.locator(`.canvas-tile[data-id="${a}"]`).click();
   await expect(modal).toBeVisible();
-  await modal.locator('#promo-form input[name="title"]').fill(`${title} Editada`);
+  await modal.locator("#promo-input").setInputFiles({
+    name: "second.png",
+    mimeType: "image/png",
+    buffer: PNG_1X1,
+  });
+  await expect(modal.locator("#promo-image")).toBeVisible();
   await modal.locator('#promo-form button[type="submit"]').click();
   await expect(modal).toBeHidden();
 
-  // PUT /api/promotions/:id → the reloaded list shows the new title.
-  card = page.locator(".promo-card", { hasText: `${title} Editada` });
-  await expect(card).toBeVisible();
-});
+  await page.locator("#save-btn").click();
+  await expect(page.locator("#editor-status")).toHaveText("Sin cambios");
 
-test("deletes the promotion", async ({ page }) => {
-  const title = uniquePromoTitle();
-  await createPromo(page, title, "Promo a eliminar");
-  const card = page.locator(".promo-card", { hasText: title });
-  await expect(card).toBeVisible();
-
-  // Hard delete (DELETE /api/promotions/:id), native confirm dialog.
-  page.once("dialog", (dialog) => void dialog.accept());
-  await card.getByTitle("Eliminar").click();
-  await expect(page.locator(".promo-card", { hasText: title })).toHaveCount(0);
+  // Old URL now 404s (R2 object deleted via deleteUploadedFile).
+  const oldAfter = await page.request.get(`http://localhost:8787/api/upload/${oldFilename}`);
+  expect(oldAfter.status()).toBe(404);
 });
