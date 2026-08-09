@@ -109,7 +109,10 @@ src/
 │   ├── admin-gallery.ts      # Admin gallery state (add, remove, reorder, setPrimary)
 │   ├── gallery-utils.ts      # Gallery navigation (getNextImage, getPrevImage, etc.)
 │   ├── product-form.ts       # Product form API calls (create, associate, upload)
-│   ├── promo-upload.ts       # Promotion image upload state
+│   ├── promo-grid.ts         # Pure grid math (drag/resize/collisions/placement)
+│   ├── promo-editor.ts       # Visual editor local store (dirty, history, payload)
+│   ├── promo-canvas.ts       # Canvas renderer (percent tiles, grid lines, sizing)
+│   ├── promo-preview.ts      # Live preview HTML builder (posX/posY tiles)
 │   └── user-avatar.ts        # User avatar upload state
 ├── styles/
 │   ├── global.css            # Design system: CSS custom properties, typography, grid, reset
@@ -120,7 +123,12 @@ src/
 │   ├── catalog-fetch.test.ts # Catalog fetch logic tests
 │   ├── getStaticPaths.test.ts # getStaticPaths tests
 │   ├── gallery-utils.test.ts # Gallery navigation tests
-│   ├── promo-upload.test.ts  # Promo upload tests
+│   ├── promo-grid.test.ts    # Promo grid math tests
+│   ├── promo-editor.test.ts  # Promo editor store tests
+│   ├── promo-canvas.test.ts  # Promo canvas renderer tests
+│   ├── promo-preview.test.ts # Promo preview builder tests
+│   ├── admin-promo-editor.test.ts # Promo editor page wiring tests
+│   ├── admin-promo-image.test.ts  # Promo image pipeline tests
 │   ├── route-sweep.test.ts   # English-route sweep tests (legacy paths forbidden)
 │   ├── redirects.test.ts     # _redirects rules tests
 │   ├── wishlist-page.test.ts # Wishlist page + Header wiring marker tests

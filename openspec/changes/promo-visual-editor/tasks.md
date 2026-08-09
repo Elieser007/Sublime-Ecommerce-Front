@@ -72,9 +72,9 @@ Chain strategy: size-exception
 
 ## Phase 6: Polish + docs
 
-- [ ] **10.1 [U10]** Resolve design Open Questions: collision-warning presentation (toast vs inline chip) + onboarding hint copy; verify grid-lines overlay and 44px touch targets on 375px. Refs: AR-2, design Open Questions. Verify: `npm run dev` manual pass.
-- [ ] **10.2 [U10]** Update `AGENTS.md` (front) file listing if `promo-upload.ts` removal/`promo-*` additions change structure; README/help-text only if needed. Verify: docs build.
-- [ ] **10.3 [U10 Gate]** `npm test` both repos green + `npm run build` (front) + `npm exec playwright test` full admin suite. Dep: all.
+- [x] **10.1 [U10]** Resolve design Open Questions: collision-warning presentation (toast vs inline chip) + onboarding hint copy; verify grid-lines overlay and 44px touch targets on 375px. Refs: AR-2, design Open Questions. Verify: `npm run dev` manual pass.
+- [x] **10.2 [U10]** Update `AGENTS.md` (front) file listing if `promo-upload.ts` removal/`promo-*` additions change structure; README/help-text only if needed. Verify: docs build.
+- [x] **10.3 [U10 Gate]** `npm test` both repos green + `npm run build` (front) + `npm exec playwright test` full admin suite. Dep: all.
 
 ## Commit Guidance
 
