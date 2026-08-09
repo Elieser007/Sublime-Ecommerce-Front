@@ -47,6 +47,7 @@ import {
   type EditorHistory,
   type SavedPromotionsResponse,
 } from "../lib/promo-editor";
+import { renumberOrder } from "../lib/promo-grid";
 
 const section: EditorSection = {
   id: "sec-1",
@@ -325,6 +326,47 @@ describe("movePromotion", () => {
     const moved = movePromotion(state, 0, 1);
     expect(state.promotions.map((p) => p.id)).toEqual(["a", "b"]);
     expect(moved.promotions.map((p) => p.id)).toEqual(["b", "a"]);
+  });
+});
+
+describe("strip reorder keeps pure order semantics", () => {
+  function stripReorder(s: PromoEditorState, from: number, to: number): PromoEditorState {
+    const reordered = movePromotion(s, from, to);
+    return { ...reordered, promotions: renumberOrder(reordered.promotions) };
+  }
+
+  it("keeps distinct posX 0..n-1 in the new order even with a full-grid tile", () => {
+    const state = createEditorState(section, [
+      serverPromo({ id: "hero", position: 0, tileCols: 8, tileRows: 4 }),
+      serverPromo({ id: "b", position: 1 }),
+      serverPromo({ id: "c", position: 2 }),
+    ]);
+    const reordered = stripReorder(state, 2, 0);
+    expect(reordered.promotions.map((p) => p.id)).toEqual(["c", "hero", "b"]);
+    expect(reordered.promotions.map((p) => p.posX)).toEqual([0, 1, 2]);
+  });
+
+  it("moves the middle item to the top and posX matches the new order", () => {
+    const state = createEditorState(section, [
+      serverPromo({ id: "a", position: 0 }),
+      serverPromo({ id: "b", position: 1 }),
+      serverPromo({ id: "c", position: 2 }),
+    ]);
+    const reordered = stripReorder(state, 1, 0);
+    expect(reordered.promotions.map((p) => p.id)).toEqual(["b", "a", "c"]);
+    expect(reordered.promotions.map((p) => p.posX)).toEqual([0, 1, 2]);
+  });
+
+  it("save payload emits the new posX sequence after a strip reorder", () => {
+    const state = createEditorState(section, [
+      serverPromo({ id: "a", position: 0 }),
+      serverPromo({ id: "b", position: 1 }),
+      serverPromo({ id: "c", position: 2 }),
+    ]);
+    const reordered = stripReorder(state, 2, 0);
+    const payload = toSavePayload(reordered);
+    expect(payload.promotions.map((p) => p.id)).toEqual(["c", "a", "b"]);
+    expect(payload.promotions.map((p) => p.posX)).toEqual([0, 1, 2]);
   });
 });
 

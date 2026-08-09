@@ -13,7 +13,6 @@ import {
   resizeToSpans,
   detectCollisions,
   renumberOrder,
-  renumberWithoutOverlap,
   autoSuggestPosition,
   tilePlacement,
   type GridTile,
@@ -209,95 +208,27 @@ describe("renumberOrder", () => {
     expect(result[0].width).toBe(2);
     expect(result[0].height).toBe(1);
   });
-});
 
-describe("renumberWithoutOverlap", () => {
-  function positions(tiles: GridTile[]) {
-    return tiles.map((t) => ({ x: t.posX, y: t.posY }));
-  }
-
-  function assertNoOverlap(tiles: GridTile[]) {
-    for (let i = 0; i < tiles.length; i++) {
-      for (let j = i + 1; j < tiles.length; j++) {
-        const a = tiles[i];
-        const b = tiles[j];
-        const x = a.posX <= b.posX + b.width - 1 && b.posX <= a.posX + a.width - 1;
-        const y = a.posY <= b.posY + b.height - 1 && b.posY <= a.posY + a.height - 1;
-        expect(x && y, `tiles ${a.id} and ${b.id} overlap`).toBe(false);
-      }
-    }
-  }
-
-  it("packs two 4×2 tiles into an 8×2 grid at (0,0) and (4,0)", () => {
+  it("keeps distinct posX 0..n-1 even when a tile spans the entire grid (no collapse)", () => {
     const tiles: GridTile[] = [
-      tile({ id: "a", width: 4, height: 2 }),
-      tile({ id: "b", width: 4, height: 2 }),
+      tile({ id: "hero", width: 8, height: 4 }),
+      tile({ id: "b", posX: 4 }),
+      tile({ id: "c", posX: 2 }),
     ];
-    const result = renumberWithoutOverlap(tiles, { cols: 8, rows: 2 });
-    expect(result.map((t) => t.id)).toEqual(["a", "b"]);
-    expect(positions(result)).toEqual([
-      { x: 0, y: 0 },
-      { x: 4, y: 0 },
-    ]);
+    const result = renumberOrder(tiles);
+    expect(result.map((t) => t.id)).toEqual(["hero", "b", "c"]);
+    expect(result.map((t) => t.posX)).toEqual([0, 1, 2]);
   });
 
-  it("packs three 2-wide tiles into a 4×2 grid at (0,0), (2,0), (0,1)", () => {
+  it("posX follows the given array order regardless of previous positions", () => {
     const tiles: GridTile[] = [
-      tile({ id: "a", width: 2, height: 1 }),
-      tile({ id: "b", width: 2, height: 1 }),
-      tile({ id: "c", width: 2, height: 1 }),
+      tile({ id: "c", posX: 7 }),
+      tile({ id: "a", posX: 0 }),
+      tile({ id: "b", posX: 2 }),
     ];
-    const result = renumberWithoutOverlap(tiles, { cols: 4, rows: 2 });
-    expect(positions(result)).toEqual([
-      { x: 0, y: 0 },
-      { x: 2, y: 0 },
-      { x: 0, y: 1 },
-    ]);
-  });
-
-  it("preserves the given order and never overlaps, whatever the input positions", () => {
-    const tiles: GridTile[] = [
-      tile({ id: "c", posX: 7, posY: 1, width: 2, height: 1 }),
-      tile({ id: "a", posX: 0, posY: 0, width: 4, height: 2 }),
-      tile({ id: "b", posX: 5, posY: 0, width: 2, height: 1 }),
-    ];
-    const result = renumberWithoutOverlap(tiles, { cols: 8, rows: 2 });
+    const result = renumberOrder(tiles);
     expect(result.map((t) => t.id)).toEqual(["c", "a", "b"]);
-    expect(positions(result)).toEqual([
-      { x: 0, y: 0 },
-      { x: 2, y: 0 },
-      { x: 6, y: 0 },
-    ]);
-    assertNoOverlap(result);
-  });
-
-  it("keeps a single tile at its cell when it is already the first free cell", () => {
-    const atOrigin = renumberWithoutOverlap([tile({ id: "a" })], grid);
-    expect(positions(atOrigin)).toEqual([{ x: 0, y: 0 }]);
-    const settled = renumberWithoutOverlap([tile({ id: "a", posX: 3, posY: 2 })], grid);
-    expect(positions(settled)).toEqual([{ x: 0, y: 0 }]);
-  });
-
-  it("clamps spans beyond the grid bounds before placing", () => {
-    const result = renumberWithoutOverlap(
-      [tile({ id: "a", width: 99, height: 99 })],
-      { cols: 8, rows: 2 }
-    );
-    expect(result[0]).toMatchObject({ posX: 0, posY: 0, width: 8, height: 2 });
-  });
-
-  it("overlaps at the origin only when the grid cannot fit the clamped tiles", () => {
-    const tiles: GridTile[] = [
-      tile({ id: "a", width: 4, height: 2 }),
-      tile({ id: "b", width: 4, height: 2 }),
-      tile({ id: "c", width: 4, height: 2 }),
-    ];
-    const result = renumberWithoutOverlap(tiles, { cols: 8, rows: 2 });
-    expect(positions(result)).toEqual([
-      { x: 0, y: 0 },
-      { x: 4, y: 0 },
-      { x: 0, y: 0 },
-    ]);
+    expect(result.map((t) => t.posX)).toEqual([0, 1, 2]);
   });
 });
 

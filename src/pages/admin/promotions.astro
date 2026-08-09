@@ -217,7 +217,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
   import { wrapModal } from '../../lib/modalHelper';
   import { getApiUrl } from '../../lib/api-url';
   import {
-    clampTile, dragToCell, resizeToSpans, detectCollisions, renumberWithoutOverlap,
+    clampTile, dragToCell, resizeToSpans, detectCollisions, renumberOrder,
     autoSuggestPosition, type Grid, type GridTile,
   } from '../../lib/promo-grid';
   import {
@@ -541,7 +541,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
       if (didDrag) {
         if (hoverIndex !== from) {
           const reordered = movePromotion(state, from, hoverIndex);
-          state = { ...reordered, promotions: renumberWithoutOverlap(reordered.promotions, grid()) };
+          state = { ...reordered, promotions: renumberOrder(reordered.promotions) };
           history = pushHistory(history, prevState);
           selectedId = state.promotions[hoverIndex]?.id || null;
           renderAll();
