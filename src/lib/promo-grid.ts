@@ -118,8 +118,8 @@ export function autoSuggestPosition(
     }
   }
 
-  if (tiles.length === 1) return { x: grid.cols - 1, y: grid.rows - 1 };
-  return { x: 0, y: 0 };
+  if (grid.cols <= 0 || grid.rows <= 0) return { x: 0, y: 0 };
+  return { x: grid.cols - 1, y: grid.rows - 1 };
 }
 
 export function tilePlacement(tile: GridTile): { col: number; row: number } {

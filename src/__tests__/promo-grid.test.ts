@@ -260,19 +260,23 @@ describe("autoSuggestPosition", () => {
     expect(autoSuggestPosition(grid, tiles)).toEqual({ x: 7, y: 3 });
   });
 
-  it("returns the origin when the grid is full", () => {
+  it("returns the last row-major cell when single-cell tiles fill the grid", () => {
     const tiles: GridTile[] = Array.from({ length: grid.cols * grid.rows }, (_, i) =>
       tile({ id: `t${i}`, posX: i % grid.cols, posY: Math.floor(i / grid.cols) })
     );
-    expect(autoSuggestPosition(grid, tiles)).toEqual({ x: 0, y: 0 });
+    expect(autoSuggestPosition(grid, tiles)).toEqual({ x: 7, y: 3 });
   });
 
-  it("falls back to the origin when multi-cell tiles cover the whole grid", () => {
+  it("returns the last row-major cell when multi-cell tiles cover the whole grid", () => {
     const tiles: GridTile[] = [
       tile({ id: "a", posX: 0, posY: 0, width: 4, height: 2 }),
       tile({ id: "b", posX: 4, posY: 0, width: 4, height: 2 }),
     ];
-    expect(autoSuggestPosition({ cols: 8, rows: 2 }, tiles)).toEqual({ x: 0, y: 0 });
+    expect(autoSuggestPosition({ cols: 8, rows: 2 }, tiles)).toEqual({ x: 7, y: 1 });
+  });
+
+  it("returns (0,0) on a degenerate grid with zero columns", () => {
+    expect(autoSuggestPosition({ cols: 0, rows: 4 }, [])).toEqual({ x: 0, y: 0 });
   });
 });
 
