@@ -320,6 +320,20 @@ export function toSavePayload(
   };
 }
 
+export function survivingImageReferences(
+  promotions: EditorPromotion[],
+  resolvedUrls: Record<string, string | null> = {}
+): Set<string> {
+  const refs = new Set<string>();
+  for (const p of promotions) {
+    const resolved = p.id ? resolvedUrls[p.id] : undefined;
+    const url = resolved !== undefined ? resolved : p.imageUrl;
+    if (url) refs.add(url);
+    if (p.previousImageUrl) refs.add(p.previousImageUrl);
+  }
+  return refs;
+}
+
 export function applySavedResponse(
   s: PromoEditorState,
   res: SavedPromotionsResponse

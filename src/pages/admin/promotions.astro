@@ -226,7 +226,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     addPromotion, updatePromotion, setSection, createHistory, pushHistory,
     undoEditor, redoEditor, shouldWarnBeforeUnload, validatePromotionsForSave,
     extractFilename, resolvePromoImage, orphanedDraftUrls, draftUrlReferenced, localKey,
-    historyDraftUrls, revokeDraftUrlsOnce,
+    historyDraftUrls, revokeDraftUrlsOnce, survivingImageReferences,
     stripHoverIndex, isPromoEditorRoute,
     type EditorPromotion, type PromoEditorState, type EditorHistory,
   } from '../../lib/promo-editor';
@@ -1181,6 +1181,10 @@ import PromotionWall from '../../components/PromotionWall.astro';
       }
 
       // 5. Best-effort R2 cleanup: replaced/removed image URLs + removed promos.
+      // Reference-check every deletion: R2 objects are immutable, and a
+      // duplicated promo shares the original's imageUrl — deleting a URL that
+      // a surviving promo still references would break that promo forever.
+      const survivingRefs = survivingImageReferences(saveState.promotions, resolvedUrls);
       const cleanupTargets = new Set<string>(removedImageUrls);
       for (const p of preSavePromotions) {
         if (p.previousImageUrl && p.previousImageUrl !== p.imageUrl) cleanupTargets.add(p.previousImageUrl);
@@ -1190,6 +1194,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
         }
       }
       for (const url of cleanupTargets) {
+        if (survivingRefs.has(url)) continue;
         const filename = extractFilename(url);
         if (filename) {
           // Await the R2 delete so the object is gone before the save reports

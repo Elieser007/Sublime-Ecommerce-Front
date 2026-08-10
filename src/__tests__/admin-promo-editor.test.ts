@@ -224,6 +224,16 @@ describe("promotions.astro — judgment-day fixes wiring", () => {
   });
 });
 
+describe("promotions.astro — reference-checked R2 cleanup (FIX1)", () => {
+  it("skips deleting cleanup URLs still referenced by surviving promos", () => {
+    // A duplicated promo shares the original's imageUrl; R2 objects are
+    // immutable, so the shared URL must survive if any survivor references it.
+    expect(pageSource).toContain("survivingImageReferences");
+    expect(pageSource).toMatch(/const survivingRefs = survivingImageReferences\(saveState\.promotions, resolvedUrls\);/);
+    expect(pageSource).toMatch(/if \(survivingRefs\.has\(url\)\) continue;/);
+  });
+});
+
 describe("promotions.astro — draft object-URL lifecycle", () => {
   it("revokes uncommitted drafts when the modal closes via Esc/back (onClose)", () => {
     // Esc/browser-back close goes through modalStack.closeTop(), which never

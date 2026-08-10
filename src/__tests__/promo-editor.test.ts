@@ -40,6 +40,7 @@ import {
   draftUrlReferenced,
   historyDraftUrls,
   revokeDraftUrlsOnce,
+  survivingImageReferences,
   HISTORY_LIMIT,
   type EditorSection,
   type EditorPromotion,
@@ -1499,5 +1500,139 @@ describe("extractFilename", () => {
   it("returns null for URLs without a filename path", () => {
     expect(extractFilename("https://example.com/not-an-upload")).toBeNull();
     expect(extractFilename("")).toBeNull();
+  });
+});
+
+describe("survivingImageReferences (FIX1)", () => {
+  const X = "https://media.sublimepy.store/shared.webp";
+  const Y = "https://media.sublimepy.store/other.webp";
+
+  function promo(
+    id: string | null,
+    imageUrl: string | null,
+    extra: Partial<EditorPromotion> = {}
+  ): EditorPromotion {
+    return {
+      id,
+      localId: null,
+      title: "T",
+      subtitle: null,
+      imageUrl,
+      localImageUrl: null,
+      link: "/",
+      posX: 0,
+      posY: 0,
+      width: 1,
+      height: 1,
+      isActive: true,
+      imageId: null,
+      imageBlob: null,
+      previousImageUrl: null,
+      ...extra,
+    };
+  }
+
+  it("collects the imageUrl of every surviving promo", () => {
+    const refs = survivingImageReferences([promo("a", X), promo(null, Y)]);
+    expect(refs.has(X)).toBe(true);
+    expect(refs.has(Y)).toBe(true);
+  });
+
+  it("uses the resolved upload URL for an existing promo with a pending blob", () => {
+    const refs = survivingImageReferences(
+      [promo("a", null, { imageBlob: new Blob(["x"]) })],
+      { a: Y }
+    );
+    expect(refs.has(Y)).toBe(true);
+    expect(refs.has(X)).toBe(false);
+  });
+
+  it("considers the previousImageUrl of surviving promos a reference", () => {
+    const refs = survivingImageReferences([promo("a", Y, { previousImageUrl: X })]);
+    expect(refs.has(X)).toBe(true);
+  });
+
+  it("ignores promos with no image at all", () => {
+    const refs = survivingImageReferences([promo("a", null)]);
+    expect(refs.size).toBe(0);
+  });
+});
+
+describe("doSave R2 cleanup reference check (FIX1)", () => {
+  const X = "https://media.sublimepy.store/shared.webp";
+  const Y = "https://media.sublimepy.store/other.webp";
+  const U = "https://media.sublimepy.store/unique.webp";
+
+  function promo(
+    id: string | null,
+    imageUrl: string | null,
+    extra: Partial<EditorPromotion> = {}
+  ): EditorPromotion {
+    return {
+      id,
+      localId: null,
+      title: "T",
+      subtitle: null,
+      imageUrl,
+      localImageUrl: null,
+      link: "/",
+      posX: 0,
+      posY: 0,
+      width: 1,
+      height: 1,
+      isActive: true,
+      imageId: null,
+      imageBlob: null,
+      previousImageUrl: null,
+      ...extra,
+    };
+  }
+
+  function runCleanup(
+    preSave: EditorPromotion[],
+    removedImageUrls: string[],
+    resolvedUrls: Record<string, string | null> = {}
+  ): string[] {
+    const cleanupTargets = new Set<string>(removedImageUrls);
+    for (const p of preSave) {
+      if (p.previousImageUrl && p.previousImageUrl !== p.imageUrl) {
+        cleanupTargets.add(p.previousImageUrl);
+      }
+    }
+    const refs = survivingImageReferences(preSave, resolvedUrls);
+    const deleted: string[] = [];
+    for (const url of cleanupTargets) {
+      if (refs.has(url)) continue;
+      const filename = extractFilename(url);
+      if (filename) deleted.push(filename);
+    }
+    return deleted;
+  }
+
+  it("(a) duplicate + delete original: shared URL NOT deleted", () => {
+    const duplicate = promo(null, X);
+    expect(runCleanup([duplicate], [X])).toEqual([]);
+  });
+
+  it("(b) replace image on one of two sharing promos: old URL NOT deleted", () => {
+    const untouched = promo("a", X);
+    const replaced = promo("b", null, {
+      imageBlob: new Blob(["x"]),
+      previousImageUrl: X,
+    });
+    expect(runCleanup([untouched, replaced], [], { b: Y })).toEqual([]);
+  });
+
+  it("(c) delete both sharing promos: URL deleted once", () => {
+    expect(runCleanup([], [X, X])).toEqual(["shared.webp"]);
+  });
+
+  it("(d) normal delete of a unique image: still deleted", () => {
+    expect(runCleanup([], [U])).toEqual(["unique.webp"]);
+  });
+
+  it("deletes a removed promo's unique URL when the survivor has a different image", () => {
+    const survivor = promo("a", Y);
+    expect(runCleanup([survivor], [X])).toEqual(["shared.webp"]);
   });
 });
