@@ -974,7 +974,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     modalImageBlob = null;
     modalImageUrl = promo?.imageUrl || null;
     modalImageId = promo?.imageId || null;
-    modalPreviousUrl = promo?.imageUrl || null;
+    modalPreviousUrl = promo?.imageUrl || promo?.previousImageUrl || null;
     modalDraftUrl = promo?.localImageUrl || null;
     modalPrevDraftUrl = promo?.localImageUrl || null;
     renderModalImage();

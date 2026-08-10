@@ -1665,6 +1665,26 @@ describe("doSave R2 cleanup reference check (FIX1)", () => {
     expect(runCleanup([replaced], [], { a: Y })).toEqual(["shared.webp"]);
   });
 
+  it("(f) replace twice in one session: original URL survives in previousImageUrl and is deleted once", () => {
+    // Second-replace end state: imageUrl=null (blob pending) but openModal's
+    // previousImageUrl fallback keeps X tracked, so the second submit must
+    // still clean the ORIGINAL server URL exactly once.
+    const twice = promo("a", null, {
+      imageBlob: new Blob(["x"]),
+      previousImageUrl: X,
+    });
+    expect(runCleanup([twice], [], { a: Y })).toEqual(["shared.webp"]);
+  });
+
+  it("(g) replace twice while a duplicate still references X: NOT deleted", () => {
+    const duplicate = promo(null, X);
+    const twice = promo("a", null, {
+      imageBlob: new Blob(["x"]),
+      previousImageUrl: X,
+    });
+    expect(runCleanup([duplicate, twice], [], { a: Y })).toEqual([]);
+  });
+
   it("(b) single promo removes its image: old URL deleted once", () => {
     const removed = promo("a", null, { previousImageUrl: X });
     expect(runCleanup([removed], [])).toEqual(["shared.webp"]);

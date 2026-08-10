@@ -279,6 +279,16 @@ describe("promotions.astro — reference-checked R2 cleanup (FIX1)", () => {
     expect(pageSource).toMatch(/const survivingRefs = survivingImageReferences\(saveState\.promotions, resolvedUrls\);/);
     expect(pageSource).toMatch(/if \(survivingRefs\.has\(url\)\) continue;/);
   });
+
+  it("tracks the replaced-away URL across repeated replaces in one session (FIX2)", () => {
+    // After a first replace imageUrl=null (blob pending): the second openModal
+    // must fall back to previousImageUrl so the ORIGINAL server URL still
+    // enters doSave's cleanupTargets instead of leaking from R2 forever.
+    expect(pageSource).toMatch(/modalPreviousUrl = promo\?\.imageUrl \|\| promo\?\.previousImageUrl \|\| null;/);
+    expect(pageSource).toMatch(
+      /previousImageUrl: modalPreviousUrl && \(modalImageBlob \|\| modalImageUrl !== modalPreviousUrl\) \? modalPreviousUrl : null,/
+    );
+  });
 });
 
 describe("promotions.astro — draft object-URL lifecycle", () => {
