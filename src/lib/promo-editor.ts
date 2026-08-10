@@ -407,7 +407,7 @@ export function duplicatePromotion(s: PromoEditorState, id: string): PromoEditor
     localId: nextLocalId(),
     posX: suggested.x,
     posY: suggested.y,
-    imageBlob: null,
+    imageBlob: source.imageBlob,
     imageId: null,
     previousImageUrl: null,
   };

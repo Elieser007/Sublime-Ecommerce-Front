@@ -1426,6 +1426,53 @@ describe("duplicatePromotion", () => {
     expect(copy.localId).not.toBe(orig.localId);
     expect(localKey(copy)).not.toBe(localKey(orig));
   });
+
+  it("keeps the pending blob on the duplicate so it uploads at save (FIX2)", () => {
+    const blob = new Blob(["x"], { type: "image/webp" });
+    let state = createEditorState(section, [
+      serverPromo({ id: "p1", position: 0, posY: 0, tileCols: 2, tileRows: 1 }),
+    ]);
+    state = updatePromotion(state, "p1", { imageBlob: blob, imageUrl: null });
+    const duped = duplicatePromotion(state, "p1");
+    const copy = duped.promotions.find((p) => p.id === null)!;
+    expect(copy.imageBlob).toBe(blob);
+    expect(duped.promotions.filter((p) => p.imageBlob !== null)).toHaveLength(2);
+  });
+
+  it("a duplicated blob promo and its copy get distinct uploaded URLs at save (FIX2)", () => {
+    const blob = new Blob(["x"], { type: "image/webp" });
+    let state = createEditorState(section, [
+      serverPromo({ id: "p1", position: 0, posY: 0, tileCols: 2, tileRows: 1 }),
+    ]);
+    state = updatePromotion(state, "p1", { imageBlob: blob, imageUrl: null });
+    const duped = duplicatePromotion(state, "p1");
+
+    // Simulate the doSave upload loop: each blob uploads once, id'd promos
+    // key resolvedUrls, new promos get imageUrl rewritten in saveState.
+    let saveState = duped;
+    const resolvedUrls: Record<string, string | null> = {};
+    let uploaded = 0;
+    for (const p of saveState.promotions) {
+      if (!p.imageBlob) continue;
+      uploaded += 1;
+      const url = `https://media.sublimepy.store/up-${uploaded}.webp`;
+      if (p.id) {
+        resolvedUrls[p.id] = url;
+      } else {
+        saveState = {
+          ...saveState,
+          promotions: saveState.promotions.map((pp) =>
+            pp === p ? { ...pp, imageUrl: url } : pp
+          ),
+        };
+      }
+    }
+    const payload = toSavePayload(saveState, resolvedUrls);
+    const urls = payload.promotions.map((item) => item.imageUrl);
+    expect(uploaded).toBe(2);
+    expect(urls[0]).not.toBe(urls[1]);
+    expect(urls.every((u) => u !== null)).toBe(true);
+  });
 });
 
 describe("setSection", () => {
