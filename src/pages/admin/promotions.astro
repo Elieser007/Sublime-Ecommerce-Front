@@ -1231,7 +1231,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
       }
       $('save-error')!.textContent = err.message || 'Error al guardar';
     } finally {
-      setButtonDisabled('save-btn', false);
+      if (state && snapshot) {
+        setButtonDisabled('save-btn', !isDirty(state, snapshot));
+      }
       saveBtn.textContent = 'Guardar';
     }
   }
@@ -1244,6 +1246,22 @@ import PromotionWall from '../../components/PromotionWall.astro';
     if (!canvas) return;
 
     canvas.addEventListener('pointerdown', beginPointerSession);
+
+    // Keyboard activation: tiles and their edit affordances are focusable
+    // (role=button/tabindex=0) but inert without an Enter/Space handler.
+    canvas.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (!state) return;
+      const tile = (e.target as HTMLElement)?.closest?.('.canvas-tile') as HTMLElement | null;
+      if (!tile) return;
+      const id = tile.dataset.id;
+      const promo = id ? state.promotions.find((p) => localKey(p) === id) : undefined;
+      if (!promo) return;
+      e.preventDefault();
+      e.stopPropagation();
+      selectedId = localKey(promo);
+      openModal(true, promo);
+    });
 
     // Re-select after render: highlight selected tile.
     const highlight = () => {

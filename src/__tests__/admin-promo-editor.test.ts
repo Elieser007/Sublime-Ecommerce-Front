@@ -74,6 +74,23 @@ describe("promotions.astro — keyboard interactions", () => {
   });
 });
 
+describe("promotions.astro — keyboard tile activation and clean-state save button (FIX4)", () => {
+  it("opens the edit modal on Enter/Space for a focused tile or its edit affordance", () => {
+    // Tiles and their edit affordances are focusable (role=button/tabindex=0)
+    // but inert without an Enter/Space handler on the canvas.
+    expect(pageSource).toMatch(/canvas\.addEventListener\('keydown'/);
+    expect(pageSource).toMatch(/e\.key !== 'Enter' && e\.key !== ' '/);
+    expect(pageSource).toMatch(/closest\?\.\('\.canvas-tile'\)/);
+    expect(pageSource).toMatch(/selectedId = localKey\(promo\);\s*\n\s*openModal\(true, promo\);/);
+  });
+
+  it("re-enables the save button only while the editor is still dirty", () => {
+    // The finally block must not un-disable save-btn when the save succeeded
+    // and renderStatus left it disabled for the clean state.
+    expect(pageSource).toMatch(/if \(state && snapshot\) \{\s*\n\s*setButtonDisabled\('save-btn', !isDirty\(state, snapshot\)\);/);
+  });
+});
+
 describe("promotions.astro — duplicate action bindings", () => {
   it("adds a duplicate button to the selected-tile overlay in the tiles canvas", () => {
     // The overlay button lives on the SELECTED tile only (doDuplicate is
