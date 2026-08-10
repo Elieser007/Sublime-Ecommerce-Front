@@ -67,13 +67,13 @@ export function createDataTable(options: CreateDataTableOptions): DataTableHandl
   const serverMode = typeof options.onPageChange === 'function';
 
   function resolveTotal(): number {
-    return serverMode ? (meta.total ?? rows.length) : rows.length;
+    return serverMode ? (meta.total || rows.length) : rows.length;
   }
 
   function resolveTotalPages(): number {
     if (serverMode) {
       if (meta.totalPages) return meta.totalPages;
-      return Math.max(1, Math.ceil((meta.total ?? rows.length) / pageSize));
+      return Math.max(1, Math.ceil(resolveTotal() / pageSize));
     }
     return Math.max(1, Math.ceil(rows.length / pageSize));
   }
@@ -96,7 +96,14 @@ export function createDataTable(options: CreateDataTableOptions): DataTableHandl
     if (!footerEl) return;
     const total = resolveTotal();
     const totalPages = resolveTotalPages();
-    if (stateType || rows.length === 0 || totalPages <= 1) {
+    const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+    const end = Math.min(page * pageSize, total);
+    if (showingEl) {
+      showingEl.textContent = `Mostrando ${start}–${end} de ${total}`;
+    }
+    if (prevBtn) prevBtn.disabled = page <= 1;
+    if (nextBtn) nextBtn.disabled = page >= totalPages;
+    if (stateType || rows.length === 0) {
       footerEl.hidden = true;
       return;
     }
@@ -109,13 +116,6 @@ export function createDataTable(options: CreateDataTableOptions): DataTableHandl
       )
       .join('');
     if (numbersEl) numbersEl.innerHTML = buttons;
-    if (showingEl) {
-      const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
-      const end = Math.min(page * pageSize, total);
-      showingEl.textContent = `Mostrando ${start}–${end} de ${total}`;
-    }
-    if (prevBtn) prevBtn.disabled = page <= 1;
-    if (nextBtn) nextBtn.disabled = page >= totalPages;
   }
 
   function renderStateRow() {
