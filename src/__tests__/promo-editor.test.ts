@@ -1594,9 +1594,10 @@ describe("survivingImageReferences (FIX1)", () => {
     expect(refs.has(X)).toBe(false);
   });
 
-  it("considers the previousImageUrl of surviving promos a reference", () => {
+  it("does not treat the replaced-away previousImageUrl as a survivor", () => {
     const refs = survivingImageReferences([promo("a", Y, { previousImageUrl: X })]);
-    expect(refs.has(X)).toBe(true);
+    expect(refs.has(X)).toBe(false);
+    expect(refs.has(Y)).toBe(true);
   });
 
   it("ignores promos with no image at all", () => {
@@ -1656,12 +1657,25 @@ describe("doSave R2 cleanup reference check (FIX1)", () => {
     return deleted;
   }
 
-  it("(a) duplicate + delete original: shared URL NOT deleted", () => {
+  it("(a) single promo replaces its image: old URL deleted once", () => {
+    const replaced = promo("a", null, {
+      imageBlob: new Blob(["x"]),
+      previousImageUrl: X,
+    });
+    expect(runCleanup([replaced], [], { a: Y })).toEqual(["shared.webp"]);
+  });
+
+  it("(b) single promo removes its image: old URL deleted once", () => {
+    const removed = promo("a", null, { previousImageUrl: X });
+    expect(runCleanup([removed], [])).toEqual(["shared.webp"]);
+  });
+
+  it("(c) duplicate + delete original: shared URL NOT deleted", () => {
     const duplicate = promo(null, X);
     expect(runCleanup([duplicate], [X])).toEqual([]);
   });
 
-  it("(b) replace image on one of two sharing promos: old URL NOT deleted", () => {
+  it("(d) two promos share X, one replaces its image: X NOT deleted", () => {
     const untouched = promo("a", X);
     const replaced = promo("b", null, {
       imageBlob: new Blob(["x"]),
@@ -1670,7 +1684,7 @@ describe("doSave R2 cleanup reference check (FIX1)", () => {
     expect(runCleanup([untouched, replaced], [], { b: Y })).toEqual([]);
   });
 
-  it("(c) delete both sharing promos: URL deleted once", () => {
+  it("(e) delete both sharing promos: URL deleted once", () => {
     expect(runCleanup([], [X, X])).toEqual(["shared.webp"]);
   });
 
