@@ -1101,6 +1101,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
     setButtonDisabled('save-btn', true);
     saveBtn.textContent = 'Guardando...';
     uploadedThisSave = [];
+    let committed = false;
 
     try {
       // 1. Upload pending blobs (best-effort per blob).
@@ -1151,6 +1152,7 @@ import PromotionWall from '../../components/PromotionWall.astro';
         throw new Error(err.error || 'Error al guardar');
       }
 
+      committed = true;
       const saved = await res.json();
 
       // 4. Re-sync from server truth.
@@ -1215,11 +1217,16 @@ import PromotionWall from '../../components/PromotionWall.astro';
         }
       }, 3000);
     } catch (err: any) {
-      // Orphan guard: delete blobs uploaded this save (batch failure).
-      for (const url of uploadedThisSave) {
-        const filename = extractFilename(url);
-        if (filename) {
-          try { await deleteUploadedFile(filename, API_URL); } catch { /* best-effort */ }
+      // Orphan guard: delete blobs uploaded this save ONLY when the batch is
+      // known to have failed (rejected response or error before completion).
+      // A 200 batch commit followed by a parse failure must NOT delete the
+      // uploaded files — the committed promos reference them.
+      if (!committed) {
+        for (const url of uploadedThisSave) {
+          const filename = extractFilename(url);
+          if (filename) {
+            try { await deleteUploadedFile(filename, API_URL); } catch { /* best-effort */ }
+          }
         }
       }
       $('save-error')!.textContent = err.message || 'Error al guardar';

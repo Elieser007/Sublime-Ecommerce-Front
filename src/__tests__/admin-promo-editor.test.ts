@@ -128,6 +128,16 @@ describe("promotions.astro — local state and single commit", () => {
   });
 });
 
+describe("promotions.astro — save commit tracking (FIX3)", () => {
+  it("only cleans uploaded blobs when the batch is known to have failed", () => {
+    // A 200 batch commit followed by a res.json() parse failure must NOT
+    // delete the uploaded files: the committed promos reference them.
+    expect(pageSource).toContain("let committed = false;");
+    expect(pageSource).toMatch(/committed = true;\s*\n\s*const saved = await res\.json\(\);/);
+    expect(pageSource).toMatch(/if \(!committed\) \{\s*\n\s*for \(const url of uploadedThisSave\)/);
+  });
+});
+
 describe("promotions.astro — non-blocking save feedback", () => {
   it("never calls alert() (blocking modal removed)", () => {
     expect(pageSource).not.toMatch(/alert\(/);
