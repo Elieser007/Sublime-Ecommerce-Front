@@ -84,12 +84,15 @@ describe("promotions.astro — keyboard tile activation and clean-state save but
     expect(pageSource).toMatch(/selectedId = localKey\(promo\);\s*\n\s*openModal\(true, promo\);/);
   });
 
-  it("ignores Enter/Space on interactive descendants so the tile-dup button keeps its native click", () => {
-    // The selected tile's ⧉ button is a child of .canvas-tile: without this
-    // guard its Enter/Space click is canceled and Duplicar is keyboard-inert.
+  it("scopes the interactive-descendant guard to the duplicate button only", () => {
+    // The tile itself and its ✎ affordance render with role=button: a broad
+    // 'button, a, [role="button"]' guard would match them and early-return,
+    // killing tile keyboard editing. Only the .tile-dup button (native
+    // Enter/Space click) is exempted.
     expect(pageSource).toMatch(
-      /if \(\(e\.target as HTMLElement\)\?\.closest\?\.\(['"]button, a, \[role="button"\]['"]\)\) return;/
+      /if \(\(e\.target as HTMLElement\)\?\.closest\?\.\(['"]\.tile-dup, \[data-action="duplicate"\]['"]\)\) return;/
     );
+    expect(pageSource).not.toMatch(/closest\?\.\(['"]button, a, \[role="button"\]['"]\)/);
   });
 
   it("re-enables the save button only while the editor is still dirty", () => {

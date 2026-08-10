@@ -1251,8 +1251,9 @@ import PromotionWall from '../../components/PromotionWall.astro';
     canvas.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       if (!state) return;
-      // Tile buttons (duplicate) keep their native Enter/Space click.
-      if ((e.target as HTMLElement)?.closest?.('button, a, [role="button"]')) return;
+      // The duplicate button keeps its native Enter/Space click; tiles and
+      // edit affordances (role=button) must fall through to the tile lookup.
+      if ((e.target as HTMLElement)?.closest?.('.tile-dup, [data-action="duplicate"]')) return;
       const tile = (e.target as HTMLElement)?.closest?.('.canvas-tile') as HTMLElement | null;
       if (!tile) return;
       const id = tile.dataset.id;
