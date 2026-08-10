@@ -84,6 +84,14 @@ describe("promotions.astro — keyboard tile activation and clean-state save but
     expect(pageSource).toMatch(/selectedId = localKey\(promo\);\s*\n\s*openModal\(true, promo\);/);
   });
 
+  it("ignores Enter/Space on interactive descendants so the tile-dup button keeps its native click", () => {
+    // The selected tile's ⧉ button is a child of .canvas-tile: without this
+    // guard its Enter/Space click is canceled and Duplicar is keyboard-inert.
+    expect(pageSource).toMatch(
+      /if \(\(e\.target as HTMLElement\)\?\.closest\?\.\(['"]button, a, \[role="button"\]['"]\)\) return;/
+    );
+  });
+
   it("re-enables the save button only while the editor is still dirty", () => {
     // The finally block must not un-disable save-btn when the save succeeded
     // and renderStatus left it disabled for the clean state.
