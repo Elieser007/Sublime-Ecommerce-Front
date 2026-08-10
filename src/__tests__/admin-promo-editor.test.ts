@@ -153,6 +153,15 @@ describe("promotions.astro — save commit tracking (FIX3)", () => {
     expect(pageSource).toMatch(/committed = true;\s*\n\s*const saved = await res\.json\(\);/);
     expect(pageSource).toMatch(/if \(!committed\) \{\s*\n\s*for \(const url of uploadedThisSave\)/);
   });
+
+  it("reaches the outer catch's orphan guard when a mid-loop blob upload fails", () => {
+    // The upload-failure branch must THROW, not return early: an early return
+    // skips the outer catch's !committed cleanup and leaks R2 objects uploaded
+    // earlier in the same save. The outer catch shows the same message.
+    expect(pageSource).toMatch(/throw new Error\('Error al subir imagen'\);/);
+    expect(pageSource).not.toMatch(/textContent = 'Error al subir imagen';\s*\n\s*return;/);
+    expect(pageSource).toMatch(/\$\(['"]save-error['"]\)!\.textContent = err\.message \|\| 'Error al guardar';/);
+  });
 });
 
 describe("promotions.astro — non-blocking save feedback", () => {

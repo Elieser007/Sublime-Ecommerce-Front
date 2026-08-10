@@ -1123,9 +1123,8 @@ import PromotionWall from '../../components/PromotionWall.astro';
               promotions: saveState.promotions.map((pp) => (pp === p ? { ...pp, imageUrl: result.url } : pp)),
             };
           }
-        } catch (err) {
-          $('save-error')!.textContent = 'Error al subir imagen';
-          return;
+        } catch {
+          throw new Error('Error al subir imagen');
         }
       }
 
