@@ -8,6 +8,7 @@ import {
   removeFromCart,
   clearCart,
   formatPrice,
+  MAX_QUANTITY,
 } from './cart';
 import { getCartKey, hasAttribute, getAttributeValue, getEffectivePrice, getApplicableTier, getItemTotal, getCartTierBadge, sanitizeQuantity, reevalTier, migrateCart, isHashKey } from './cart-utils';
 
@@ -609,6 +610,18 @@ describe('cart', () => {
       const result = addToCart({ id: '1', name: 'A', price: 100, image: 'a.webp' });
       expect(result[0].composite_key).toBe('1');
     });
+
+    it('clamps quantity above MAX_QUANTITY to 9999', () => {
+      const result = addToCart({ id: '1', name: 'A', price: 100, image: 'a.webp', quantity: 10000 });
+      expect(result[0].quantity).toBe(9999);
+    });
+
+    it('clamps the summed quantity when an existing item would exceed MAX_QUANTITY', () => {
+      addToCart({ id: '1', name: 'A', price: 100, image: 'a.webp', quantity: 9999 });
+      const result = addToCart({ id: '1', name: 'A', price: 100, image: 'a.webp', quantity: 1 });
+      expect(result).toHaveLength(1);
+      expect(result[0].quantity).toBe(9999);
+    });
   });
 
   describe('addToCartWithOptions', () => {
@@ -676,6 +689,13 @@ describe('cart', () => {
       });
       expect(result[0].price_tiers).toEqual(newTiers);
     });
+
+    it('clamps quantity above MAX_QUANTITY to 9999', () => {
+      const result = addToCartWithOptions({
+        id: '1', name: 'Remera', price: 100000, image: 'img.webp', quantity: 10000,
+      });
+      expect(result[0].quantity).toBe(9999);
+    });
   });
 
   describe('getCartCount', () => {
@@ -702,6 +722,12 @@ describe('cart', () => {
       const result = updateCartQuantity('999', 5);
       expect(result).toHaveLength(1);
       expect(result[0].quantity).toBe(1);
+    });
+
+    it('clamps quantity above MAX_QUANTITY to 9999', () => {
+      addToCart({ id: '1', name: 'A', price: 100, image: 'a.webp', quantity: 1 });
+      const result = updateCartQuantity('1', 10000);
+      expect(result[0].quantity).toBe(9999);
     });
 
     it('enforces minimum quantity of 1', () => {
@@ -791,5 +817,11 @@ describe('cart', () => {
     it('formats large numbers', () => {
       expect(formatPrice(1000000)).toBe('1.000.000');
     });
+  });
+});
+
+describe('MAX_QUANTITY', () => {
+  it('exports the unified upper bound 9999', () => {
+    expect(MAX_QUANTITY).toBe(9999);
   });
 });

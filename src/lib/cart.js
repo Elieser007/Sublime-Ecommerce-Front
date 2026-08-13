@@ -13,6 +13,12 @@ export { formatPrice };
 const CART_KEY = 'cart';
 
 /**
+ * Unified upper bound for customer quantity selectors.
+ * The library is the enforcement point: every write path clamps here.
+ */
+export const MAX_QUANTITY = 9999;
+
+/**
  * Get the full cart array from LocalStorage.
  * Auto-migrates old items (adds composite_key and price_tiers).
  * @returns {Array} cart items
@@ -46,7 +52,7 @@ export function addToCart(product) {
   const existing = cart.find((item) => item.id === product.id);
 
   if (existing) {
-    existing.quantity += product.quantity || 1;
+    existing.quantity = Math.min(MAX_QUANTITY, existing.quantity + (product.quantity || 1));
   } else {
     cart.push({
       id: product.id,
@@ -54,7 +60,7 @@ export function addToCart(product) {
       name: product.name,
       price: product.price,
       image: product.image,
-      quantity: product.quantity || 1,
+      quantity: Math.min(MAX_QUANTITY, product.quantity || 1),
     });
   }
 
@@ -77,7 +83,7 @@ export function addToCartWithOptions(product) {
   const existing = cart.find((item) => item.composite_key === compositeKey);
 
   if (existing) {
-    existing.quantity += product.quantity || 1;
+    existing.quantity = Math.min(MAX_QUANTITY, existing.quantity + (product.quantity || 1));
     if (product.selected_tier_id) {
       existing.selected_tier_id = product.selected_tier_id;
       existing.selected_tier_price = product.selected_tier_price;
@@ -93,7 +99,7 @@ export function addToCartWithOptions(product) {
       name: product.name,
       price: product.price,
       image: product.image,
-      quantity: product.quantity || 1,
+      quantity: Math.min(MAX_QUANTITY, product.quantity || 1),
       ...(product.price_tiers ? { price_tiers: product.price_tiers } : {}),
       ...(product.selected_tier_id ? {
         selected_tier_id: product.selected_tier_id,
@@ -127,7 +133,7 @@ export function updateCartQuantity(compositeKey, quantity) {
   const cart = getCart();
   const item = cart.find((i) => i.composite_key === compositeKey);
   if (item) {
-    item.quantity = Math.max(1, quantity);
+    item.quantity = Math.min(MAX_QUANTITY, Math.max(1, quantity));
     const reevaluated = reevalTier(item);
     Object.assign(item, reevaluated);
     saveCart(cart);
