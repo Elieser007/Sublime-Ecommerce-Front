@@ -45,16 +45,16 @@ const mainImageAlt = primary?.alt || alt;
         <button class="gallery-nav gallery-nav--prev" data-action="prev" aria-label="Imagen anterior">‹</button>
         <button class="gallery-nav gallery-nav--next" data-action="next" aria-label="Imagen siguiente">›</button>
         <span class="gallery-counter" data-counter>1 / {images.length}</span>
-        <button class="gallery-fullscreen" data-action="fullscreen" aria-label="Ver en pantalla completa">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
-            <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-            <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
-            <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-          </svg>
-        </button>
       </>
     )}
+    <button class="gallery-fullscreen" data-action="fullscreen" aria-label="Ver en pantalla completa">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+        <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+        <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+        <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+      </svg>
+    </button>
   </div>
 
   <!-- Thumbnail strip -->
@@ -75,22 +75,26 @@ const mainImageAlt = primary?.alt || alt;
   )}
 
   <!-- Fullscreen lightbox (hidden until opened by JS) -->
-  {shouldShowThumbStrip(images.length) && (
-    <div class="gallery-lightbox" data-lightbox hidden>
-      <button class="lightbox-close" data-action="lightbox-close" aria-label="Cerrar galería">✕</button>
+  <div class="gallery-lightbox" data-lightbox hidden>
+    <button class="lightbox-close" data-action="lightbox-close" aria-label="Cerrar galería">✕</button>
+    {shouldShowThumbStrip(images.length) && (
       <button class="lightbox-nav lightbox-nav--prev" data-action="lightbox-prev" aria-label="Imagen anterior">‹</button>
-      <div class="lightbox-stage" data-lightbox-stage>
-        <img class="lightbox-stage__img" data-lightbox-img alt="" draggable="false" />
-      </div>
+    )}
+    <div class="lightbox-stage" data-lightbox-stage>
+      <img class="lightbox-stage__img" data-lightbox-img alt="" draggable="false" />
+    </div>
+    {shouldShowThumbStrip(images.length) && (
       <button class="lightbox-nav lightbox-nav--next" data-action="lightbox-next" aria-label="Imagen siguiente">›</button>
-      <div class="lightbox-toolbar">
-        <span class="lightbox-counter" data-lightbox-counter></span>
-        <div class="lightbox-zoom" role="group" aria-label="Zoom">
-          <button data-action="zoom-out" aria-label="Alejar">−</button>
-          <button data-action="zoom-reset" aria-label="Restablecer zoom">⤢</button>
-          <button data-action="zoom-in" aria-label="Acercar">+</button>
-        </div>
+    )}
+    <div class="lightbox-toolbar">
+      <span class="lightbox-counter" data-lightbox-counter></span>
+      <div class="lightbox-zoom" role="group" aria-label="Zoom">
+        <button data-action="zoom-out" aria-label="Alejar">−</button>
+        <button data-action="zoom-reset" aria-label="Restablecer zoom">⤢</button>
+        <button data-action="zoom-in" aria-label="Acercar">+</button>
       </div>
+    </div>
+    {shouldShowThumbStrip(images.length) && (
       <div class="lightbox-thumbs" role="tablist" aria-label="Vistas previas">
         {images.map((img, idx) => (
           <button
@@ -104,8 +108,8 @@ const mainImageAlt = primary?.alt || alt;
           </button>
         ))}
       </div>
-    </div>
-  )}
+    )}
+  </div>
 </div>
 
 <script>
@@ -147,7 +151,15 @@ const mainImageAlt = primary?.alt || alt;
     let pinchStart: { dist: number; scale: number } | null = null;
     let dragOffset: { x: number; y: number } | null = null;
 
-    if (!mainImg || thumbs.length === 0) return;
+    if (!mainImg) return;
+
+    // Fractional stage dimensions (getBoundingClientRect, not clientWidth/
+    // clientHeight) so pan clamping never exceeds the true stage bounds.
+    const stageDims = () => {
+      if (!stage) return { w: 0, h: 0 };
+      const r = stage.getBoundingClientRect();
+      return { w: r.width, h: r.height };
+    };
 
     function updateMain(index: number) {
       const thumb = thumbs[index];
@@ -178,10 +190,16 @@ const mainImageAlt = primary?.alt || alt;
 
       const thumb = thumbs[currentIndex];
       if (lightboxImg) {
-        lightboxImg.src = thumb.querySelector('img')?.src || '';
-        lightboxImg.alt = thumb.getAttribute('aria-label') || '';
+        if (thumb) {
+          lightboxImg.src = thumb.querySelector('img')?.src || '';
+          lightboxImg.alt = thumb.getAttribute('aria-label') || '';
+        } else if (mainImg) {
+          // Single-image products: no thumb strip, use the main image itself.
+          lightboxImg.src = mainImg.src;
+          lightboxImg.alt = mainImg.alt || '';
+        }
       }
-      if (lightboxCounter) lightboxCounter.textContent = formatCounter(currentIndex, thumbs.length);
+      if (lightboxCounter) lightboxCounter.textContent = formatCounter(currentIndex, Math.max(thumbs.length, 1));
       lightboxThumbs.forEach((t, i) => {
         t.classList.toggle('lightbox-thumb--active', i === currentIndex);
         t.setAttribute('aria-selected', i === currentIndex ? 'true' : 'false');
@@ -284,8 +302,7 @@ const mainImageAlt = primary?.alt || alt;
       stage.addEventListener('wheel', (e) => {
         e.preventDefault();
         const rect = stage.getBoundingClientRect();
-        const w = stage.clientWidth;
-        const h = stage.clientHeight;
+        const { w, h } = stageDims();
         // wheelZoomFactor keeps the locked conventions: plain deltaY > 0 and
         // trackpad pinch (ctrlKey, deltaY < 0) zoom in; zero deltaY is a no-op.
         zoom = zoomAt(zoom, e.clientX - rect.left, e.clientY - rect.top, wheelZoomFactor(e.ctrlKey, e.deltaY), w, h);
@@ -294,8 +311,7 @@ const mainImageAlt = primary?.alt || alt;
 
       stage.addEventListener('dblclick', (e) => {
         const rect = stage.getBoundingClientRect();
-        const w = stage.clientWidth;
-        const h = stage.clientHeight;
+        const { w, h } = stageDims();
         zoom = toggleZoomAt(zoom, e.clientX - rect.left, e.clientY - rect.top, w, h);
         applyZoom();
       });
@@ -316,8 +332,7 @@ const mainImageAlt = primary?.alt || alt;
       stage.addEventListener('pointermove', (e) => {
         if (!activePointers.has(e.pointerId)) return;
         activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        const w = stage.clientWidth;
-        const h = stage.clientHeight;
+        const { w, h } = stageDims();
         if (activePointers.size === 2 && pinchStart) {
           const [a, b] = Array.from(activePointers.values());
           const dist = Math.hypot(a.x - b.x, a.y - b.y);
@@ -339,11 +354,13 @@ const mainImageAlt = primary?.alt || alt;
 
       // Zoom toolbar buttons (centered on the stage)
       lightbox?.querySelector('[data-action="zoom-in"]')?.addEventListener('click', () => {
-        zoom = zoomBy(zoom, ZOOM_STEP, stage.clientWidth, stage.clientHeight);
+        const { w, h } = stageDims();
+        zoom = zoomBy(zoom, ZOOM_STEP, w, h);
         applyZoom();
       });
       lightbox?.querySelector('[data-action="zoom-out"]')?.addEventListener('click', () => {
-        zoom = zoomBy(zoom, 1 / ZOOM_STEP, stage.clientWidth, stage.clientHeight);
+        const { w, h } = stageDims();
+        zoom = zoomBy(zoom, 1 / ZOOM_STEP, w, h);
         applyZoom();
       });
       lightbox?.querySelector('[data-action="zoom-reset"]')?.addEventListener('click', () => {
@@ -359,19 +376,21 @@ const mainImageAlt = primary?.alt || alt;
       if (e.key === 'Escape') {
         e.preventDefault();
         closeLightbox();
-      } else if (e.key === 'ArrowLeft') {
+      } else if (e.key === 'ArrowLeft' && thumbs.length > 0) {
         e.preventDefault();
         showPrev();
-      } else if (e.key === 'ArrowRight') {
+      } else if (e.key === 'ArrowRight' && thumbs.length > 0) {
         e.preventDefault();
         showNext();
       } else if (e.key === '+' || e.key === '=') {
         e.preventDefault();
-        zoom = zoomBy(zoom, ZOOM_STEP, stage?.clientWidth ?? 0, stage?.clientHeight ?? 0);
+        const { w, h } = stageDims();
+        zoom = zoomBy(zoom, ZOOM_STEP, w, h);
         applyZoom();
       } else if (e.key === '-') {
         e.preventDefault();
-        zoom = zoomBy(zoom, 1 / ZOOM_STEP, stage?.clientWidth ?? 0, stage?.clientHeight ?? 0);
+        const { w, h } = stageDims();
+        zoom = zoomBy(zoom, 1 / ZOOM_STEP, w, h);
         applyZoom();
       } else if (e.key === '0') {
         e.preventDefault();
