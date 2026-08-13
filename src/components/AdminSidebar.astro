@@ -172,9 +172,12 @@ import Button from './Button.astro';
       const { user } = await meRes.json();
       const isAdmin = user.role === 'admin';
 
-      document.getElementById('user-initial').textContent = user.name?.charAt(0) || 'U';
-      document.getElementById('user-name').textContent = user.name || 'Usuario';
-      document.getElementById('user-role').textContent = isAdmin ? 'Administrador' : 'Cliente';
+      const $initial = document.getElementById('user-initial');
+      const $name = document.getElementById('user-name');
+      const $role = document.getElementById('user-role');
+      if ($initial) $initial.textContent = user.name?.charAt(0) || 'U';
+      if ($name) $name.textContent = user.name || 'Usuario';
+      if ($role) $role.textContent = isAdmin ? 'Administrador' : 'Cliente';
 
       if (isAdmin) {
         document.querySelectorAll('.admin-only').forEach(el => {

@@ -33,7 +33,8 @@ class ProductCard extends HTMLElement {
     shadow.innerHTML = `
       <style>
         :host {
-          display: block;
+          display: flex;
+          flex-direction: column;
           --_surface-container: var(--surface-container, #1f1f1f);
           --_on-surface: var(--on-surface, #e2e2e2);
           --_on-surface-variant: var(--on-surface-variant, #bdc8d1);
@@ -53,6 +54,7 @@ class ProductCard extends HTMLElement {
         .product-card {
           display: flex;
           flex-direction: column;
+          flex: 1;
           border: var(--_border-width) solid var(--_outline);
           transition: border-color 0.2s ease;
           gap: 0;
@@ -77,6 +79,7 @@ class ProductCard extends HTMLElement {
 
         .product-image-wrapper {
           aspect-ratio: 1;
+          flex-shrink: 0;
           overflow: hidden;
           background-color: var(--_surface-container);
         }
@@ -101,6 +104,8 @@ class ProductCard extends HTMLElement {
         }
 
         .product-category {
+          display: block;
+          min-height: 16px;
           color: var(--_secondary);
           font-family: var(--_font-mono);
           font-size: 12px;
@@ -214,7 +219,7 @@ class ProductCard extends HTMLElement {
             <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(product.name)}" class="product-image" loading="lazy" width="400" height="400" />
           </div>
           <div class="product-info">
-            ${category ? `<span class="product-category">${escapeHtml(category)}</span>` : ''}
+            <span class="product-category">${escapeHtml(category)}</span>
             <h3 class="product-name">${escapeHtml(product.name)}</h3>
             <div class="product-price-row">
               <p class="product-price">Gs. ${escapeHtml(formatPrice(product.price))}</p>

@@ -286,6 +286,14 @@ img {
   }
 }
 
+/* --- Product cards: equal heights in the grid --- */
+/* The grid stretches each .product-wrapper to the row height; making it a
+   flex container lets <product-card> fill it, so every card in a row shares
+   the same height with the add-to-cart button pinned to the bottom. */
+.product-wrapper {
+  display: flex;
+}
+
 /* --- CMYK Progress Bar --- */
 .cmyk-bar {
   display: flex;
