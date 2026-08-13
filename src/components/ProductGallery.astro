@@ -6,8 +6,10 @@
  *   images: GalleryImage[] — array of images (sorted by backend)
  *   alt: string — fallback alt text
  *
- * Renders: main image viewer + thumbnail strip with arrow navigation.
- * Minimal client-side JS for thumbnail clicks and arrow navigation.
+ * Renders: main image viewer + thumbnail strip with arrow navigation, plus a
+ * fullscreen lightbox (open via the expand button or by clicking the main
+ * image) with zoom (wheel/pinch/buttons/double-click), pan, prev/next
+ * navigation, keyboard shortcuts, and its own thumbnail strip.
  */
 
 import { getProductImageUrl } from '../lib/public-api';
@@ -42,6 +44,14 @@ const mainImageAlt = primary?.alt || alt;
         <button class="gallery-nav gallery-nav--prev" data-action="prev" aria-label="Imagen anterior">‹</button>
         <button class="gallery-nav gallery-nav--next" data-action="next" aria-label="Imagen siguiente">›</button>
         <span class="gallery-counter" data-counter>1 / {images.length}</span>
+        <button class="gallery-fullscreen" data-action="fullscreen" aria-label="Ver en pantalla completa">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+            <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+            <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+            <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+          </svg>
+        </button>
       </>
     )}
   </div>
@@ -62,17 +72,64 @@ const mainImageAlt = primary?.alt || alt;
       ))}
     </div>
   )}
+
+  <!-- Fullscreen lightbox (hidden until opened by JS) -->
+  {images.length > 1 && (
+    <div class="gallery-lightbox" data-lightbox hidden>
+      <button class="lightbox-close" data-action="lightbox-close" aria-label="Cerrar galería">✕</button>
+      <button class="lightbox-nav lightbox-nav--prev" data-action="lightbox-prev" aria-label="Imagen anterior">‹</button>
+      <div class="lightbox-stage" data-lightbox-stage>
+        <img class="lightbox-stage__img" data-lightbox-img alt="" draggable="false" />
+      </div>
+      <button class="lightbox-nav lightbox-nav--next" data-action="lightbox-next" aria-label="Imagen siguiente">›</button>
+      <div class="lightbox-toolbar">
+        <span class="lightbox-counter" data-lightbox-counter></span>
+        <div class="lightbox-zoom" role="group" aria-label="Zoom">
+          <button data-action="zoom-out" aria-label="Alejar">−</button>
+          <button data-action="zoom-reset" aria-label="Restablecer zoom">⤢</button>
+          <button data-action="zoom-in" aria-label="Acercar">+</button>
+        </div>
+      </div>
+      <div class="lightbox-thumbs" role="tablist" aria-label="Vistas previas">
+        {images.map((img, idx) => (
+          <button
+            class={`lightbox-thumb ${img.id === primary?.id ? 'lightbox-thumb--active' : ''}`}
+            data-lightbox-thumb-idx={idx}
+            role="tab"
+            aria-selected={img.id === primary?.id ? 'true' : 'false'}
+            aria-label={img.alt || `Imagen ${idx + 1}`}
+          >
+            <img src={getProductImageUrl(img.url)} alt="" width="80" height="80" loading="lazy" />
+          </button>
+        ))}
+      </div>
+    </div>
+  )}
 </div>
 
 <script>
-  // Client-side gallery navigation
-  const gallery = document.querySelector('[data-gallery]') as HTMLElement;
-  if (gallery) {
+  // Client-side gallery navigation. Loops over every gallery on the page so
+  // this stays correct under ClientRouter re-execution.
+  const galleries = Array.from(document.querySelectorAll('[data-gallery]'));
+
+  galleries.forEach((gallery) => {
     const mainImg = gallery.querySelector('[data-main-image]') as HTMLImageElement;
     const thumbs = Array.from(gallery.querySelectorAll('[data-thumb-id]')) as HTMLButtonElement[];
     const mainViewer = gallery.querySelector('.gallery-main') as HTMLElement;
     const counter = gallery.querySelector('[data-counter]') as HTMLElement | null;
+    const fullscreenBtn = gallery.querySelector('[data-action="fullscreen"]') as HTMLButtonElement | null;
+    const lightbox = gallery.querySelector('[data-lightbox]') as HTMLElement | null;
     let currentIndex = 0;
+
+    // Lightbox state (zoom/pan/pinch), reset per gallery.
+    let lbScale = 1;
+    let lbTx = 0;
+    let lbTy = 0;
+    let activePointers = new Map<number, { x: number; y: number }>();
+    let pinchStart: { dist: number; scale: number } | null = null;
+    let dragOffset: { x: number; y: number } | null = null;
+
+    if (!mainImg || thumbs.length === 0) return;
 
     function updateMain(index: number) {
       const thumb = thumbs[index];
@@ -90,7 +147,92 @@ const mainImageAlt = primary?.alt || alt;
       });
       if (counter) counter.textContent = `${index + 1} / ${thumbs.length}`;
       currentIndex = index;
+      if (lightbox && !lightbox.hidden) renderLightbox();
     }
+
+    // ── Lightbox ──────────────────────────────────────────────
+
+    function renderLightbox() {
+      if (!lightbox) return;
+      const lightboxImg = lightbox.querySelector('[data-lightbox-img]') as HTMLImageElement;
+      const lightboxCounter = lightbox.querySelector('[data-lightbox-counter]') as HTMLElement | null;
+      const lightboxThumbs = Array.from(lightbox.querySelectorAll('[data-lightbox-thumb-idx]')) as HTMLButtonElement[];
+
+      const thumb = thumbs[currentIndex];
+      if (lightboxImg) {
+        lightboxImg.src = thumb.querySelector('img')?.src || '';
+        lightboxImg.alt = thumb.getAttribute('aria-label') || '';
+      }
+      if (lightboxCounter) lightboxCounter.textContent = `${currentIndex + 1} / ${thumbs.length}`;
+      lightboxThumbs.forEach((t, i) => {
+        t.classList.toggle('lightbox-thumb--active', i === currentIndex);
+        t.setAttribute('aria-selected', i === currentIndex ? 'true' : 'false');
+      });
+      resetZoom();
+    }
+
+    function openLightbox() {
+      if (!lightbox) return;
+      renderLightbox();
+      lightbox.hidden = false;
+      document.body.style.overflow = 'hidden';
+      lightbox.querySelector('[data-action="lightbox-close"]')?.focus();
+    }
+
+    function closeLightbox() {
+      if (!lightbox || lightbox.hidden) return;
+      lightbox.hidden = true;
+      document.body.style.overflow = '';
+      fullscreenBtn?.focus();
+    }
+
+    function applyZoom() {
+      const lightboxImg = lightbox?.querySelector('[data-lightbox-img]') as HTMLImageElement;
+      if (lightboxImg) lightboxImg.style.transform = `translate(${lbTx}px, ${lbTy}px) scale(${lbScale})`;
+    }
+
+    function clampPan() {
+      if (!lightbox) return;
+      const stage = lightbox.querySelector('[data-lightbox-stage]') as HTMLElement;
+      const maxX = Math.max(0, (stage.clientWidth * (lbScale - 1)) / 2);
+      const maxY = Math.max(0, (stage.clientHeight * (lbScale - 1)) / 2);
+      lbTx = Math.min(maxX, Math.max(-maxX, lbTx));
+      lbTy = Math.min(maxY, Math.max(-maxY, lbTy));
+    }
+
+    function resetZoom() {
+      lbScale = 1;
+      lbTx = 0;
+      lbTy = 0;
+      applyZoom();
+    }
+
+    function zoomAt(cx: number, cy: number, factor: number) {
+      const next = Math.min(6, Math.max(1, lbScale * factor));
+      const k = next / lbScale;
+      lbTx = cx - (cx - lbTx) * k;
+      lbTy = cy - (cy - lbTy) * k;
+      lbScale = next;
+      clampPan();
+      applyZoom();
+    }
+
+    function zoomBy(factor: number) {
+      if (!lightbox) return;
+      const stage = lightbox.querySelector('[data-lightbox-stage]') as HTMLElement;
+      zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, factor);
+    }
+
+    const showPrev = () => updateMain((currentIndex - 1 + thumbs.length) % thumbs.length);
+    const showNext = () => updateMain((currentIndex + 1) % thumbs.length);
+
+    // ── Gallery events ────────────────────────────────────────
+
+    // Clicking the main image opens the lightbox (unless a control was hit).
+    mainViewer?.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+      openLightbox();
+    });
 
     // Hover zoom (D5 / REQ-7): --x/--y origin tracks the pointer position
     mainViewer?.addEventListener('mousemove', (e) => {
@@ -126,12 +268,125 @@ const mainImageAlt = primary?.alt || alt;
 
     // Arrow navigation
     gallery.querySelector('[data-action="prev"]')?.addEventListener('click', () => {
-      updateMain((currentIndex - 1 + thumbs.length) % thumbs.length);
+      showPrev();
     });
     gallery.querySelector('[data-action="next"]')?.addEventListener('click', () => {
-      updateMain((currentIndex + 1) % thumbs.length);
+      showNext();
     });
-  }
+
+    // Fullscreen toggle
+    fullscreenBtn?.addEventListener('click', () => openLightbox());
+    lightbox?.querySelector('[data-action="lightbox-close"]')?.addEventListener('click', () => closeLightbox());
+    lightbox?.querySelector('[data-action="lightbox-prev"]')?.addEventListener('click', () => showPrev());
+    lightbox?.querySelector('[data-action="lightbox-next"]')?.addEventListener('click', () => showNext());
+
+    // Lightbox thumbnail clicks
+    lightbox?.querySelectorAll('[data-lightbox-thumb-idx]').forEach((thumb, idx) => {
+      thumb.addEventListener('click', () => updateMain(idx));
+    });
+
+    // Click on the dark backdrop (outside controls) closes the lightbox
+    lightbox?.addEventListener('click', (e) => {
+      if (e.target === lightbox) closeLightbox();
+    });
+
+    // ── Lightbox zoom & pan (wheel, buttons, drag, pinch) ─────
+
+    const stage = lightbox?.querySelector('[data-lightbox-stage]') as HTMLElement | null;
+    if (stage) {
+      stage.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = stage.getBoundingClientRect();
+        // Trackpad pinch (ctrlKey) keeps the physical direction: spreading
+        // fingers always zooms in. Plain wheel/scroll follows the touch-like
+        // model (swipe down = zoom in) so natural-scroll setups don't feel
+        // inverted.
+        const zoomIn = e.ctrlKey ? e.deltaY < 0 : e.deltaY > 0;
+        zoomAt(e.clientX - rect.left, e.clientY - rect.top, zoomIn ? 1.15 : 1 / 1.15);
+      }, { passive: false });
+
+      stage.addEventListener('dblclick', (e) => {
+        const rect = stage.getBoundingClientRect();
+        if (lbScale > 1) resetZoom();
+        else zoomAt(e.clientX - rect.left, e.clientY - rect.top, 2.5);
+      });
+
+      stage.addEventListener('pointerdown', (e) => {
+        stage.setPointerCapture(e.pointerId);
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (activePointers.size === 2) {
+          const [a, b] = Array.from(activePointers.values());
+          pinchStart = { dist: Math.hypot(a.x - b.x, a.y - b.y), scale: lbScale };
+          dragOffset = null;
+        } else {
+          pinchStart = null;
+          dragOffset = { x: e.clientX - lbTx, y: e.clientY - lbTy };
+        }
+      });
+
+      stage.addEventListener('pointermove', (e) => {
+        if (!activePointers.has(e.pointerId)) return;
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (activePointers.size === 2 && pinchStart) {
+          const [a, b] = Array.from(activePointers.values());
+          const dist = Math.hypot(a.x - b.x, a.y - b.y);
+          lbScale = Math.min(6, Math.max(1, pinchStart.scale * (dist / pinchStart.dist)));
+          clampPan();
+          applyZoom();
+        } else if (activePointers.size === 1 && lbScale > 1 && dragOffset) {
+          lbTx = e.clientX - dragOffset.x;
+          lbTy = e.clientY - dragOffset.y;
+          clampPan();
+          applyZoom();
+        }
+      });
+
+      const endPointer = (e: PointerEvent) => {
+        activePointers.delete(e.pointerId);
+        if (activePointers.size < 2) pinchStart = null;
+        if (activePointers.size === 0) dragOffset = null;
+      };
+      stage.addEventListener('pointerup', endPointer);
+      stage.addEventListener('pointercancel', endPointer);
+    }
+
+    lightbox?.querySelector('[data-action="zoom-in"]')?.addEventListener('click', () => zoomBy(1.25));
+    lightbox?.querySelector('[data-action="zoom-out"]')?.addEventListener('click', () => zoomBy(1 / 1.25));
+    lightbox?.querySelector('[data-action="zoom-reset"]')?.addEventListener('click', () => resetZoom());
+
+    // ── Lightbox keyboard shortcuts ───────────────────────────
+
+    function handleLightboxKey(e: KeyboardEvent) {
+      if (!lightbox || lightbox.hidden) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeLightbox();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        showPrev();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        showNext();
+      } else if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        zoomBy(1.25);
+      } else if (e.key === '-') {
+        e.preventDefault();
+        zoomBy(1 / 1.25);
+      } else if (e.key === '0') {
+        e.preventDefault();
+        resetZoom();
+      }
+    }
+
+    // ClientRouter re-executes this script per navigation: replace the
+    // previous key handler instead of stacking one per visit.
+    if ((window as any).__galleryLightboxKeyHandler) {
+      document.removeEventListener('keydown', (window as any).__galleryLightboxKeyHandler);
+    }
+    (window as any).__galleryLightboxKeyHandler = handleLightboxKey;
+    document.addEventListener('keydown', (window as any).__galleryLightboxKeyHandler);
+  });
 </script>
 
 <style>
@@ -146,6 +401,11 @@ const mainImageAlt = primary?.alt || alt;
     border: var(--border-width) solid var(--outline-variant);
     background-color: var(--surface-container);
     aspect-ratio: 1;
+    /* Cap height so the main image + thumbnail strip fit in a typical
+       notebook viewport: header 72px + section padding 64px + gap 16px +
+       strip 80px + margin ≈ 260px. Never shrinks below 320px except on
+       very short viewports. */
+    max-height: max(320px, calc(100dvh - 260px));
     overflow: hidden;
     cursor: zoom-in;
   }
@@ -213,6 +473,28 @@ const mainImageAlt = primary?.alt || alt;
     right: 8px;
   }
 
+  /* Fullscreen toggle button (overlay on the main image) */
+  .gallery-fullscreen {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 1;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .gallery-fullscreen:hover {
+    background: rgba(0, 0, 0, 0.7);
+  }
+
   .gallery-thumbs {
     display: flex;
     gap: var(--space-sm);
@@ -242,6 +524,164 @@ const mainImageAlt = primary?.alt || alt;
   }
 
   .gallery-thumb--active {
+    border-color: var(--primary);
+  }
+
+  /* ── Fullscreen lightbox ─────────────────────────────────── */
+
+  .gallery-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.96);
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-lg);
+  }
+
+  .gallery-lightbox[hidden] {
+    display: none;
+  }
+
+  .lightbox-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 2;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    font-size: 28px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .lightbox-nav:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .lightbox-nav--prev {
+    left: 16px;
+  }
+
+  .lightbox-nav--next {
+    right: 16px;
+  }
+
+  .lightbox-stage {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+    touch-action: none;
+    cursor: zoom-in;
+  }
+
+  .lightbox-stage__img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transform-origin: center;
+    will-change: transform;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .lightbox-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    padding: var(--space-md) 0 var(--space-sm);
+  }
+
+  .lightbox-counter {
+    color: #ffffff;
+    font-family: var(--font-mono);
+    font-size: 14px;
+  }
+
+  .lightbox-zoom {
+    display: flex;
+    gap: var(--space-xs);
+  }
+
+  .lightbox-zoom button {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .lightbox-zoom button:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .lightbox-thumbs {
+    display: flex;
+    gap: var(--space-sm);
+    overflow-x: auto;
+    padding: var(--space-sm) 0;
+  }
+
+  .lightbox-thumb {
+    flex: 0 0 72px;
+    height: 72px;
+    border: 2px solid transparent;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .lightbox-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .lightbox-thumb:hover {
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+
+  .lightbox-thumb--active {
     border-color: var(--primary);
   }
 </style>

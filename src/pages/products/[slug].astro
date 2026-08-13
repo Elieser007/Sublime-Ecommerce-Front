@@ -88,13 +88,19 @@ const basePriceFormatted = formatPrice(product.base_price);
   <!-- Product detail — pre-rendered with build-time data -->
   <div id="detail-content" class="detail-section">
     <div class="detail-layout">
-      <!-- Image Gallery -->
-      <div class="detail-image-container">
+      <!-- Image column: gallery + description below -->
+      <div class="detail-media">
         {product.images && product.images.length > 0 ? (
           <ProductGallery images={product.images} alt={product.name} />
         ) : (
-          <img id="detail-image" class="detail-image" src={imageUrl} alt={product.name} width="600" height="600" />
+          <div class="detail-image-container">
+            <img id="detail-image" class="detail-image" src={imageUrl} alt={product.name} width="600" height="600" />
+          </div>
         )}
+
+        <div class="detail-description body-lg" id="detail-description">
+          {product.description && <span>{product.description}</span>}
+        </div>
       </div>
 
       <!-- Info -->
@@ -125,10 +131,6 @@ const basePriceFormatted = formatPrice(product.base_price);
         <div id="quantity-stepper-section" class="quantity-stepper-section" style={tiers.length > 0 ? "display: block;" : "display: none;"}>
           <label class="quantity-label label-sm">Cantidad</label>
           <number-input data-value="1" data-min="1" data-max="999" data-label="Cantidad"></number-input>
-        </div>
-
-        <div class="detail-description body-lg" id="detail-description">
-          {product.description && <span>{product.description}</span>}
         </div>
 
         <div class="detail-actions">
@@ -482,6 +484,16 @@ const basePriceFormatted = formatPrice(product.base_price);
   }
   @media (min-width: 768px) {
     .detail-layout { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* Image column (gallery + description) */
+  .detail-media {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    /* Allow the gallery's horizontally-scrollable thumb strip to shrink to
+       the column width instead of overflowing it (grid min-width: auto). */
+    min-width: 0;
   }
 
   /* Image */
