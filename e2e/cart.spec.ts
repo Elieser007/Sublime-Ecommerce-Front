@@ -27,6 +27,17 @@ const CART_ITEMS = [
   },
 ];
 
+const MAX_QTY_ITEMS = [
+  {
+    id: "max-1",
+    composite_key: "max-1",
+    name: "Camiseta Máx",
+    price: 100000,
+    image: "/placeholder-product.svg",
+    quantity: 9999,
+  },
+];
+
 async function setCart(page: import("@playwright/test").Page, items: typeof CART_ITEMS) {
   await page.addInitScript((cartItems) => {
     localStorage.setItem("cart", JSON.stringify(cartItems));
@@ -366,6 +377,44 @@ test.describe("Cart Page", () => {
 
     await expect(await getQtyValue(page, 0)).toHaveValue("3");
   });
+
+  test("renders a 9999 quantity without horizontal overflow", async ({ page }) => {
+    await setCart(page, MAX_QTY_ITEMS);
+    await page.goto("/cart");
+
+    await expect(await getQtyValue(page, 0)).toHaveValue("9999");
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
+  });
+});
+
+test.describe("Cart Page — Tablet", () => {
+  test.use({ viewport: { width: 700, height: 800 } });
+
+  test.beforeEach(async ({ page }) => {
+    await setCart(page, MAX_QTY_ITEMS);
+  });
+
+  test("renders a 9999 quantity control without clipping or page overflow", async ({ page }) => {
+    await page.goto("/cart");
+
+    const qty = await getQtyValue(page, 0);
+    await expect(qty).toHaveValue("9999");
+    await expect(qty).toBeVisible();
+
+    const qtyCell = page.locator(".cart-item-qty").first();
+    const incBtn = qtyCell.getByRole("button", { name: "Aumentar" });
+    await expect(incBtn).toBeVisible();
+    const cellBox = await qtyCell.boundingBox();
+    const btnBox = await incBtn.boundingBox();
+    expect(btnBox!.x + btnBox!.width).toBeLessThanOrEqual(cellBox!.x + cellBox!.width + 1);
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
+  });
 });
 
 test.describe("Cart Page — Mobile", () => {
@@ -432,5 +481,19 @@ test.describe("Cart Page — Mobile", () => {
 
     await clickInc(page, 0);
     await expect(await getQtyValue(page, 0)).toHaveValue("3");
+  });
+
+  test("keeps a seeded 9999 quantity at max with no overflow", async ({ page }) => {
+    await setCart(page, MAX_QTY_ITEMS);
+    await page.goto("/cart");
+
+    await expect(await getQtyValue(page, 0)).toHaveValue("9999");
+
+    const incBtn = (await getCartItem(page, 0)).getByRole("button", { name: "Aumentar" });
+    await expect(incBtn).toBeDisabled();
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
   });
 });
