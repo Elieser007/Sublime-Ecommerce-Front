@@ -1,3 +1,34 @@
+/**
+ * <number-input> Web Component — Chromatic High-Contrast design system
+ *
+ * Reusable quantity stepper with ± buttons and numeric input.
+ * Works in any context: cart, product detail, admin forms, bulk operations.
+ *
+ * Attributes:
+ *   data-value    — current value (default: 1)
+ *   data-min      — minimum allowed value (default: 1)
+ *   data-max      — maximum allowed value (default: 9999)
+ *   data-step     — increment/decrement step (default: 1)
+ *   data-name     — form field name (for form submission)
+ *   data-disabled — disable all controls
+ *   data-label    — accessible label text
+ *
+ * Events:
+ *   number-input:change — fires on value change, detail: { value: number }
+ *
+ * Properties:
+ *   .value   — get/set current value programmatically
+ *
+ * Width:
+ *   The numeric display sizes to the digit count via qtyDisplayWidth()
+ *   (calc(Nch + 24px), min-width 40px / 44px mobile) so a 1-digit value
+ *   renders narrow and a 4-digit value (9999) renders wide — no fixed
+ *   width waste. Applied on every value change and re-applied after render.
+ *
+ * Usage:
+ *   <number-input value="2" min="1" max="10" label="Cantidad"></number-input>
+ *   <number-input data-value="1" data-min="1" data-max="9999" data-name="quantity"></number-input>
+ */
 import { qtyDisplayWidth } from '../lib/qty-width';
 
 class NumberInput extends HTMLElement {
