@@ -39,12 +39,19 @@ export function clampPan(s: ZoomState, w: number, h: number): ZoomState {
   return { ...s, tx: tx === 0 ? 0 : tx, ty: ty === 0 ? 0 : ty };
 }
 
-/** Zooms by factor keeping the stage point (cx, cy) fixed under the cursor. */
+/**
+ * Zooms by factor keeping the stage point (cx, cy) fixed under the cursor.
+ * The image fills the stage with transform-origin at its center (w/2, h/2),
+ * so the anchor math must use cursor coordinates relative to that center —
+ * otherwise the fixed point lands at (2·cx, 2·cy) instead of the cursor.
+ */
 export function zoomAt(s: ZoomState, cx: number, cy: number, factor: number, w: number, h: number): ZoomState {
   const next = clampScale(s.scale * factor);
   const k = next / s.scale;
-  const tx = cx - (cx - s.tx) * k;
-  const ty = cy - (cy - s.ty) * k;
+  const cxRel = cx - w / 2;
+  const cyRel = cy - h / 2;
+  const tx = cxRel - (cxRel - s.tx) * k;
+  const ty = cyRel - (cyRel - s.ty) * k;
   return clampPan({ scale: next, tx, ty }, w, h);
 }
 

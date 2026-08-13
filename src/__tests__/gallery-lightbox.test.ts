@@ -117,29 +117,38 @@ describe("zoomAt", () => {
   it("scales by the factor and anchors translation at the cursor", () => {
     const result = zoomAt({ scale: 1, tx: 0, ty: 0 }, 300, 200, 1.5, 1000, 600);
     expect(result.scale).toBe(1.5);
-    expect(result.tx).toBeCloseTo(-150);
-    expect(result.ty).toBeCloseTo(-100);
+    // transform-origin is the stage center (500, 300): the stage point under
+    // the cursor (300, 200) must stay fixed → tx = cxRel − cxRel·k = −200 + 300
+    expect(result.tx).toBeCloseTo(100);
+    expect(result.ty).toBeCloseTo(50);
   });
 
-  it("keeps the cursor point fixed (cx·k + tx === cx)", () => {
+  it("keeps the stage point under the cursor fixed (geometric contract)", () => {
     const result = zoomAt({ scale: 1, tx: 0, ty: 0 }, 300, 200, 1.5, 1000, 600);
-    expect(300 * result.scale + result.tx).toBeCloseTo(300);
-    expect(200 * result.scale + result.ty).toBeCloseTo(200);
+    // Point of the image currently under the cursor, in stage coordinates:
+    // p = center + ((cursor − center) − tx) / scale
+    const px = 500 + (300 - 500 - 0) / 1;
+    const py = 300 + (200 - 300 - 0) / 1;
+    // After zoom: center + (p − center)·scale + tx must land on the cursor.
+    const sx = 500 + (px - 500) * result.scale + result.tx;
+    const sy = 300 + (py - 300) * result.scale + result.ty;
+    expect(sx).toBeCloseTo(300);
+    expect(sy).toBeCloseTo(200);
   });
 
   it("anchors relative to a non-zero starting translation", () => {
     const result = zoomAt({ scale: 2, tx: -100, ty: 50 }, 300, 200, 1.25, 1000, 600);
     expect(result.scale).toBe(2.5);
-    // (cx − tx') = (cx − tx) · k
-    expect(300 - result.tx).toBeCloseTo((300 - -100) * 1.25);
-    expect(200 - result.ty).toBeCloseTo((200 - 50) * 1.25);
+    // (cx − w/2 − tx') = (cx − w/2 − tx) · k
+    expect(300 - 500 - result.tx).toBeCloseTo((300 - 500 - -100) * 1.25);
+    expect(200 - 300 - result.ty).toBeCloseTo((200 - 300 - 50) * 1.25);
   });
 
   it("clamps the resulting scale to MAX_SCALE", () => {
     const result = zoomAt({ scale: 4, tx: 0, ty: 0 }, 100, 100, 2, 1000, 600);
     expect(result.scale).toBe(6);
-    expect(result.tx).toBeCloseTo(-50);
-    expect(result.ty).toBeCloseTo(-50);
+    expect(result.tx).toBeCloseTo(200);
+    expect(result.ty).toBeCloseTo(100);
   });
 
   it("clamps translation through clampPan after zooming", () => {
@@ -153,14 +162,16 @@ describe("zoomAt", () => {
 // ─── zoomBy (REQ-13) ───────────────────────────────────────
 
 describe("zoomBy", () => {
-  it("zooms centered on the stage (1.25 step)", () => {
+  it("zooms centered on the stage: fit stays centered (no drift)", () => {
     const result = zoomBy({ scale: 1, tx: 0, ty: 0 }, 1.25, 1000, 600);
     expect(result.scale).toBe(1.25);
-    expect(result.tx).toBeCloseTo(-125); // 500 − 500·1.25
-    expect(result.ty).toBeCloseTo(-75); // 300 − 300·1.25
+    // Center of the stage is the transform origin: the image grows around it
+    // without translation drift.
+    expect(result.tx).toBeCloseTo(0);
+    expect(result.ty).toBeCloseTo(0);
   });
 
-  it("zooms out centered on the stage", () => {
+  it("zooms out centered on the stage, restoring fit", () => {
     const result = zoomBy({ scale: 1.25, tx: -125, ty: -75 }, 1 / 1.25, 1000, 600);
     expect(result.scale).toBe(1);
     expect(result.tx).toBeCloseTo(0);
@@ -204,8 +215,9 @@ describe("toggleZoomAt", () => {
   it("zooms to 2.5× anchored at the pointer from fit", () => {
     const result = toggleZoomAt({ scale: 1, tx: 0, ty: 0 }, 300, 200, 1000, 600);
     expect(result.scale).toBe(2.5);
-    expect(result.tx).toBeCloseTo(-450); // 300 − 300·2.5
-    expect(result.ty).toBeCloseTo(-300); // 200 − 200·2.5
+    // Stage-center-anchored math: cxRel = 300 − 500 = −200; tx = −200 − (−200)·2.5 = 300
+    expect(result.tx).toBeCloseTo(300);
+    expect(result.ty).toBeCloseTo(150);
   });
 
   it("resets to fit when already zoomed in", () => {
