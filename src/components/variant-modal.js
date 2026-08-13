@@ -755,4 +755,6 @@ class VariantModal extends HTMLElement {
   }
 }
 
-customElements.define('variant-modal', VariantModal);
+if (!customElements.get('variant-modal')) {
+  customElements.define('variant-modal', VariantModal);
+}

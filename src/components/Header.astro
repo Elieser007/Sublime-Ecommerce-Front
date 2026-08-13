@@ -195,12 +195,18 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/products');
   import { updateWishlistBadge } from '../lib/wishlist.js';
   import { getApiUrl } from '../lib/api-url';
 
-  window.addEventListener("storage", updateCartBadge);
-  window.addEventListener("cart-updated", updateCartBadge);
-  window.addEventListener("storage", updateWishlistBadge);
-  window.addEventListener("wishlist-updated", updateWishlistBadge);
+  // Bind storage listeners once per document lifetime: the module re-executes
+  // on every ClientRouter navigation and bare registrations would stack one
+  // badge update per visit.
+  if (!window.__headerStorageBound) {
+    window.__headerStorageBound = true;
+    window.addEventListener("storage", updateCartBadge);
+    window.addEventListener("cart-updated", updateCartBadge);
+    window.addEventListener("storage", updateWishlistBadge);
+    window.addEventListener("wishlist-updated", updateWishlistBadge);
+  }
 
-  document.addEventListener('astro:page-load', () => {
+  function initHeaderPage() {
     // Mobile menu toggle
     const toggle = document.getElementById("menu-toggle");
     const nav = document.getElementById("nav-mobile");
@@ -219,21 +225,33 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/products');
     let deferredPrompt: any = null;
     const installBtn = document.getElementById('install-btn');
 
-    window.addEventListener('beforeinstallprompt', (e: Event) => {
+    // Window-level listeners: replace the previous ones instead of stacking
+    // per navigation (each execution closes over its own deferredPrompt).
+    function handleBeforeInstallPrompt(e: Event) {
       e.preventDefault();
       deferredPrompt = e;
       if (installBtn) installBtn.style.display = 'flex';
-    });
+    }
+    function handleAppInstalled() {
+      deferredPrompt = null;
+      if (installBtn) installBtn.style.display = 'none';
+    }
+    if (window.__headerInstallPrompt) {
+      window.removeEventListener('beforeinstallprompt', window.__headerInstallPrompt);
+    }
+    window.__headerInstallPrompt = handleBeforeInstallPrompt;
+    window.addEventListener('beforeinstallprompt', window.__headerInstallPrompt);
+
+    if (window.__headerAppInstalled) {
+      window.removeEventListener('appinstalled', window.__headerAppInstalled);
+    }
+    window.__headerAppInstalled = handleAppInstalled;
+    window.addEventListener('appinstalled', window.__headerAppInstalled);
 
     installBtn?.addEventListener('click', async () => {
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      deferredPrompt = null;
-      if (installBtn) installBtn.style.display = 'none';
-    });
-
-    window.addEventListener('appinstalled', () => {
       deferredPrompt = null;
       if (installBtn) installBtn.style.display = 'none';
     });
@@ -289,19 +307,24 @@ const isCatalog = currentPath === '/' || currentPath.startsWith('/products');
       updateThemeIcon(mode);
     }
 
-    // Bind click listener only once across SPA navigations
-    if (!window.__themeToggleBound) {
-      window.__themeToggleBound = true;
-      document.getElementById('theme-toggle')?.addEventListener('click', () => {
-        var current = getThemeMode();
-        var next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
-        applyTheme(next);
-      });
-    }
+    // #theme-toggle is a fresh element per navigation: bind on the current one
+    document.getElementById('theme-toggle')?.addEventListener('click', () => {
+      var current = getThemeMode();
+      var next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
+      applyTheme(next);
+    });
 
     // Update icon on every navigation (new DOM = fresh elements)
     updateThemeIcon(getThemeMode());
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__headerPageInit) {
+    document.removeEventListener('astro:page-load', window.__headerPageInit);
+  }
+  window.__headerPageInit = initHeaderPage;
+  document.addEventListener('astro:page-load', window.__headerPageInit);
 </script>
 
 <style>

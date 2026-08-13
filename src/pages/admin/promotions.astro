@@ -1402,21 +1402,40 @@ import PromotionWall from '../../components/PromotionWall.astro';
       renderAll();
     });
 
-    window.addEventListener('keydown', onKeydown);
-    window.addEventListener('beforeunload', (e) => {
+    // Window-level listeners: replace the previous ones instead of stacking
+    // per navigation (each execution closes over its own state/snapshot).
+    if (window.__promoKeydownHandler) {
+      window.removeEventListener('keydown', window.__promoKeydownHandler);
+    }
+    window.__promoKeydownHandler = onKeydown;
+    window.addEventListener('keydown', window.__promoKeydownHandler);
+
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
       if (!state || !snapshot) return;
       if (shouldWarnBeforeUnload(state, snapshot)) {
         e.preventDefault();
         e.returnValue = '';
       }
-    });
+    }
+    if (window.__promoBeforeUnloadHandler) {
+      window.removeEventListener('beforeunload', window.__promoBeforeUnloadHandler);
+    }
+    window.__promoBeforeUnloadHandler = handleBeforeUnload;
+    window.addEventListener('beforeunload', window.__promoBeforeUnloadHandler);
+
     // ClientRouter SPA navigation guard (F9): beforeunload never fires on
     // view-transition navigations (sidebar clicks), and astro:before-preparation
     // preventDefault degrades to a full page load — so intercept same-origin
     // anchor clicks in the capture phase (before the router's own listener)
     // and confirm when dirty. preventDefault blocks the navigation outright.
     installNavGuard();
-    window.addEventListener('resize', () => { if (isTiles()) renderCanvas(); });
+
+    function handleResize() { if (isTiles()) renderCanvas(); }
+    if (window.__promoResizeHandler) {
+      window.removeEventListener('resize', window.__promoResizeHandler);
+    }
+    window.__promoResizeHandler = handleResize;
+    window.addEventListener('resize', window.__promoResizeHandler);
   }
 
   // Astro ClientRouter re-executes the page script on every navigation, so a
@@ -1463,7 +1482,11 @@ import PromotionWall from '../../components/PromotionWall.astro';
     canvasObserver = null;
   });
 
-  document.addEventListener('astro:page-load', () => {
+  function initPromotionsPage() {
+    // F05: module scripts run once per session, so this page-load listener
+    // fires on every navigation — bail when the promotions DOM is not present.
+    if (!document.getElementById('sections-list')) return;
+
     initCanvasEvents();
     initEvents();
 
@@ -1475,7 +1498,15 @@ import PromotionWall from '../../components/PromotionWall.astro';
     }
 
     loadSections();
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__adminPromotionsInit) {
+    document.removeEventListener('astro:page-load', window.__adminPromotionsInit);
+  }
+  window.__adminPromotionsInit = initPromotionsPage;
+  document.addEventListener('astro:page-load', window.__adminPromotionsInit);
 </script>
 
 <style is:global>

@@ -198,34 +198,37 @@ const basePriceFormatted = formatPrice(product.base_price);
   import { resolveVariantUiState } from '../../lib/variant-fallback';
   import { addToCartWithOptions, updateCartBadge } from '../../lib/cart.js';
 
-  const $variantSection = document.getElementById('variant-section');
-  const $qtySection = document.getElementById('quantity-stepper-section');
-  const $numberInput = $qtySection?.querySelector('number-input') as any;
-  const $addCart = document.getElementById('detail-add-cart');
-  const $whatsappBtn = document.getElementById('detail-whatsapp');
-  const $price = document.getElementById('detail-price');
+  // ClientRouter dedupes module scripts: this bundle executes once per
+  // session while astro:page-load fires on every navigation. All captured
+  // elements and baked data below are re-resolved at the top of
+  // initDetailPage so every product page binds to its OWN DOM + data.
+  let $variantSection: HTMLElement | null;
+  let $qtySection: HTMLElement | null;
+  let $numberInput: any;
+  let $addCart: HTMLElement | null;
+  let $whatsappBtn: HTMLElement | null;
+  let $price: HTMLElement | null;
 
-  const currentProduct: any = (window as any).__PRODUCT_DATA__;
-  const bakedVariants: any = (window as any).__VARIANTS_DATA__;
+  let currentProduct: any;
+  let bakedVariants: any;
 
   // Variant data is baked into the page at build time (SSG). The client only
   // resolves availability + price locally — no runtime /variants requests.
-  let currentVariantModules: any[] = bakedVariants?.modules || [];
-  let currentDependencies: any[] = bakedVariants?.dependencies || [];
-  let currentTiers: any[] = currentProduct?.price_tiers || [];
-  let selectedTier: any = null;
-  let selectedQty = 1;
-  let selectedAttributesMap = new Map<string, string>();
+  let currentVariantModules: any[];
+  let currentDependencies: any[];
+  let currentTiers: any[];
+  let selectedTier: any;
+  let selectedQty: number;
+  let selectedAttributesMap: Map<string, string>;
 
   // Bake-failure fallback (see src/lib/variant-fallback.ts): bake-outcome
   // based. The batch payload carries the resolved bakeFailed flag; when true
   // (payload said modules should exist but the graph is missing/corrupt) the
-  // notice renders and add-to-cart stays blocked. Modules never appear at
-  // runtime (zero fetches), so this is stable for the whole page life.
-  const bakeFailed = !!(currentProduct as any)?.bakeFailed;
-  const variantUi = resolveVariantUiState(currentProduct, currentVariantModules, currentDependencies, bakeFailed);
+  // notice renders and add-to-cart stays blocked. Re-resolved per page-load.
+  let bakeFailed: boolean;
+  let variantUi: ReturnType<typeof resolveVariantUiState>;
 
-  let $variantSelector: any = null;
+  let $variantSelector: any;
 
   function renderVariantFallbackNotice() {
     if (document.getElementById('variant-fallback-notice')) return;
@@ -343,7 +346,34 @@ const basePriceFormatted = formatPrice(product.base_price);
     $whatsappBtn.href = `https://wa.me/${phone}?text=${encoded}`;
   }
 
-  document.addEventListener('astro:page-load', () => {
+  function initDetailPage() {
+    // Cross-page guard: this listener persists on the document and fires on
+    // every navigation; only run against an actual product page DOM.
+    if (!document.getElementById('detail-add-cart')) return;
+    // Re-resolve every captured element + injected data against the CURRENT
+    // document (module scope ran once, for the session's first product page).
+    $variantSection = document.getElementById('variant-section');
+    $qtySection = document.getElementById('quantity-stepper-section');
+    $numberInput = $qtySection?.querySelector('number-input') as any;
+    $addCart = document.getElementById('detail-add-cart');
+    $whatsappBtn = document.getElementById('detail-whatsapp');
+    $price = document.getElementById('detail-price');
+
+    currentProduct = (window as any).__PRODUCT_DATA__;
+    bakedVariants = (window as any).__VARIANTS_DATA__;
+
+    currentVariantModules = bakedVariants?.modules || [];
+    currentDependencies = bakedVariants?.dependencies || [];
+    currentTiers = currentProduct?.price_tiers || [];
+    selectedTier = null;
+    selectedQty = 1;
+    selectedAttributesMap = new Map<string, string>();
+
+    $variantSelector = null;
+
+    bakeFailed = !!(currentProduct as any)?.bakeFailed;
+    variantUi = resolveVariantUiState(currentProduct, currentVariantModules, currentDependencies, bakeFailed);
+
     $addCart?.addEventListener('click', () => {
       // Bake-failure fallback: never add a variant product without options.
       if (!currentProduct || variantUi.showFallbackNotice) return;
@@ -406,15 +436,31 @@ const basePriceFormatted = formatPrice(product.base_price);
       // Quick-add (D3): tier "+" buttons dispatch tier-add with the tier minimum;
       // the setter clamps to 999 and fires number-input:change once, reusing the
       // existing listener above for price/WhatsApp updates. No-op when unchanged.
-      document.addEventListener('tier-add', ((e: CustomEvent) => {
+      // Document-level listener: replace the previous one instead of stacking
+      // per navigation (each execution closes over its own $numberInput).
+      function handleTierAdd(e: CustomEvent) {
         const qty = e.detail?.min_quantity;
         if (typeof qty !== 'number' || !$numberInput) return;
         $numberInput.value = Math.min(999, qty);
-      }) as EventListener);
+      }
+      if (window.__detailTierAddHandler) {
+        document.removeEventListener('tier-add', window.__detailTierAddHandler);
+      }
+      window.__detailTierAddHandler = handleTierAdd;
+      document.addEventListener('tier-add', window.__detailTierAddHandler);
 
       updatePriceDisplay();
     }
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit (stale closures would bind
+  // multiple add-to-cart / qty handlers to the fresh DOM).
+  if (window.__detailPageInit) {
+    document.removeEventListener('astro:page-load', window.__detailPageInit);
+  }
+  window.__detailPageInit = initDetailPage;
+  document.addEventListener('astro:page-load', window.__detailPageInit);
 </script>
 
 <style is:global>

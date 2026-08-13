@@ -87,32 +87,43 @@ const currentTier = sortedTiers.find((t) => t.price === currentTierPrice) || sor
 <script>
   import { getTierForQuantity } from '../lib/price-utils';
 
-  // Reactive active row (D2): <number-input> is a sibling island, so its
-  // number-input:change events are observed at document level.
-  const tierList = document.querySelector('[data-tiers]') as HTMLElement;
-  if (tierList) {
+  // ClientRouter dedupes module scripts: this bundle executes once per
+  // session while astro:page-load fires on every navigation. All DOM is
+  // therefore re-resolved per page-load — never captured at module scope —
+  // so every product page gets its own tier-row highlight and quick-add
+  // bindings (the "+" buttons were dead on the 2nd+ product page before).
+  function handleTierQtyChange(e: CustomEvent) {
+    const tierList = document.querySelector('[data-tiers]') as HTMLElement;
+    if (!tierList) return;
     const tiers = JSON.parse(tierList.getAttribute('data-tiers') || '[]');
     const rows = Array.from(tierList.querySelectorAll('[data-tier-row]')) as HTMLElement[];
 
-    function highlightActiveRow(qty: number) {
-      const tier = getTierForQuantity(tiers, qty);
-      rows.forEach((row) => {
-        const isActive = tier !== null && Number(row.getAttribute('data-min-qty')) === tier.min_quantity;
-        row.classList.toggle('tier-row--active', isActive);
-        if (isActive) {
-          // Restart the blink each time the row becomes active (D4, client-only)
-          row.classList.remove('tier-row--blink');
-          void row.offsetWidth;
-          row.classList.add('tier-row--blink');
-        }
-      });
-    }
+    const tier = getTierForQuantity(tiers, e.detail.value);
+    rows.forEach((row) => {
+      const isActive = tier !== null && Number(row.getAttribute('data-min-qty')) === tier.min_quantity;
+      row.classList.toggle('tier-row--active', isActive);
+      if (isActive) {
+        // Restart the blink each time the row becomes active (D4, client-only)
+        row.classList.remove('tier-row--blink');
+        void row.offsetWidth;
+        row.classList.add('tier-row--blink');
+      }
+    });
+  }
 
-    document.addEventListener('number-input:change', ((e: CustomEvent) => {
-      highlightActiveRow(e.detail.value);
-    }) as EventListener);
+  // Document-level listener: replace the previous one instead of stacking
+  // per execution (the handler resolves the CURRENT page's DOM at call time).
+  if (window.__tierQtyChangeHandler) {
+    document.removeEventListener('number-input:change', window.__tierQtyChangeHandler);
+  }
+  window.__tierQtyChangeHandler = handleTierQtyChange;
+  document.addEventListener('number-input:change', window.__tierQtyChangeHandler);
 
-    // Quick-add (D3): "+" dispatches tier-add; the product page consumes it
+  function initTierList() {
+    const tierList = document.querySelector('[data-tiers]') as HTMLElement;
+    if (!tierList) return;
+    // Quick-add (D3): "+" dispatches tier-add; the product page consumes it.
+    // Element-level binding is safe per page-load: the rows are fresh per swap.
     tierList.querySelectorAll('.tier-add-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         btn.dispatchEvent(new CustomEvent('tier-add', {
@@ -123,6 +134,12 @@ const currentTier = sortedTiers.find((t) => t.price === currentTierPrice) || sor
       });
     });
   }
+
+  if (window.__tierListInit) {
+    document.removeEventListener('astro:page-load', window.__tierListInit);
+  }
+  window.__tierListInit = initTierList;
+  document.addEventListener('astro:page-load', window.__tierListInit);
 </script>
 
 <style>

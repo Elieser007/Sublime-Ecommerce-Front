@@ -269,6 +269,7 @@ try {
 
 <script is:inline>
   function initCatalog() {
+    if (!document.getElementById('category-tree-container')) return;
     if (window.__catalogInitialized) return;
     window.__catalogInitialized = true;
 
@@ -694,7 +695,9 @@ try {
     }
 
     // Escape key: close mobile panels
-    document.addEventListener('keydown', (e) => {
+    // Document-level listener: replace the previous one instead of stacking
+    // per navigation (each execution closes over its own close helpers).
+    function handleCatalogKeydown(e) {
       if (e.key === 'Escape') {
         const catPanel = document.getElementById('mobile-category-panel');
         const filterPanel = document.getElementById('mobile-filters-panel');
@@ -704,7 +707,12 @@ try {
           closeFiltersPanel();
         }
       }
-    });
+    }
+    if (window.__catalogKeydownHandler) {
+      document.removeEventListener('keydown', window.__catalogKeydownHandler);
+    }
+    window.__catalogKeydownHandler = handleCatalogKeydown;
+    document.addEventListener('keydown', window.__catalogKeydownHandler);
 
     // ===== MOBILE CATEGORY PANEL: TREE + FILTER INTERACTIONS =====
     if (catPanel) {
@@ -794,6 +802,16 @@ try {
     // ===== INIT =====
     initProducts();
     render();
+  }
+
+  // Reset the init guard before every ClientRouter swap: the window flag
+  // persists across navigations but the DOM is fresh after each swap, so the
+  // next execution of this inline script must re-run initCatalog on the new DOM.
+  if (!window.__catalogResetBound) {
+    window.__catalogResetBound = true;
+    document.addEventListener('astro:before-swap', () => {
+      window.__catalogInitialized = false;
+    });
   }
 
   document.addEventListener('astro:page-load', initCatalog);

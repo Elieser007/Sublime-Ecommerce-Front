@@ -287,32 +287,12 @@ const subcategoryColumns = [
     }
   }
 
-  const sectionsTable = createDataTable({
-    container: document.getElementById('sections-table')!,
-    renderCell: renderSectionCell,
-    rowClass: (s: any) => (s.is_active ? '' : 'row--inactive'),
-    emptyMessage: 'No hay secciones',
-  });
-
-  const categoriesTable = createDataTable({
-    container: document.getElementById('categories-table')!,
-    renderCell: renderCategoryCell,
-    rowClass: (c: any) => {
-      const sec = sections.find((s: any) => s.id === c.section_id);
-      return !!sec && sec.is_active === 0 || !c.is_active ? 'row--inactive' : '';
-    },
-    emptyMessage: 'No hay categorías',
-  });
-
-  const subcategoriesTable = createDataTable({
-    container: document.getElementById('subcategories-table')!,
-    renderCell: renderSubcategoryCell,
-    rowClass: (s: any) => {
-      const cat = categories.find((c: any) => c.id === s.category_id);
-      return !!cat && cat.is_active === 0 || !s.is_active ? 'row--inactive' : '';
-    },
-    emptyMessage: 'No hay subcategorías',
-  });
+  // Widgets re-created in initAdminCategories: the module script runs once per
+  // session, so module-scope creations would bind to the first visit's
+  // (detached) table containers on later SPA navigations.
+  let sectionsTable;
+  let categoriesTable;
+  let subcategoriesTable;
 
   function openModal(type: string, mode: string, data?: any) {
     const overlay = document.getElementById('modal-overlay');
@@ -393,7 +373,39 @@ const subcategoryColumns = [
   }
   (window as any).toggleStatus = toggleStatus;
 
-  document.addEventListener('astro:page-load', () => {
+  function initAdminCategories() {
+    const sectionsContainer = document.getElementById('sections-table');
+    const categoriesContainer = document.getElementById('categories-table');
+    const subcategoriesContainer = document.getElementById('subcategories-table');
+    if (!sectionsContainer || !categoriesContainer || !subcategoriesContainer) return;
+
+    sectionsTable = createDataTable({
+      container: sectionsContainer,
+      renderCell: renderSectionCell,
+      rowClass: (s: any) => (s.is_active ? '' : 'row--inactive'),
+      emptyMessage: 'No hay secciones',
+    });
+
+    categoriesTable = createDataTable({
+      container: categoriesContainer,
+      renderCell: renderCategoryCell,
+      rowClass: (c: any) => {
+        const sec = sections.find((s: any) => s.id === c.section_id);
+        return !!sec && sec.is_active === 0 || !c.is_active ? 'row--inactive' : '';
+      },
+      emptyMessage: 'No hay categorías',
+    });
+
+    subcategoriesTable = createDataTable({
+      container: subcategoriesContainer,
+      renderCell: renderSubcategoryCell,
+      rowClass: (s: any) => {
+        const cat = categories.find((c: any) => c.id === s.category_id);
+        return !!cat && cat.is_active === 0 || !s.is_active ? 'row--inactive' : '';
+      },
+      emptyMessage: 'No hay subcategorías',
+    });
+
     document.querySelectorAll('.tab').forEach((tab) => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
@@ -437,7 +449,15 @@ const subcategoryColumns = [
     slugInput?.addEventListener('input', (e) => { const val = (e.target as HTMLInputElement).value; if (val.trim() === '') { slugInput.dataset.manual = ''; } else { slugInput.dataset.manual = 'true'; } });
 
     loadAll();
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__adminCategoriesInit) {
+    document.removeEventListener('astro:page-load', window.__adminCategoriesInit);
+  }
+  window.__adminCategoriesInit = initAdminCategories;
+  document.addEventListener('astro:page-load', window.__adminCategoriesInit);
 </script>
 
 <style>

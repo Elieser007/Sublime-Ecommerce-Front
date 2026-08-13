@@ -137,14 +137,10 @@ const columns = [
     }
   }
 
-  const branchesTable = createDataTable({
-    container: $('branches-table')!,
-    renderCell: renderBranchCell,
-    rowClass: (b: any) => (b.is_active ? '' : 'row--inactive'),
-    emptyMessage: 'No hay sucursales',
-    onPageChange: (page: number) => { currentPage = page; loadBranches(); },
-    onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadBranches(); },
-  });
+  // Widget re-created in initAdminBranches: the module script runs once per
+  // session, so a module-scope creation would bind to the first visit's
+  // (detached) table container on later SPA navigations.
+  let branchesTable;
 
   function openModal(isEdit: boolean, branch?: any) {
     const form = $('modal-form') as HTMLFormElement;
@@ -172,7 +168,19 @@ const columns = [
   };
 
   let searchTimeout: any;
-  document.addEventListener('astro:page-load', () => {
+  function initAdminBranches() {
+    const container = document.getElementById('branches-table');
+    if (!container) return;
+
+    branchesTable = createDataTable({
+      container,
+      renderCell: renderBranchCell,
+      rowClass: (b: any) => (b.is_active ? '' : 'row--inactive'),
+      emptyMessage: 'No hay sucursales',
+      onPageChange: (page: number) => { currentPage = page; loadBranches(); },
+      onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadBranches(); },
+    });
+
     $('add-branch')?.addEventListener('click', () => openModal(false));
     $('modal-close')?.addEventListener('click', closeModal);
     $('modal-cancel')?.addEventListener('click', closeModal);
@@ -198,7 +206,15 @@ const columns = [
     });
 
     loadBranches();
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__adminBranchesInit) {
+    document.removeEventListener('astro:page-load', window.__adminBranchesInit);
+  }
+  window.__adminBranchesInit = initAdminBranches;
+  document.addEventListener('astro:page-load', window.__adminBranchesInit);
 </script>
 
 <style>

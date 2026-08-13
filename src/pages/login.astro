@@ -227,7 +227,7 @@ import Button from '../components/Button.astro';
     errorEl.style.display = 'block';
   }
 
-  document.addEventListener('astro:page-load', () => {
+  function initLoginPage() {
     // Email/password login
     const form = document.getElementById('login-form');
 
@@ -269,5 +269,13 @@ import Button from '../components/Button.astro';
     document.getElementById('facebook-login')?.addEventListener('click', () => {
       window.location.href = `${API_URL}/api/auth/sign-in/social?provider=facebook&callbackURL=${encodeURIComponent(window.location.origin + '/dashboard')}`;
     });
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__loginPageInit) {
+    document.removeEventListener('astro:page-load', window.__loginPageInit);
+  }
+  window.__loginPageInit = initLoginPage;
+  document.addEventListener('astro:page-load', window.__loginPageInit);
 </script>

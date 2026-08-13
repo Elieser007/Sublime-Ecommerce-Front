@@ -331,15 +331,18 @@ const columns = [
 
   // ═══════════════════════════════════════════════════════════
   // PRIMARY IMAGE — Upload Area
+  // Refs are re-resolved inside initAdminProducts: the module script runs
+  // once per session, so module-scope captures would keep pointing at the
+  // first visit's (detached) elements on later SPA navigations.
   // ═══════════════════════════════════════════════════════════
-  const primaryUploadArea = $('primary-upload-area');
-  const primaryInput = $('primary-input') as HTMLInputElement;
-  const primaryImageEl = $('primary-image') as HTMLImageElement;
-  const primaryEmpty = $('primary-empty');
-  const primaryRemove = $('primary-remove');
-  const primaryUploadStatus = $('primary-upload-status');
-  const primaryUploadInfo = $('primary-upload-info');
-  const primaryUploadInfoText = $('primary-upload-info-text');
+  let primaryUploadArea: HTMLElement | null;
+  let primaryInput: HTMLInputElement;
+  let primaryImageEl: HTMLImageElement;
+  let primaryEmpty: HTMLElement | null;
+  let primaryRemove: HTMLElement | null;
+  let primaryUploadStatus: HTMLElement | null;
+  let primaryUploadInfo: HTMLElement | null;
+  let primaryUploadInfoText: HTMLElement | null;
 
   function renderPrimary() {
     const hasImage = primaryImage.blob || primaryImage.url;
@@ -384,15 +387,16 @@ const columns = [
 
   // ═══════════════════════════════════════════════════════════
   // GALLERY — Horizontal Scrollable Strip
+  // Refs re-resolved per navigation in initAdminProducts (see primary section)
   // ═══════════════════════════════════════════════════════════
-  const galleryStrip = $('gallery-strip');
-  const galleryInput = $('gallery-input') as HTMLInputElement;
-  const galleryAddBtn = $('gallery-add-btn');
-  const galleryUploadStatus = $('gallery-upload-status');
-  const galleryUploadInfo = $('gallery-upload-info');
-  const galleryUploadInfoText = $('gallery-upload-info-text');
-  const galleryCount = $('gallery-count');
-  const galleryStripContainer = $('gallery-strip-container');
+  let galleryStrip: HTMLElement | null;
+  let galleryInput: HTMLInputElement;
+  let galleryAddBtn: HTMLElement | null;
+  let galleryUploadStatus: HTMLElement | null;
+  let galleryUploadInfo: HTMLElement | null;
+  let galleryUploadInfoText: HTMLElement | null;
+  let galleryCount: HTMLElement | null;
+  let galleryStripContainer: HTMLElement | null;
 
   let gallerySelectedIndex: number | null = null;
 
@@ -627,15 +631,10 @@ const columns = [
     }
   }
 
-  const productsTable = createDataTable({
-    container: $('products-table')!,
-    renderCell: renderProductCell,
-    rowClass: (p: any) => (p.is_active ? '' : 'row--inactive'),
-    emptyMessage: 'No hay productos',
-    emptyAction: { label: '+ Crear producto', onClick: () => openModal(false) },
-    onPageChange: (page: number) => { currentPage = page; loadProducts(); },
-    onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadProducts(); },
-  });
+  // Widget re-created in initAdminProducts: the module script runs once per
+  // session, so a module-scope creation would bind to the first visit's
+  // (detached) table container on later SPA navigations.
+  let productsTable;
 
   // ═══════════════════════════════════════════════════════════
   // PRODUCT MODAL
@@ -903,7 +902,38 @@ const columns = [
   };
 
   async function init() { await loadDependencies(); await loadProducts(); }
-  document.addEventListener('astro:page-load', () => {
+  function initAdminProducts() {
+    const container = document.getElementById('products-table');
+    if (!container) return;
+
+    productsTable = createDataTable({
+      container,
+      renderCell: renderProductCell,
+      rowClass: (p: any) => (p.is_active ? '' : 'row--inactive'),
+      emptyMessage: 'No hay productos',
+      emptyAction: { label: '+ Crear producto', onClick: () => openModal(false) },
+      onPageChange: (page: number) => { currentPage = page; loadProducts(); },
+      onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadProducts(); },
+    });
+
+    primaryUploadArea = $('primary-upload-area');
+    primaryInput = $('primary-input') as HTMLInputElement;
+    primaryImageEl = $('primary-image') as HTMLImageElement;
+    primaryEmpty = $('primary-empty');
+    primaryRemove = $('primary-remove');
+    primaryUploadStatus = $('primary-upload-status');
+    primaryUploadInfo = $('primary-upload-info');
+    primaryUploadInfoText = $('primary-upload-info-text');
+
+    galleryStrip = $('gallery-strip');
+    galleryInput = $('gallery-input') as HTMLInputElement;
+    galleryAddBtn = $('gallery-add-btn');
+    galleryUploadStatus = $('gallery-upload-status');
+    galleryUploadInfo = $('gallery-upload-info');
+    galleryUploadInfoText = $('gallery-upload-info-text');
+    galleryCount = $('gallery-count');
+    galleryStripContainer = $('gallery-strip-container');
+
     $('search')?.addEventListener('input', (e) => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { currentSearch = (e.target as HTMLInputElement).value; currentPage = 1; loadProducts(); }, 300); });
     $('section-filter')?.addEventListener('change', onSectionFilterChange);
     $('category-filter')?.addEventListener('change', onCategoryFilterChange);
@@ -1122,7 +1152,15 @@ const columns = [
     $('status-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) { statusModal.close(); pendingStatusToggle = null; } });
 
     init();
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__adminProductsInit) {
+    document.removeEventListener('astro:page-load', window.__adminProductsInit);
+  }
+  window.__adminProductsInit = initAdminProducts;
+  document.addEventListener('astro:page-load', window.__adminProductsInit);
 </script>
 
 <style>

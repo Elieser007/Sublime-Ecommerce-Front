@@ -24,10 +24,22 @@ const { title } = Astro.props;
 
 <script>
   import { requireAdminAuth } from '../lib/auth-guard';
-  document.addEventListener('astro:page-load', async () => {
+  async function initAdminLayout() {
+    // F05: module scripts run once per session, so this page-load listener
+    // fires on every navigation — only auth-guard admin routes.
+    if (!window.location.pathname.startsWith('/admin')) return;
+
     const ok = await requireAdminAuth();
     if (ok) {
       document.querySelector('.admin-layout')?.classList.add('auth-ok');
     }
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__adminLayoutInit) {
+    document.removeEventListener('astro:page-load', window.__adminLayoutInit);
+  }
+  window.__adminLayoutInit = initAdminLayout;
+  document.addEventListener('astro:page-load', window.__adminLayoutInit);
 </script>

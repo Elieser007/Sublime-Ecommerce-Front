@@ -280,7 +280,7 @@ import AdminSidebar from '../components/AdminSidebar.astro';
     }
   }
 
-  document.addEventListener('astro:page-load', () => {
+  function initDashboardPage() {
     loadDashboard();
 
     // Logout using Better Auth client
@@ -297,5 +297,13 @@ import AdminSidebar from '../components/AdminSidebar.astro';
         window.location.href = '/login';
       }
     });
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__dashboardPageInit) {
+    document.removeEventListener('astro:page-load', window.__dashboardPageInit);
+  }
+  window.__dashboardPageInit = initDashboardPage;
+  document.addEventListener('astro:page-load', window.__dashboardPageInit);
 </script>

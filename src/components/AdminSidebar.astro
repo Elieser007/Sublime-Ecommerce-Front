@@ -239,7 +239,7 @@ import Button from './Button.astro';
     }
   }
 
-  document.addEventListener('astro:page-load', () => {
+  function initAdminSidebar() {
     document.getElementById('branch-select')?.addEventListener('change', async (e) => {
       const branchId = (e.target as HTMLSelectElement).value;
       if (!branchId) return;
@@ -341,7 +341,13 @@ import Button from './Button.astro';
       }
     }
     syncAriaHidden();
-    window.addEventListener('resize', syncAriaHidden);
+    // Window/document-level listeners: replace the previous ones instead of
+    // stacking per navigation (each execution closes over its own $sidebar).
+    if (window.__adminSidebarResizeHandler) {
+      window.removeEventListener('resize', window.__adminSidebarResizeHandler);
+    }
+    window.__adminSidebarResizeHandler = syncAriaHidden;
+    window.addEventListener('resize', window.__adminSidebarResizeHandler);
 
     function openSidebar() {
       $sidebar?.classList.add('is-open');
@@ -374,13 +380,18 @@ import Button from './Button.astro';
     $toggle?.addEventListener('click', toggleSidebar);
     $overlay?.addEventListener('click', closeSidebar);
 
-    document.addEventListener('keydown', (e) => {
+    function handleSidebarKeydown(e: KeyboardEvent) {
       if (e.key === 'Escape' && $sidebar?.classList.contains('is-open')) {
         closeSidebar();
       }
-    });
+    }
+    if (window.__adminSidebarKeydownHandler) {
+      document.removeEventListener('keydown', window.__adminSidebarKeydownHandler);
+    }
+    window.__adminSidebarKeydownHandler = handleSidebarKeydown;
+    document.addEventListener('keydown', window.__adminSidebarKeydownHandler);
 
-    document.addEventListener('keydown', (e) => {
+    function handleSidebarTabTrap(e: KeyboardEvent) {
       if (e.key !== 'Tab' || !$sidebar?.classList.contains('is-open')) return;
 
       const focusables = $sidebar?.querySelectorAll<HTMLElement>(
@@ -402,14 +413,27 @@ import Button from './Button.astro';
           first.focus();
         }
       }
-    });
+    }
+    if (window.__adminSidebarTabTrapHandler) {
+      document.removeEventListener('keydown', window.__adminSidebarTabTrapHandler);
+    }
+    window.__adminSidebarTabTrapHandler = handleSidebarTabTrap;
+    document.addEventListener('keydown', window.__adminSidebarTabTrapHandler);
 
     $sidebar?.querySelectorAll('.sidebar-link').forEach((link) => {
       if (link.id !== 'deploy-btn') {
         link.addEventListener('click', closeSidebar);
       }
     });
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__adminSidebarInit) {
+    document.removeEventListener('astro:page-load', window.__adminSidebarInit);
+  }
+  window.__adminSidebarInit = initAdminSidebar;
+  document.addEventListener('astro:page-load', window.__adminSidebarInit);
 </script>
 
 <style>

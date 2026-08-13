@@ -73,6 +73,20 @@
     }
   }
 
-  window.addEventListener('cart-updated', updateSummary);
-  document.addEventListener('astro:page-load', () => { updateSummary(); });
+  // Bind once per document lifetime: the module re-executes on every
+  // ClientRouter navigation and a bare registration would stack listeners.
+  if (!window.__cartSummaryStorageBound) {
+    window.__cartSummaryStorageBound = true;
+    window.addEventListener('cart-updated', updateSummary);
+  }
+
+  function initCartSummary() {
+    updateSummary();
+  }
+
+  if (window.__cartSummaryInit) {
+    document.removeEventListener('astro:page-load', window.__cartSummaryInit);
+  }
+  window.__cartSummaryInit = initCartSummary;
+  document.addEventListener('astro:page-load', window.__cartSummaryInit);
 </script>

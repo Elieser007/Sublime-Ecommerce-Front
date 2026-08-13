@@ -197,22 +197,20 @@ const columns = [
     }
   }
 
-  const usersTable = createDataTable({
-    container: $('users-table')!,
-    renderCell: renderUserCell,
-    emptyMessage: 'No hay usuarios',
-    onPageChange: (page: number) => { currentPage = page; loadUsers(); },
-    onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadUsers(); },
-  });
+  // Widget re-created in initAdminUsers: the module script runs once per
+  // session, so a module-scope creation would bind to the first visit's
+  // (detached) table container on later SPA navigations.
+  let usersTable;
 
   // ─── AVATAR UPLOAD ──────────────────────────────────────
-  const avatarUploadArea = $('avatar-upload-area');
-  const avatarInput = $('avatar-input') as HTMLInputElement;
-  const avatarImageEl = $('avatar-image') as HTMLImageElement;
-  const avatarEmpty = $('avatar-empty');
-  const avatarRemove = $('avatar-remove');
-  const avatarUploadStatus = $('avatar-upload-status');
-  const avatarUrlInput = $('avatar-url-input') as HTMLInputElement;
+  // Refs re-resolved per navigation in initAdminUsers (same reason as above)
+  let avatarUploadArea: HTMLElement | null;
+  let avatarInput: HTMLInputElement;
+  let avatarImageEl: HTMLImageElement;
+  let avatarEmpty: HTMLElement | null;
+  let avatarRemove: HTMLElement | null;
+  let avatarUploadStatus: HTMLElement | null;
+  let avatarUrlInput: HTMLInputElement;
 
   function renderAvatar() {
     const hasImg = hasAvatar(avatarState);
@@ -247,38 +245,6 @@ const columns = [
       if (avatarInput) avatarInput.value = '';
     }
   }
-
-  avatarUploadArea?.addEventListener('click', (e) => {
-    if ((e.target as HTMLElement).closest('.avatar-remove-btn')) return;
-    avatarInput.click();
-  });
-
-  avatarInput?.addEventListener('change', () => {
-    const file = avatarInput.files?.[0];
-    if (file) handleAvatarFile(file);
-  });
-
-  avatarRemove?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    avatarState = clearAvatar(avatarState);
-    if (avatarUrlInput) avatarUrlInput.value = '';
-    renderAvatar();
-  });
-
-  // Drag & drop
-  avatarUploadArea?.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    avatarUploadArea.classList.add('avatar-upload-area--dragover');
-  });
-  avatarUploadArea?.addEventListener('dragleave', () => {
-    avatarUploadArea.classList.remove('avatar-upload-area--dragover');
-  });
-  avatarUploadArea?.addEventListener('drop', (e) => {
-    e.preventDefault();
-    avatarUploadArea.classList.remove('avatar-upload-area--dragover');
-    const file = e.dataTransfer?.files?.[0];
-    if (file && file.type.startsWith('image/')) handleAvatarFile(file);
-  });
 
   // ─── MODAL ──────────────────────────────────────────────
   function openModal(isEdit: boolean, user?: any) {
@@ -329,7 +295,58 @@ const columns = [
   };
 
   let searchTimeout: any;
-  document.addEventListener('astro:page-load', () => {
+  function initAdminUsers() {
+    const container = document.getElementById('users-table');
+    if (!container) return;
+
+    usersTable = createDataTable({
+      container,
+      renderCell: renderUserCell,
+      emptyMessage: 'No hay usuarios',
+      onPageChange: (page: number) => { currentPage = page; loadUsers(); },
+      onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadUsers(); },
+    });
+
+    avatarUploadArea = $('avatar-upload-area');
+    avatarInput = $('avatar-input') as HTMLInputElement;
+    avatarImageEl = $('avatar-image') as HTMLImageElement;
+    avatarEmpty = $('avatar-empty');
+    avatarRemove = $('avatar-remove');
+    avatarUploadStatus = $('avatar-upload-status');
+    avatarUrlInput = $('avatar-url-input') as HTMLInputElement;
+
+    avatarUploadArea?.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.avatar-remove-btn')) return;
+      avatarInput.click();
+    });
+
+    avatarInput?.addEventListener('change', () => {
+      const file = avatarInput.files?.[0];
+      if (file) handleAvatarFile(file);
+    });
+
+    avatarRemove?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      avatarState = clearAvatar(avatarState);
+      if (avatarUrlInput) avatarUrlInput.value = '';
+      renderAvatar();
+    });
+
+    // Drag & drop
+    avatarUploadArea?.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      avatarUploadArea.classList.add('avatar-upload-area--dragover');
+    });
+    avatarUploadArea?.addEventListener('dragleave', () => {
+      avatarUploadArea.classList.remove('avatar-upload-area--dragover');
+    });
+    avatarUploadArea?.addEventListener('drop', (e) => {
+      e.preventDefault();
+      avatarUploadArea.classList.remove('avatar-upload-area--dragover');
+      const file = e.dataTransfer?.files?.[0];
+      if (file && file.type.startsWith('image/')) handleAvatarFile(file);
+    });
+
     $('add-user')?.addEventListener('click', () => openModal(false));
     $('modal-close')?.addEventListener('click', closeModal);
     $('modal-cancel')?.addEventListener('click', closeModal);
@@ -407,7 +424,15 @@ const columns = [
       await loadUsers();
     }
     init();
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__adminUsersInit) {
+    document.removeEventListener('astro:page-load', window.__adminUsersInit);
+  }
+  window.__adminUsersInit = initAdminUsers;
+  document.addEventListener('astro:page-load', window.__adminUsersInit);
 </script>
 
 <style>

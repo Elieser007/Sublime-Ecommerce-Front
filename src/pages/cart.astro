@@ -769,7 +769,7 @@ import CartSummary from '../components/CartSummary.astro';
   }
 
   // Load cart on page load (re-runs on SPA navigation with ClientRouter)
-  document.addEventListener('astro:page-load', () => {
+  function initCartPage() {
     const cart = getCart();
     const container = document.getElementById('cart-items');
     if (!container) return;
@@ -782,5 +782,14 @@ import CartSummary from '../components/CartSummary.astro';
     // Render real cart items
     container.innerHTML = cart.map((item: any) => renderItem(item)).join('');
     attachCartListeners();
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit (stale closures would double
+  // cart adds / quantity steps).
+  if (window.__cartPageInit) {
+    document.removeEventListener('astro:page-load', window.__cartPageInit);
+  }
+  window.__cartPageInit = initCartPage;
+  document.addEventListener('astro:page-load', window.__cartPageInit);
 </script>

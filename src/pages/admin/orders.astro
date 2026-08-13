@@ -165,13 +165,10 @@ const columns = [
     }
   }
 
-  const ordersTable = createDataTable({
-    container: $('orders-table')!,
-    renderCell: renderOrderCell,
-    emptyMessage: 'No hay pedidos',
-    onPageChange: (page: number) => { currentPage = page; loadOrders(); },
-    onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadOrders(); },
-  });
+  // Widget re-created in initAdminOrders: the module script runs once per
+  // session, so a module-scope creation would bind to the first visit's
+  // (detached) table container on later SPA navigations.
+  let ordersTable;
 
   async function viewOrder(id: string) {
     currentOrderId = id;
@@ -204,7 +201,18 @@ const columns = [
   (window as any).viewOrder = viewOrder;
 
   let searchTimeout: any;
-  document.addEventListener('astro:page-load', () => {
+  function initAdminOrders() {
+    const container = document.getElementById('orders-table');
+    if (!container) return;
+
+    ordersTable = createDataTable({
+      container,
+      renderCell: renderOrderCell,
+      emptyMessage: 'No hay pedidos',
+      onPageChange: (page: number) => { currentPage = page; loadOrders(); },
+      onPageSizeChange: (size: number) => { limit = size; currentPage = 1; loadOrders(); },
+    });
+
     $('modal-close')?.addEventListener('click', closeModal);
     $('modal-cancel')?.addEventListener('click', closeModal);
     $('modal-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
@@ -239,7 +247,15 @@ const columns = [
 
     async function init() { await loadBranches(); await loadOrders(); }
     init();
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__adminOrdersInit) {
+    document.removeEventListener('astro:page-load', window.__adminOrdersInit);
+  }
+  window.__adminOrdersInit = initAdminOrders;
+  document.addEventListener('astro:page-load', window.__adminOrdersInit);
 </script>
 
 <style>

@@ -458,10 +458,22 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     attachWishlistListeners();
   }
 
-  window.addEventListener("storage", renderWishlist);
-  window.addEventListener("wishlist-updated", renderWishlist);
+  // Bind storage/wishlist listeners once per document lifetime: the module
+  // re-executes on every ClientRouter navigation and a bare registration
+  // would stack one render per visit.
+  if (!window.__wishlistStorageBound) {
+    window.__wishlistStorageBound = true;
+    window.addEventListener("storage", renderWishlist);
+    window.addEventListener("wishlist-updated", renderWishlist);
+  }
 
-  document.addEventListener('astro:page-load', () => {
+  function initWishlistPage() {
     renderWishlist();
-  });
+  }
+
+  if (window.__wishlistPageInit) {
+    document.removeEventListener('astro:page-load', window.__wishlistPageInit);
+  }
+  window.__wishlistPageInit = initWishlistPage;
+  document.addEventListener('astro:page-load', window.__wishlistPageInit);
 </script>

@@ -237,17 +237,10 @@ const COMPONENT_OPTIONS = [
     }
   }
 
-  const modulesTable = createDataTable({
-    container: document.getElementById('modules-table')!,
-    renderCell: renderModuleCell,
-    rowClass: (m: any) => `module-row${expandedModuleId === m.id ? ' expanded' : ''}`,
-    rowAttrs: (m: any) => ({ 'data-module-id': m.id }),
-    renderRowSuffix: (m: any) =>
-      expandedModuleId === m.id
-        ? `<tr class="values-row"><td colspan="7"><div class="values-panel" id="values-${escapeHtml(m.id)}"><div class="values-loading">Cargando valores...</div></div></td></tr>`
-        : '',
-    emptyMessage: 'No hay módulos de atributos',
-  });
+  // Widget re-created in initAdminAttributes: the module script runs once per
+  // session, so a module-scope creation would bind to the first visit's
+  // (detached) table container on later SPA navigations.
+  let modulesTable;
 
   // ─── Render values panel ─────────────────────────────────
   function renderValues(moduleId: string) {
@@ -424,7 +417,22 @@ const COMPONENT_OPTIONS = [
   };
 
   // ─── Init ────────────────────────────────────────────────
-  document.addEventListener('astro:page-load', () => {
+  function initAdminAttributes() {
+    const container = document.getElementById('modules-table');
+    if (!container) return;
+
+    modulesTable = createDataTable({
+      container,
+      renderCell: renderModuleCell,
+      rowClass: (m: any) => `module-row${expandedModuleId === m.id ? ' expanded' : ''}`,
+      rowAttrs: (m: any) => ({ 'data-module-id': m.id }),
+      renderRowSuffix: (m: any) =>
+        expandedModuleId === m.id
+          ? `<tr class="values-row"><td colspan="7"><div class="values-panel" id="values-${escapeHtml(m.id)}"><div class="values-loading">Cargando valores...</div></div></td></tr>`
+          : '',
+      emptyMessage: 'No hay módulos de atributos',
+    });
+
     document.getElementById('add-module')?.addEventListener('click', () => openModuleModal('create'));
     document.getElementById('module-modal-close')?.addEventListener('click', closeModuleModal);
     document.getElementById('module-modal-cancel')?.addEventListener('click', closeModuleModal);
@@ -523,15 +531,30 @@ const COMPONENT_OPTIONS = [
       renderModules();
     });
 
-    document.addEventListener('keydown', (e) => {
+    // Document-level listener: replace the previous one instead of stacking
+    // per navigation (each execution closes over its own close helpers).
+    function handleEscapeKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         closeModuleModal();
         closeValueModal();
       }
-    });
+    }
+    if (window.__adminAttributesKeydownHandler) {
+      document.removeEventListener('keydown', window.__adminAttributesKeydownHandler);
+    }
+    window.__adminAttributesKeydownHandler = handleEscapeKey;
+    document.addEventListener('keydown', window.__adminAttributesKeydownHandler);
 
     loadModules();
-  });
+  }
+
+  // ClientRouter re-executes this script per navigation: replace the previous
+  // listener instead of stacking one per visit.
+  if (window.__adminAttributesInit) {
+    document.removeEventListener('astro:page-load', window.__adminAttributesInit);
+  }
+  window.__adminAttributesInit = initAdminAttributes;
+  document.addEventListener('astro:page-load', window.__adminAttributesInit);
 </script>
 
 <style>

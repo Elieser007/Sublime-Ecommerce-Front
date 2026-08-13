@@ -669,4 +669,6 @@ class VariantSelector extends HTMLElement {
   }
 }
 
-customElements.define('variant-selector', VariantSelector);
+if (!customElements.get('variant-selector')) {
+  customElements.define('variant-selector', VariantSelector);
+}
