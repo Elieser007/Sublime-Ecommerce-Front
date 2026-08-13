@@ -235,6 +235,13 @@ import Button from '../components/Button.astro';
   }
 
   function initRegisterPage() {
+    // Already authenticated? Skip the form and go to the dashboard.
+    fetch(`${API_URL}/api/me`, { credentials: 'include' })
+      .then((meRes) => {
+        if (meRes.ok) window.location.href = '/dashboard';
+      })
+      .catch(() => {});
+
     // Email/password registration
     const form = document.getElementById('register-form');
 
@@ -254,10 +261,22 @@ import Button from '../components/Button.astro';
           }),
         });
 
-        const data = await res.json();
+        // Rate limits (app 429 and Cloudflare "error code: 1015") return a
+        // non-JSON body — parse defensively so the user gets a clear message.
+        let data: any = {};
+        try {
+          data = await res.json();
+        } catch {
+          data = {};
+        }
 
         if (!res.ok) {
-          showError(data.message || 'Error al crear cuenta');
+          showError(
+            data.message ||
+              (res.status === 429
+                ? 'Demasiados intentos. Esperá un minuto y volvé a intentar.'
+                : 'Error al crear cuenta')
+          );
           return;
         }
 
