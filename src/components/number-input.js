@@ -1,33 +1,9 @@
-/**
- * <number-input> Web Component — Chromatic High-Contrast design system
- *
- * Reusable quantity stepper with ± buttons and numeric input.
- * Works in any context: cart, product detail, admin forms, bulk operations.
- *
- * Attributes:
- *   data-value    — current value (default: 1)
- *   data-min      — minimum allowed value (default: 1)
- *   data-max      — maximum allowed value (default: 999)
- *   data-step     — increment/decrement step (default: 1)
- *   data-name     — form field name (for form submission)
- *   data-disabled — disable all controls
- *   data-label    — accessible label text
- *
- * Events:
- *   number-input:change — fires on value change, detail: { value: number }
- *
- * Properties:
- *   .value   — get/set current value programmatically
- *
- * Usage:
- *   <number-input value="2" min="1" max="10" label="Cantidad"></number-input>
- *   <number-input data-value="1" data-min="1" data-max="99" data-name="quantity"></number-input>
- */
+import { qtyDisplayWidth } from '../lib/qty-width';
 
 class NumberInput extends HTMLElement {
   #value = 1;
   #min = 1;
-  #max = 999;
+  #max = 9999;
   #step = 1;
   #disabled = false;
   #shadow;
@@ -43,7 +19,7 @@ class NumberInput extends HTMLElement {
 
   connectedCallback() {
     this.#min = parseInt(this.dataset.min || '1', 10);
-    this.#max = parseInt(this.dataset.max || '999', 10);
+    this.#max = parseInt(this.dataset.max || '9999', 10);
     this.#step = parseInt(this.dataset.step || '1', 10);
     this.#value = parseInt(this.dataset.value || '1', 10);
     this.#disabled = this.dataset.disabled === 'true';
@@ -86,7 +62,10 @@ class NumberInput extends HTMLElement {
 
   #updateDisplay() {
     const input = this.#shadow.querySelector('.qty-display');
-    if (input) input.value = String(this.#value);
+    if (input) {
+      input.value = String(this.#value);
+      input.style.width = qtyDisplayWidth(this.#value);
+    }
   }
 
   #updateButtons() {
@@ -139,7 +118,8 @@ class NumberInput extends HTMLElement {
         .qty-btn:focus-visible { outline: 2px solid var(--_p); outline-offset: 2px; }
         .qty-btn:disabled { opacity: .3; cursor: not-allowed; }
         .qty-display {
-          width: 52px; height: 40px; text-align: center;
+          width: auto; min-width: 40px; padding-inline: 12px; box-sizing: border-box;
+          height: 40px; text-align: center;
           background: var(--_sch); color: var(--_os);
           border-top: var(--_bw) solid var(--_ov);
           border-bottom: var(--_bw) solid var(--_ov);
@@ -152,7 +132,7 @@ class NumberInput extends HTMLElement {
         .qty-display:focus { outline: none; background: rgba(130, 207, 255, .08); }
         @media (max-width: 639px) {
           .qty-btn { width: 44px; height: 44px; font-size: 22px; }
-          .qty-display { width: 48px; height: 44px; font-size: 16px; }
+          .qty-display { min-width: 44px; height: 44px; font-size: 16px; }
         }
       </style>
       <div class="quantity-control" part="control">
@@ -160,6 +140,7 @@ class NumberInput extends HTMLElement {
         <input class="qty-display" type="number" value="${this.#value}" min="${this.#min}" max="${this.#max}" step="${this.#step}" ${this.#disabled ? 'disabled' : ''} aria-label="Cantidad" readonly />
         <button class="qty-btn qty-btn--inc" type="button" aria-label="Aumentar" ${i ? 'disabled' : ''}>+</button>
       </div>`;
+    this.#updateDisplay();
   }
 }
 

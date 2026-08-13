@@ -5,6 +5,7 @@ import { isSelectionComplete } from '../lib/variant-logic';
 import { resolveAvailable, resolveFinalPrice } from '../lib/variant-filter';
 import { resolveVariantUiState } from '../lib/variant-fallback';
 import { getBestVolumeBadge, getTierPrice, getTierForQuantity, formatTierLabel } from '../lib/price-utils';
+import { qtyDisplayWidth } from '../lib/qty-width';
 import * as modalStack from '../lib/modalStack.js';
 
 class VariantModal extends HTMLElement {
@@ -240,7 +241,7 @@ class VariantModal extends HTMLElement {
           <span class="qty-label">Cantidad</span>
           <div class="qty-controls">
             <button class="qty-btn qty-minus" aria-label="Reducir cantidad">−</button>
-            <span class="qty-value">${this._quantity}</span>
+            <span class="qty-value" style="width: ${qtyDisplayWidth(this._quantity)}">${this._quantity}</span>
             <button class="qty-btn qty-plus" aria-label="Aumentar cantidad">+</button>
           </div>
         </div>
@@ -375,10 +376,13 @@ class VariantModal extends HTMLElement {
 
   _adjustQuantity(delta) {
     const next = this._quantity + delta;
-    if (next < 1 || next > 99) return;
+    if (next < 1 || next > 9999) return;
     this._quantity = next;
     const qtyEl = this._shadow.querySelector('.qty-value');
-    if (qtyEl) qtyEl.textContent = String(this._quantity);
+    if (qtyEl) {
+      qtyEl.textContent = String(this._quantity);
+      qtyEl.style.width = qtyDisplayWidth(this._quantity);
+    }
     this._recalculatePrice();
     this._updateTierInfo();
   }
@@ -676,7 +680,10 @@ class VariantModal extends HTMLElement {
       .qty-plus { border-left: none; }
 
       .qty-value {
-        min-width: 48px;
+        min-width: 40px;
+        width: auto;
+        padding-inline: 12px;
+        box-sizing: border-box;
         height: 40px;
         display: flex;
         align-items: center;
@@ -741,7 +748,7 @@ class VariantModal extends HTMLElement {
         }
 
         .qty-value {
-          min-width: 52px;
+          min-width: 44px;
           height: 44px;
         }
       }

@@ -170,7 +170,7 @@ import CartSummary from '../components/CartSummary.astro';
   /* ===== CART ITEMS (rendered by JS) ===== */
   :global(.cart-item) {
     display: grid;
-    grid-template-columns: 80px 1fr 140px 110px 40px;
+    grid-template-columns: 80px 1fr 150px 110px 40px;
     gap: var(--space-md) var(--space-xl);
     align-items: center;
     padding: var(--space-lg) 0;
@@ -473,7 +473,7 @@ import CartSummary from '../components/CartSummary.astro';
   /* ===== TABLET (640-767px) ===== */
   @media (min-width: 640px) and (max-width: 767px) {
     :global(.cart-item) {
-      grid-template-columns: 70px 1fr 130px 110px 36px;
+      grid-template-columns: 70px 1fr 140px 110px 36px;
       gap: var(--space-sm) var(--space-xl);
     }
 
@@ -677,7 +677,7 @@ import CartSummary from '../components/CartSummary.astro';
           <number-input
             data-value="${item.quantity}"
             data-min="1"
-            data-max="99"
+            data-max="9999"
             data-product-id="${safeKey}"
             data-label="Cantidad de ${safeName}"
           ></number-input>

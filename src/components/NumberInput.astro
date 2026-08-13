@@ -10,7 +10,7 @@
  * Attributes:
  *   value    — current value (default: 1)
  *   min      — minimum allowed value (default: 1)
- *   max      — maximum allowed value (default: 999)
+ *  max      — maximum allowed value (default: 9999)
  *   step     — increment/decrement step (default: 1)
  *   name     — form field name (for form submission)
  *   disabled — disable all controls
@@ -24,7 +24,7 @@
  *
  * Usage:
  *   <number-input value="2" min="1" max="10" label="Cantidad"></number-input>
- *   <number-input value="1" min="1" max="99" name="quantity"></number-input>
+ *   <number-input value="1" min="1" max="9999" name="quantity"></number-input>
  */
 
 interface Props {
@@ -41,7 +41,7 @@ interface Props {
 const {
   value = 1,
   min = 1,
-  max = 999,
+  max = 9999,
   step = 1,
   name,
   disabled = false,

@@ -130,7 +130,7 @@ const basePriceFormatted = formatPrice(product.base_price);
         <!-- Quantity Stepper (shows when tier selected) -->
         <div id="quantity-stepper-section" class="quantity-stepper-section" style={tiers.length > 0 ? "display: block;" : "display: none;"}>
           <label class="quantity-label label-sm">Cantidad</label>
-          <number-input data-value="1" data-min="1" data-max="999" data-label="Cantidad"></number-input>
+          <number-input data-value="1" data-min="1" data-max="9999" data-label="Cantidad"></number-input>
         </div>
 
         <div class="detail-actions">
@@ -436,7 +436,7 @@ const basePriceFormatted = formatPrice(product.base_price);
       }) as EventListener);
 
       // "Usar" (D3): tier buttons dispatch tier-select with the tier minimum;
-      // the setter clamps to 999 and fires number-input:change once, reusing the
+      // the setter clamps to 9999 and fires number-input:change once, reusing the
       // existing listener above for price/WhatsApp updates. No-op when unchanged.
       // The stepper input gets focus so the customer sees exactly what changed.
       // Document-level listener: replace the previous one instead of stacking
@@ -444,7 +444,7 @@ const basePriceFormatted = formatPrice(product.base_price);
       function handleTierSelect(e: CustomEvent) {
         const qty = e.detail?.min_quantity;
         if (typeof qty !== 'number' || !$numberInput) return;
-        $numberInput.value = Math.min(999, qty);
+        $numberInput.value = Math.min(9999, qty);
         $numberInput.shadowRoot?.querySelector('.qty-display')?.focus();
       }
       if (window.__detailTierSelectHandler) {
