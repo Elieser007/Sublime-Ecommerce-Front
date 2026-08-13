@@ -26,8 +26,9 @@ const { title } = Astro.props;
   import { requireAdminAuth } from '../lib/auth-guard';
   async function initAdminLayout() {
     // F05: module scripts run once per session, so this page-load listener
-    // fires on every navigation — only auth-guard admin routes.
-    if (!window.location.pathname.startsWith('/admin')) return;
+    // fires on every navigation — only where the admin layout exists
+    // (all /admin/* routes and /dashboard, which also uses this layout).
+    if (!document.querySelector('.admin-layout')) return;
 
     const ok = await requireAdminAuth();
     if (ok) {
