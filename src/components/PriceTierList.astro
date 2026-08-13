@@ -7,8 +7,7 @@
  * client events own correctness after hydration — D2).
  */
 
-import { getTierPrice, getTierSavings, formatTierOption } from "../lib/price-utils";
-import { formatPrice } from "../lib/format";
+import { getTierPrice, getTierSavingsPercent } from "../lib/price-utils";
 
 interface Props {
   priceTiers?: Array<{
@@ -47,7 +46,7 @@ const currentTier = sortedTiers.find((t) => t.price === currentTierPrice) || sor
       <tbody>
         {sortedTiers.map((tier) => {
           const isActive = tier.price === currentTierPrice;
-          const savings = getTierSavings(tier, tiers, basePrice);
+          const savingsPct = getTierSavingsPercent(tier, tiers, basePrice);
           const qtyLabel = tier.min_quantity === 1 
             ? "1 und (base)" 
             : `${tier.min_quantity}+ unds`;
@@ -60,13 +59,13 @@ const currentTier = sortedTiers.find((t) => t.price === currentTierPrice) || sor
               data-min-qty={tier.min_quantity}
             >
               <td class="tier-col-qty">
-                <span class={isActive ? "tier-qty--active" : ""}>{qtyLabel}</span>
                 <button
                   type="button"
-                  class="tier-add-btn"
+                  class="tier-use-btn"
                   data-min-qty={tier.min_quantity}
-                  aria-label={`Agregar ${tier.min_quantity} unidades al carrito`}
-                >+</button>
+                  aria-label={`Usar ${tier.min_quantity} unidades`}
+                >✓</button>
+                <span class={isActive ? "tier-qty--active" : ""}>{qtyLabel}</span>
               </td>
               <td class="tier-col-price">
                 <span class={isActive ? "tier-price--active" : ""}>
@@ -74,7 +73,7 @@ const currentTier = sortedTiers.find((t) => t.price === currentTierPrice) || sor
                 </span>
               </td>
               <td class="tier-col-savings">
-                {savings > 0 && <span class="tier-savings">Ahorro: Gs. {formatPrice(savings)}</span>}
+                {savingsPct > 0 && <span class="tier-savings">{savingsPct}%</span>}
               </td>
             </tr>
           );
@@ -122,11 +121,12 @@ const currentTier = sortedTiers.find((t) => t.price === currentTierPrice) || sor
   function initTierList() {
     const tierList = document.querySelector('[data-tiers]') as HTMLElement;
     if (!tierList) return;
-    // Quick-add (D3): "+" dispatches tier-add; the product page consumes it.
-    // Element-level binding is safe per page-load: the rows are fresh per swap.
-    tierList.querySelectorAll('.tier-add-btn').forEach((btn) => {
+    // "Usar" (D3): dispatches tier-select; the product page applies the tier
+    // minimum to the quantity stepper and focuses it. Document-level bindings
+    // are per page-load: the rows are fresh per swap.
+    tierList.querySelectorAll('.tier-use-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        btn.dispatchEvent(new CustomEvent('tier-add', {
+        btn.dispatchEvent(new CustomEvent('tier-select', {
           detail: { min_quantity: Number((btn as HTMLElement).dataset.minQty) },
           bubbles: true,
           composed: true,
@@ -205,53 +205,54 @@ const currentTier = sortedTiers.find((t) => t.price === currentTierPrice) || sor
     }
   }
 
-  .tier-add-btn {
-    margin-left: var(--space-sm);
-    width: 28px;
-    height: 28px;
+  .tier-use-btn {
+    margin-right: var(--space-sm);
+    padding: 2px 8px;
     border: var(--border-width) solid var(--outline-variant);
     background-color: var(--surface-container-high);
     color: var(--on-surface);
     font-family: var(--font-mono);
-    font-size: 16px;
-    line-height: 1;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.4;
     cursor: pointer;
     border-radius: var(--border-radius);
+    vertical-align: middle;
   }
 
-  .tier-add-btn:hover {
+  .tier-use-btn:hover {
     background-color: var(--primary);
     color: var(--on-primary);
   }
 
-  .tier-add-btn:focus-visible {
+  .tier-use-btn:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
   }
 
   .tier-col-qty {
     width: 40%;
+    white-space: nowrap;
   }
 
   .tier-col-price {
     width: 40%;
-    text-align: right;
   }
 
   .tier-col-savings {
     width: 20%;
-    text-align: right;
   }
 
   .tier-savings {
     display: inline-flex;
     align-items: center;
-    padding: 2px 8px;
+    padding: 4px 10px;
     background-color: var(--secondary-container);
     color: var(--on-secondary-container);
     border-radius: var(--border-radius);
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   .tier-qty--active,

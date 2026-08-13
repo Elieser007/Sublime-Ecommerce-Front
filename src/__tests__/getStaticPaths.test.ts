@@ -236,8 +236,9 @@ describe("getStaticPaths logic", () => {
 });
 
 describe("product detail related markers (D6)", () => {
-  it("listens for tier-add to wire quick-add", () => {
-    expect(detailSource).toContain("'tier-add'");
+  it("listens for tier-select to apply the tier quantity and focus it", () => {
+    expect(detailSource).toContain("'tier-select'");
+    expect(detailSource).toContain(".qty-display')?.focus()");
   });
 
   it("renders the related-products section", () => {

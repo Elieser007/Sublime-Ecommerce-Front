@@ -9,6 +9,7 @@ import {
   formatTierLabel,
   formatTierOption,
   getTierSavings,
+  getTierSavingsPercent,
   getTierForQuantity,
   isBestVolumeTier,
   getVolumeTierCount,
@@ -201,6 +202,59 @@ describe("getTierSavings", () => {
 
   it("returns 0 for empty tiers", () => {
     expect(getTierSavings(undefined as any, [])).toBe(0);
+  });
+});
+
+describe("getTierSavingsPercent", () => {
+  const baseTiers = [
+    { id: "t1", branch_id: "b1", branch_name: "Principal", min_quantity: 1, price: 100000 },
+    { id: "t2", branch_id: "b1", branch_name: "Principal", min_quantity: 10, price: 90000 },
+    { id: "t3", branch_id: "b1", branch_name: "Principal", min_quantity: 50, price: 80000 },
+  ];
+
+  it("returns the rounded percentage saved against the base row", () => {
+    expect(getTierSavingsPercent(baseTiers[1], baseTiers)).toBe(10); // 10% at 10 unds
+    expect(getTierSavingsPercent(baseTiers[2], baseTiers)).toBe(20); // 20% at 50 unds
+  });
+
+  it("rounds fractional percentages to the nearest integer", () => {
+    const prodTiers = [
+      { id: "v1", branch_id: "b1", branch_name: "P", min_quantity: 12, price: 216000 },
+      { id: "v2", branch_id: "b1", branch_name: "P", min_quantity: 24, price: 208000 },
+    ];
+    expect(getTierSavingsPercent(prodTiers[0], prodTiers, 240000)).toBe(10); // 24.000/240.000
+    expect(getTierSavingsPercent(prodTiers[1], prodTiers, 240000)).toBe(13); // 32.000/240.000 = 13.33%
+  });
+
+  it("returns 0 when the tier price exceeds the base", () => {
+    const aboveBase = [
+      { id: "t1", branch_id: "b1", branch_name: "P", min_quantity: 1, price: 100000 },
+      { id: "t2", branch_id: "b1", branch_name: "P", min_quantity: 10, price: 120000 },
+    ];
+    expect(getTierSavingsPercent(aboveBase[1], aboveBase)).toBe(0);
+  });
+
+  it("returns 0 for the base tier", () => {
+    expect(getTierSavingsPercent(baseTiers[0], baseTiers)).toBe(0);
+  });
+
+  it("returns 0 when no base price and no min_quantity === 1 row exist", () => {
+    const batchOnly = [
+      { id: "v1", branch_id: "b1", branch_name: "P", min_quantity: 12, price: 216000 },
+    ];
+    expect(getTierSavingsPercent(batchOnly[0], batchOnly)).toBe(0);
+  });
+
+  it("returns 0 for zero base price", () => {
+    const zeroBase = [
+      { id: "t1", branch_id: "b1", branch_name: "P", min_quantity: 1, price: 0 },
+      { id: "t2", branch_id: "b1", branch_name: "P", min_quantity: 10, price: 90000 },
+    ];
+    expect(getTierSavingsPercent(zeroBase[1], zeroBase)).toBe(0);
+  });
+
+  it("returns 0 for empty tiers", () => {
+    expect(getTierSavingsPercent(undefined as any, [])).toBe(0);
   });
 });
 

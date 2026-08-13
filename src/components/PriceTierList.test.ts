@@ -47,16 +47,30 @@ describe("PriceTierList logic", () => {
 });
 
 describe("PriceTierList markup (D1-D4)", () => {
-  it("renders savings as a Guaraníes amount, not a percentage", () => {
-    expect(tierListSource).toContain("Ahorro: Gs.");
-    expect(tierListSource).toContain("formatPrice(savings)");
-    expect(tierListSource).not.toContain("{savings}%");
+  it("renders savings as a standalone percentage with no money amount", () => {
+    expect(tierListSource).toContain("{savingsPct}%");
+    expect(tierListSource).not.toContain("tier-savings-gs");
+    expect(tierListSource).not.toContain("Ahorro: Gs.");
+    expect(tierListSource).not.toContain("formatPrice(savings)");
   });
 
-  it("dispatches tier-add with min_quantity from each row's + button", () => {
-    expect(tierListSource).toContain("'tier-add'");
-    expect(tierListSource).toContain("tier-add-btn");
+  it("dispatches tier-select with min_quantity from each row's check button", () => {
+    expect(tierListSource).toContain("'tier-select'");
+    expect(tierListSource).toContain("tier-use-btn");
     expect(tierListSource).toContain("data-tiers");
+  });
+
+  it("renders the check button before the quantity label, text only in aria-label", () => {
+    expect(tierListSource.indexOf("tier-use-btn")).toBeLessThan(
+      tierListSource.indexOf("{qtyLabel}")
+    );
+    expect(tierListSource).toContain("aria-label={`Usar ${tier.min_quantity} unidades`}");
+    expect(tierListSource).toContain(">✓</button>");
+  });
+
+  it("left-aligns price and savings columns with their headers", () => {
+    expect(tierListSource).not.toContain("th.tier-col-price");
+    expect(tierListSource).not.toContain("text-align: right");
   });
 
   it("reacts to number-input:change to move the active row", () => {

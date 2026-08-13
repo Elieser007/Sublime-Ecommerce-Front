@@ -47,6 +47,16 @@ export function getTierSavings(tier: PriceTier, tiers: PriceTier[], basePrice?: 
   return Math.max(0, base - tier.price);
 }
 
+export function getTierSavingsPercent(tier: PriceTier, tiers: PriceTier[], basePrice?: number): number {
+  if (!tier || !tiers || tiers.length === 0) return 0;
+
+  const savings = getTierSavings(tier, tiers, basePrice);
+  const base = basePrice ?? tiers.find((t) => t.min_quantity === 1)?.price ?? 0;
+  if (base <= 0 || savings <= 0) return 0;
+
+  return Math.round((savings / base) * 100);
+}
+
 export function getTierForQuantity(tiers: PriceTier[], qty: number): PriceTier | null {
   if (!tiers || tiers.length === 0) return null;
 

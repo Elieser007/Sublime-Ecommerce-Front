@@ -433,21 +433,23 @@ const basePriceFormatted = formatPrice(product.base_price);
         updatePriceDisplay();
       }) as EventListener);
 
-      // Quick-add (D3): tier "+" buttons dispatch tier-add with the tier minimum;
+      // "Usar" (D3): tier buttons dispatch tier-select with the tier minimum;
       // the setter clamps to 999 and fires number-input:change once, reusing the
       // existing listener above for price/WhatsApp updates. No-op when unchanged.
+      // The stepper input gets focus so the customer sees exactly what changed.
       // Document-level listener: replace the previous one instead of stacking
       // per navigation (each execution closes over its own $numberInput).
-      function handleTierAdd(e: CustomEvent) {
+      function handleTierSelect(e: CustomEvent) {
         const qty = e.detail?.min_quantity;
         if (typeof qty !== 'number' || !$numberInput) return;
         $numberInput.value = Math.min(999, qty);
+        $numberInput.shadowRoot?.querySelector('.qty-display')?.focus();
       }
-      if (window.__detailTierAddHandler) {
-        document.removeEventListener('tier-add', window.__detailTierAddHandler);
+      if (window.__detailTierSelectHandler) {
+        document.removeEventListener('tier-select', window.__detailTierSelectHandler);
       }
-      window.__detailTierAddHandler = handleTierAdd;
-      document.addEventListener('tier-add', window.__detailTierAddHandler);
+      window.__detailTierSelectHandler = handleTierSelect;
+      document.addEventListener('tier-select', window.__detailTierSelectHandler);
 
       updatePriceDisplay();
     }
