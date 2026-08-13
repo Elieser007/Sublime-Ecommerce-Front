@@ -14,6 +14,7 @@
 
 import { getProductImageUrl } from '../lib/public-api';
 import type { GalleryImage } from '../lib/image-types';
+import { shouldShowThumbStrip } from '../lib/gallery-lightbox';
 
 interface Props {
   images: GalleryImage[];
@@ -39,7 +40,7 @@ const mainImageAlt = primary?.alt || alt;
       height="600"
       data-main-image
     />
-    {images.length > 1 && (
+    {shouldShowThumbStrip(images.length) && (
       <>
         <button class="gallery-nav gallery-nav--prev" data-action="prev" aria-label="Imagen anterior">‹</button>
         <button class="gallery-nav gallery-nav--next" data-action="next" aria-label="Imagen siguiente">›</button>
@@ -57,7 +58,7 @@ const mainImageAlt = primary?.alt || alt;
   </div>
 
   <!-- Thumbnail strip -->
-  {images.length > 1 && (
+  {shouldShowThumbStrip(images.length) && (
     <div class="gallery-thumbs" role="tablist" aria-label="Vistas previas">
       {images.map((img, idx) => (
         <button
@@ -74,7 +75,7 @@ const mainImageAlt = primary?.alt || alt;
   )}
 
   <!-- Fullscreen lightbox (hidden until opened by JS) -->
-  {images.length > 1 && (
+  {shouldShowThumbStrip(images.length) && (
     <div class="gallery-lightbox" data-lightbox hidden>
       <button class="lightbox-close" data-action="lightbox-close" aria-label="Cerrar galería">✕</button>
       <button class="lightbox-nav lightbox-nav--prev" data-action="lightbox-prev" aria-label="Imagen anterior">‹</button>
@@ -108,8 +109,26 @@ const mainImageAlt = primary?.alt || alt;
 </div>
 
 <script>
+  import {
+    resetZoom,
+    clampPan,
+    zoomAt,
+    zoomBy,
+    toggleZoomAt,
+    pinchScale,
+    panTo,
+    wheelZoomFactor,
+    nextIndex,
+    prevIndex,
+    formatCounter,
+    applyTransform,
+    ZOOM_STEP,
+  } from '../lib/gallery-lightbox';
+  import type { ZoomState } from '../lib/gallery-lightbox';
+
   // Client-side gallery navigation. Loops over every gallery on the page so
-  // this stays correct under ClientRouter re-execution.
+  // this stays correct under ClientRouter re-execution. All zoom/pan/nav
+  // math comes from the pure lib module; this script is thin DOM wiring.
   const galleries = Array.from(document.querySelectorAll('[data-gallery]'));
 
   galleries.forEach((gallery) => {
@@ -119,12 +138,11 @@ const mainImageAlt = primary?.alt || alt;
     const counter = gallery.querySelector('[data-counter]') as HTMLElement | null;
     const fullscreenBtn = gallery.querySelector('[data-action="fullscreen"]') as HTMLButtonElement | null;
     const lightbox = gallery.querySelector('[data-lightbox]') as HTMLElement | null;
+    const stage = lightbox?.querySelector('[data-lightbox-stage]') as HTMLElement | null;
     let currentIndex = 0;
 
-    // Lightbox state (zoom/pan/pinch), reset per gallery.
-    let lbScale = 1;
-    let lbTx = 0;
-    let lbTy = 0;
+    // Lightbox zoom/pan state (plain ZoomState object, fed by lib functions).
+    let zoom: ZoomState = resetZoom();
     let activePointers = new Map<number, { x: number; y: number }>();
     let pinchStart: { dist: number; scale: number } | null = null;
     let dragOffset: { x: number; y: number } | null = null;
@@ -145,7 +163,7 @@ const mainImageAlt = primary?.alt || alt;
         t.classList.toggle('gallery-thumb--active', i === index);
         t.setAttribute('aria-selected', i === index ? 'true' : 'false');
       });
-      if (counter) counter.textContent = `${index + 1} / ${thumbs.length}`;
+      if (counter) counter.textContent = formatCounter(index, thumbs.length);
       currentIndex = index;
       if (lightbox && !lightbox.hidden) renderLightbox();
     }
@@ -163,12 +181,14 @@ const mainImageAlt = primary?.alt || alt;
         lightboxImg.src = thumb.querySelector('img')?.src || '';
         lightboxImg.alt = thumb.getAttribute('aria-label') || '';
       }
-      if (lightboxCounter) lightboxCounter.textContent = `${currentIndex + 1} / ${thumbs.length}`;
+      if (lightboxCounter) lightboxCounter.textContent = formatCounter(currentIndex, thumbs.length);
       lightboxThumbs.forEach((t, i) => {
         t.classList.toggle('lightbox-thumb--active', i === currentIndex);
         t.setAttribute('aria-selected', i === currentIndex ? 'true' : 'false');
       });
-      resetZoom();
+      // REQ-16: zoom resets on image change and lightbox open.
+      zoom = resetZoom();
+      applyZoom();
     }
 
     function openLightbox() {
@@ -188,43 +208,11 @@ const mainImageAlt = primary?.alt || alt;
 
     function applyZoom() {
       const lightboxImg = lightbox?.querySelector('[data-lightbox-img]') as HTMLImageElement;
-      if (lightboxImg) lightboxImg.style.transform = `translate(${lbTx}px, ${lbTy}px) scale(${lbScale})`;
+      if (lightboxImg) lightboxImg.style.transform = applyTransform(zoom);
     }
 
-    function clampPan() {
-      if (!lightbox) return;
-      const stage = lightbox.querySelector('[data-lightbox-stage]') as HTMLElement;
-      const maxX = Math.max(0, (stage.clientWidth * (lbScale - 1)) / 2);
-      const maxY = Math.max(0, (stage.clientHeight * (lbScale - 1)) / 2);
-      lbTx = Math.min(maxX, Math.max(-maxX, lbTx));
-      lbTy = Math.min(maxY, Math.max(-maxY, lbTy));
-    }
-
-    function resetZoom() {
-      lbScale = 1;
-      lbTx = 0;
-      lbTy = 0;
-      applyZoom();
-    }
-
-    function zoomAt(cx: number, cy: number, factor: number) {
-      const next = Math.min(6, Math.max(1, lbScale * factor));
-      const k = next / lbScale;
-      lbTx = cx - (cx - lbTx) * k;
-      lbTy = cy - (cy - lbTy) * k;
-      lbScale = next;
-      clampPan();
-      applyZoom();
-    }
-
-    function zoomBy(factor: number) {
-      if (!lightbox) return;
-      const stage = lightbox.querySelector('[data-lightbox-stage]') as HTMLElement;
-      zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, factor);
-    }
-
-    const showPrev = () => updateMain((currentIndex - 1 + thumbs.length) % thumbs.length);
-    const showNext = () => updateMain((currentIndex + 1) % thumbs.length);
+    const showPrev = () => updateMain(prevIndex(currentIndex, thumbs.length));
+    const showNext = () => updateMain(nextIndex(currentIndex, thumbs.length));
 
     // ── Gallery events ────────────────────────────────────────
 
@@ -254,10 +242,10 @@ const mainImageAlt = primary?.alt || alt;
       if (thumbs.length === 0) return;
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        updateMain((currentIndex + 1) % thumbs.length);
+        updateMain(nextIndex(currentIndex, thumbs.length));
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        updateMain((currentIndex - 1 + thumbs.length) % thumbs.length);
+        updateMain(prevIndex(currentIndex, thumbs.length));
       }
     });
 
@@ -292,23 +280,24 @@ const mainImageAlt = primary?.alt || alt;
 
     // ── Lightbox zoom & pan (wheel, buttons, drag, pinch) ─────
 
-    const stage = lightbox?.querySelector('[data-lightbox-stage]') as HTMLElement | null;
     if (stage) {
       stage.addEventListener('wheel', (e) => {
         e.preventDefault();
         const rect = stage.getBoundingClientRect();
-        // Trackpad pinch (ctrlKey) keeps the physical direction: spreading
-        // fingers always zooms in. Plain wheel/scroll follows the touch-like
-        // model (swipe down = zoom in) so natural-scroll setups don't feel
-        // inverted.
-        const zoomIn = e.ctrlKey ? e.deltaY < 0 : e.deltaY > 0;
-        zoomAt(e.clientX - rect.left, e.clientY - rect.top, zoomIn ? 1.15 : 1 / 1.15);
+        const w = stage.clientWidth;
+        const h = stage.clientHeight;
+        // wheelZoomFactor keeps the locked conventions: plain deltaY > 0 and
+        // trackpad pinch (ctrlKey, deltaY < 0) zoom in; zero deltaY is a no-op.
+        zoom = zoomAt(zoom, e.clientX - rect.left, e.clientY - rect.top, wheelZoomFactor(e.ctrlKey, e.deltaY), w, h);
+        applyZoom();
       }, { passive: false });
 
       stage.addEventListener('dblclick', (e) => {
         const rect = stage.getBoundingClientRect();
-        if (lbScale > 1) resetZoom();
-        else zoomAt(e.clientX - rect.left, e.clientY - rect.top, 2.5);
+        const w = stage.clientWidth;
+        const h = stage.clientHeight;
+        zoom = toggleZoomAt(zoom, e.clientX - rect.left, e.clientY - rect.top, w, h);
+        applyZoom();
       });
 
       stage.addEventListener('pointerdown', (e) => {
@@ -316,27 +305,26 @@ const mainImageAlt = primary?.alt || alt;
         activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (activePointers.size === 2) {
           const [a, b] = Array.from(activePointers.values());
-          pinchStart = { dist: Math.hypot(a.x - b.x, a.y - b.y), scale: lbScale };
+          pinchStart = { dist: Math.hypot(a.x - b.x, a.y - b.y), scale: zoom.scale };
           dragOffset = null;
         } else {
           pinchStart = null;
-          dragOffset = { x: e.clientX - lbTx, y: e.clientY - lbTy };
+          dragOffset = { x: e.clientX - zoom.tx, y: e.clientY - zoom.ty };
         }
       });
 
       stage.addEventListener('pointermove', (e) => {
         if (!activePointers.has(e.pointerId)) return;
         activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const w = stage.clientWidth;
+        const h = stage.clientHeight;
         if (activePointers.size === 2 && pinchStart) {
           const [a, b] = Array.from(activePointers.values());
           const dist = Math.hypot(a.x - b.x, a.y - b.y);
-          lbScale = Math.min(6, Math.max(1, pinchStart.scale * (dist / pinchStart.dist)));
-          clampPan();
+          zoom = clampPan({ ...zoom, scale: pinchScale(pinchStart.scale, pinchStart.dist, dist) }, w, h);
           applyZoom();
-        } else if (activePointers.size === 1 && lbScale > 1 && dragOffset) {
-          lbTx = e.clientX - dragOffset.x;
-          lbTy = e.clientY - dragOffset.y;
-          clampPan();
+        } else if (activePointers.size === 1 && zoom.scale > 1 && dragOffset) {
+          zoom = panTo(zoom, e.clientX - dragOffset.x, e.clientY - dragOffset.y, w, h);
           applyZoom();
         }
       });
@@ -348,11 +336,21 @@ const mainImageAlt = primary?.alt || alt;
       };
       stage.addEventListener('pointerup', endPointer);
       stage.addEventListener('pointercancel', endPointer);
-    }
 
-    lightbox?.querySelector('[data-action="zoom-in"]')?.addEventListener('click', () => zoomBy(1.25));
-    lightbox?.querySelector('[data-action="zoom-out"]')?.addEventListener('click', () => zoomBy(1 / 1.25));
-    lightbox?.querySelector('[data-action="zoom-reset"]')?.addEventListener('click', () => resetZoom());
+      // Zoom toolbar buttons (centered on the stage)
+      lightbox?.querySelector('[data-action="zoom-in"]')?.addEventListener('click', () => {
+        zoom = zoomBy(zoom, ZOOM_STEP, stage.clientWidth, stage.clientHeight);
+        applyZoom();
+      });
+      lightbox?.querySelector('[data-action="zoom-out"]')?.addEventListener('click', () => {
+        zoom = zoomBy(zoom, 1 / ZOOM_STEP, stage.clientWidth, stage.clientHeight);
+        applyZoom();
+      });
+      lightbox?.querySelector('[data-action="zoom-reset"]')?.addEventListener('click', () => {
+        zoom = resetZoom();
+        applyZoom();
+      });
+    }
 
     // ── Lightbox keyboard shortcuts ───────────────────────────
 
@@ -369,13 +367,16 @@ const mainImageAlt = primary?.alt || alt;
         showNext();
       } else if (e.key === '+' || e.key === '=') {
         e.preventDefault();
-        zoomBy(1.25);
+        zoom = zoomBy(zoom, ZOOM_STEP, stage?.clientWidth ?? 0, stage?.clientHeight ?? 0);
+        applyZoom();
       } else if (e.key === '-') {
         e.preventDefault();
-        zoomBy(1 / 1.25);
+        zoom = zoomBy(zoom, 1 / ZOOM_STEP, stage?.clientWidth ?? 0, stage?.clientHeight ?? 0);
+        applyZoom();
       } else if (e.key === '0') {
         e.preventDefault();
-        resetZoom();
+        zoom = resetZoom();
+        applyZoom();
       }
     }
 
