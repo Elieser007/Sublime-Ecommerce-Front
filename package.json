@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@astrojs/check": "0.9.10",
-    "astro": "7.2.0",
+    "astro": "7.2.8",
     "better-auth": "1.6.26",
     "typescript": "7.0.2"
   },
