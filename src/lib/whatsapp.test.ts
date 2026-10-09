@@ -51,6 +51,36 @@ describe("buildCartMessage", () => {
     expect(message).toContain("1x");
   });
 
+  it("places the currency symbol right after each amount in the product line", () => {
+    const message = buildCartMessage(mockCart);
+
+    // quantity x unit price = subtotal, with "Gs." on the right of each number
+    expect(message).toContain("2x120.000Gs. = *240.000Gs.*");
+    expect(message).toContain("1x85.000Gs. = *85.000Gs.*");
+  });
+
+  it("separates every product with a blank line so each one is visually distinct", () => {
+    const lines = buildCartMessage(mockCart).split("\n");
+    const secondProductIndex = lines.findIndex((line) => line.includes("Tote Bag"));
+
+    expect(secondProductIndex).toBeGreaterThan(0);
+    expect(lines[secondProductIndex - 1]).toBe("");
+  });
+
+  it("leaves one blank line between the last product and the total", () => {
+    const lines = buildCartMessage(mockCart).split("\n");
+    const totalIndex = lines.findIndex((line) => line.includes("Total:"));
+
+    expect(totalIndex).toBeGreaterThan(0);
+    expect(lines[totalIndex - 1]).toBe("");
+    expect(lines[totalIndex - 2]).not.toBe("");
+  });
+
+  it("keeps the currency symbol on the right of the total too", () => {
+    // Total: (120000 * 2) + (85000 * 1) = 325000
+    expect(buildCartMessage(mockCart)).toContain("*Total: 325.000Gs.*");
+  });
+
   it("includes prices in Gs.", () => {
     const message = buildCartMessage(mockCart);
 
@@ -173,8 +203,8 @@ describe("buildCartMessage", () => {
     ];
     const message = buildCartMessage(cart);
     // unit = 17000 + 1000 = 18000; subtotal = 24 x 18000 = 432.000
-    expect(message).toContain("24xGs. 18.000 = *Gs. 432.000*");
-    expect(message).toContain("*Total: Gs. 432.000*");
+    expect(message).toContain("24x18.000Gs. = *432.000Gs.*");
+    expect(message).toContain("*Total: 432.000Gs.*");
   });
 
   it("shows the PURE applicable tier price in the volume line, ignoring modifiers (recompute-first)", () => {
@@ -191,11 +221,11 @@ describe("buildCartMessage", () => {
     ];
     const message = buildCartMessage(cart);
     // 📦 shows tier price 17.000, never the modifier-inclusive 18.000
-    expect(message).toContain("24+ unds): Gs. 17.000/u");
-    expect(message).not.toContain("24+ unds): Gs. 18.000");
+    expect(message).toContain("24+ unds): 17.000Gs./u");
+    expect(message).not.toContain("24+ unds): 18.000Gs.");
     // Unit line and totals keep the modifier-inclusive effective price
-    expect(message).toContain("24xGs. 18.000 = *Gs. 432.000*");
-    expect(message).toContain("*Total: Gs. 432.000*");
+    expect(message).toContain("24x18.000Gs. = *432.000Gs.*");
+    expect(message).toContain("*Total: 432.000Gs.*");
   });
 
   it("does not show a volume line or legacy warning when tiers exist but none applies", () => {

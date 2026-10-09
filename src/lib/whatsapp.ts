@@ -31,13 +31,13 @@ export function buildCartMessage(cart: CartItem[]): string {
     }
 
     lines.push(
-      `  ${item.quantity}xGs. ${formatGuaranies(unitPrice)} = *Gs. ${formatGuaranies(subtotal)}*`
+      `  ${item.quantity}x${formatGuaranies(unitPrice)}Gs. = *${formatGuaranies(subtotal)}Gs.*`
     );
 
     const applicableTier = getApplicableTier(item);
     if (applicableTier) {
       lines.push(
-        `  📦 Precio por volumen (${applicableTier.min_quantity}+ unds): Gs. ${formatGuaranies(applicableTier.price)}/u`
+        `  📦 Precio por volumen (${applicableTier.min_quantity}+ unds): ${formatGuaranies(applicableTier.price)}Gs./u`
       );
 
       if (item.quantity < applicableTier.min_quantity) {
@@ -51,7 +51,7 @@ export function buildCartMessage(cart: CartItem[]): string {
         const tierPrice = getEffectivePrice(item);
 
         lines.push(
-          `  📦 Precio por volumen (${tierMinQty}+ unds): Gs. ${formatGuaranies(tierPrice)}/u`
+          `  📦 Precio por volumen (${tierMinQty}+ unds): ${formatGuaranies(tierPrice)}Gs./u`
         );
 
         if (item.quantity < tierMinQty) {
@@ -61,12 +61,14 @@ export function buildCartMessage(cart: CartItem[]): string {
         }
       }
     }
+
+    // Blank line closes the product block so each product reads as a separate unit.
+    lines.push("");
   });
 
   const formattedTotal = formatGuaranies(total);
 
-  lines.push("");
-  lines.push(`💰 *Total: Gs. ${formattedTotal}*`);
+  lines.push(`💰 *Total: ${formattedTotal}Gs.*`);
   lines.push("");
   lines.push("📝 Confirmo mi pedido. ¡Gracias!");
 
