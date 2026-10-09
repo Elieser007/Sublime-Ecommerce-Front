@@ -1,0 +1,26 @@
+# Dependabot configuration for the Astro storefront (Cloudflare Pages).
+#
+# Why this file exists: pnpm 11 enables the supply-chain policy
+# `minimumReleaseAge` (24 h by default) and `pnpm install --frozen-lockfile`
+# verifies every lockfile entry against the registry before installing. A
+# dependency published inside that window fails the Cloudflare build with
+# ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION, before any build step runs.
+#
+# Dependabot regenerates the whole pnpm-lock.yaml on every update pull request,
+# so a single bump can drag a freshly published transitive version into the
+# lockfile. `cooldown` keeps Dependabot from proposing a version until it is a
+# few days old. Security updates are never delayed.
+#
+# Note: cooldown governs the versions Dependabot proposes, not the transitive
+# re-resolution pnpm performs while updating the lockfile. The exact pins in
+# the `overrides` block of pnpm-workspace.yaml are the load-bearing part of
+# this protection.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    # Version updates wait 7 days after a release; security updates are exempt.
+    cooldown:
+      default-days: 7
