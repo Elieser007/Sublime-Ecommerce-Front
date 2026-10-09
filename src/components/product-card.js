@@ -13,7 +13,7 @@
 
 import { formatPrice } from '../lib/format';
 import { escapeHtml } from '../lib/escape-html';
-import { getBestVolumeBadge, getVolumeTierCount } from '../lib/price-utils';
+import { getVolumeBadgeInfo } from '../lib/price-utils';
 
 class ProductCard extends HTMLElement {
   connectedCallback() {
@@ -24,9 +24,9 @@ class ProductCard extends HTMLElement {
     const imageUrl = product.image || '/placeholder.webp';
     const category = product.category || '';
     const priceTiers = product.price_tiers || [];
-    const bestTier = getBestVolumeBadge(priceTiers);
-    const volumeTierCount = getVolumeTierCount(priceTiers);
-    const extraVolumeTiers = bestTier && volumeTierCount > 1 ? volumeTierCount - 1 : 0;
+    // Entry tier (lowest quantity that unlocks a discount), never the deepest
+    // discount: the badge advertises what the buyer can actually reach.
+    const badge = getVolumeBadgeInfo(priceTiers);
 
     const shadow = this.attachShadow({ mode: 'open' });
 
@@ -223,8 +223,8 @@ class ProductCard extends HTMLElement {
             <h3 class="product-name">${escapeHtml(product.name)}</h3>
             <div class="product-price-row">
               <p class="product-price">Gs. ${escapeHtml(formatPrice(product.price))}</p>
-              ${bestTier ? `<span class="volume-badge visible">Desde ${escapeHtml(bestTier.min_quantity)} unds: Gs. ${escapeHtml(formatPrice(bestTier.price))}</span>` : '<span class="volume-badge"></span>'}
-              ${extraVolumeTiers > 0 ? `<span class="volume-badge-extra visible">+${escapeHtml(extraVolumeTiers)}</span>` : ''}
+              ${badge ? `<span class="volume-badge visible">${escapeHtml(badge.label)}</span>` : '<span class="volume-badge"></span>'}
+              ${badge && badge.extraCount > 0 ? `<span class="volume-badge-extra visible">+${escapeHtml(String(badge.extraCount))}</span>` : ''}
             </div>
           </div>
         </a>

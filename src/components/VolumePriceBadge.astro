@@ -2,11 +2,12 @@
 /**
  * VolumePriceBadge — Shows "Desde X unds: Gs. Y" badge on product cards
  * 
- * Receives price_tiers array, computes best volume tier, renders badge.
+ * Receives price_tiers array, computes the ENTRY volume tier (the lowest
+ * quantity that unlocks a discount), renders badge.
  * Hidden when no discount tiers exist.
  */
 
-import { getBestVolumeBadge, formatTierLabel } from "../lib/price-utils";
+import { getEntryVolumeTier, formatTierLabel } from "../lib/price-utils";
 
 interface Props {
   priceTiers?: Array<{
@@ -20,13 +21,13 @@ interface Props {
 
 const { priceTiers } = Astro.props;
 
-const bestTier = getBestVolumeBadge(priceTiers || []);
-const showBadge = bestTier !== null;
-const label = showBadge ? formatTierLabel(bestTier!) : "";
+const entryTier = getEntryVolumeTier(priceTiers || []);
+const showBadge = entryTier !== null;
+const label = showBadge ? formatTierLabel(entryTier!) : "";
 ---
 
 {showBadge && (
-  <span class="volume-badge" data-tier-id={bestTier!.id}>
+  <span class="volume-badge" data-tier-id={entryTier!.id}>
     {label}
   </span>
 )}

@@ -4,7 +4,7 @@ import { formatPrice } from '../lib/format';
 import { isSelectionComplete } from '../lib/variant-logic';
 import { resolveAvailable, resolveFinalPrice } from '../lib/variant-filter';
 import { resolveVariantUiState } from '../lib/variant-fallback';
-import { getBestVolumeBadge, getTierPrice, getTierForQuantity, formatTierLabel } from '../lib/price-utils';
+import { getTierPrice, getTierForQuantity, formatTierLabel } from '../lib/price-utils';
 import { qtyDisplayWidth } from '../lib/qty-width';
 import * as modalStack from '../lib/modalStack.js';
 
@@ -184,16 +184,16 @@ class VariantModal extends HTMLElement {
   }
 
   _renderVolumeBadges() {
-    const bestTier = getBestVolumeBadge(this._priceTiers);
-    if (!bestTier) return '';
-
+    // Ascending quantity order: the smallest commitment reads first, matching the
+    // product card badge (the deepest discount is the last badge, not the first).
     const volumeTiers = this._priceTiers
       .filter((t) => t.min_quantity > 1)
       .sort((a, b) => a.min_quantity - b.min_quantity);
-    const orderedTiers = [bestTier, ...volumeTiers.filter((t) => t.id !== bestTier.id)];
+    if (volumeTiers.length === 0) return '';
+
     const activeTier = getTierForQuantity(this._priceTiers, this._quantity);
 
-    return orderedTiers
+    return volumeTiers
       .map((tier) => {
         const isActive = activeTier?.id === tier.id;
         return `

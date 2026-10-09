@@ -18,6 +18,42 @@ export function getVolumeTierCount(tiers: PriceTier[]): number {
   return tiers.filter((t) => t.min_quantity > 1).length;
 }
 
+/**
+ * Entry volume tier: the smallest quantity that unlocks a discount.
+ *
+ * This is what a product badge must advertise. `getBestVolumeBadge` answers a
+ * different question (the deepest discount) and using it in a badge tells the
+ * buyer they need far more units than the offer actually requires — e.g.
+ * "Desde 160 unds" for a product whose first volume tier starts at 60.
+ */
+export function getEntryVolumeTier(tiers: PriceTier[]): PriceTier | null {
+  if (!tiers || tiers.length === 0) return null;
+
+  const volumeTiers = tiers.filter((t) => t.min_quantity > 1);
+  if (volumeTiers.length === 0) return null;
+
+  return volumeTiers.reduce((entry, current) =>
+    current.min_quantity < entry.min_quantity ? current : entry
+  );
+}
+
+/**
+ * Badge view model for a product card: the entry-tier label plus how many
+ * further volume tiers exist (rendered as "+N"). Null when there is nothing to
+ * advertise.
+ */
+export function getVolumeBadgeInfo(
+  tiers: PriceTier[]
+): { label: string; extraCount: number } | null {
+  const entry = getEntryVolumeTier(tiers);
+  if (!entry) return null;
+
+  return {
+    label: formatTierLabel(entry),
+    extraCount: getVolumeTierCount(tiers) - 1,
+  };
+}
+
 export function getTierPrice(tiers: PriceTier[], qty: number, fallbackPrice = 0): number {
   if (!tiers || tiers.length === 0) return fallbackPrice;
 
