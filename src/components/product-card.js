@@ -143,7 +143,7 @@ class ProductCard extends HTMLElement {
           font-size: 18px;
           font-weight: 400;
           line-height: 28px;
-          margin-y: var(--_space-xs);
+          margin-block: var(--_space-xs);
         }
 
         .volume-badge {
