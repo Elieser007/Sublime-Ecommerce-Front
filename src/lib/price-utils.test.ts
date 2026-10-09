@@ -4,14 +4,12 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  getBestVolumeBadge,
   getTierPrice,
   formatTierLabel,
   formatTierOption,
   getTierSavings,
   getTierSavingsPercent,
   getTierForQuantity,
-  isBestVolumeTier,
   getVolumeTierCount,
   getEntryVolumeTier,
   getVolumeBadgeInfo,
@@ -28,55 +26,6 @@ const mockTiersOnlyBase = [
 ];
 
 const emptyTiers: typeof mockTiers = [];
-
-describe("getBestVolumeBadge", () => {
-  it("returns null for empty tiers", () => {
-    expect(getBestVolumeBadge(emptyTiers)).toBeNull();
-  });
-
-  it("returns null when only base tier exists", () => {
-    expect(getBestVolumeBadge(mockTiersOnlyBase)).toBeNull();
-  });
-
-  it("returns tier with lowest price among volume tiers", () => {
-    const best = getBestVolumeBadge(mockTiers);
-    expect(best).not.toBeNull();
-    expect(best!.id).toBe("t3");
-    expect(best!.min_quantity).toBe(50);
-  });
-
-  it("handles unsorted tiers", () => {
-    const unsorted = [
-      { id: "a", branch_id: "b1", branch_name: "P", min_quantity: 10, price: 90000 },
-      { id: "b", branch_id: "b1", branch_name: "P", min_quantity: 1, price: 100000 },
-      { id: "c", branch_id: "b1", branch_name: "P", min_quantity: 50, price: 80000 },
-    ];
-    const best = getBestVolumeBadge(unsorted);
-    expect(best!.id).toBe("c");
-  });
-
-  it("returns lowest-priced tier for batch-shaped data without base row", () => {
-    const batchTiers = [
-      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 216000 },
-      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 408000 },
-    ];
-    const best = getBestVolumeBadge(batchTiers);
-    expect(best).not.toBeNull();
-    expect(best!.id).toBe("v1");
-    expect(best!.price).toBe(216000);
-  });
-
-  it("returns lowest-priced tier regardless of min_quantity order", () => {
-    const reversedPriceTiers = [
-      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 408000 },
-      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 216000 },
-    ];
-    const best = getBestVolumeBadge(reversedPriceTiers);
-    expect(best).not.toBeNull();
-    expect(best!.id).toBe("v2");
-    expect(best!.price).toBe(216000);
-  });
-});
 
 describe("getTierPrice", () => {
   it("returns 0 for empty tiers", () => {
@@ -307,21 +256,6 @@ describe("getVolumeTierCount", () => {
   });
 });
 
-describe("isBestVolumeTier", () => {
-  it("returns true for best volume tier", () => {
-    expect(isBestVolumeTier(mockTiers[2], mockTiers)).toBe(true);
-  });
-
-  it("returns false for other tiers", () => {
-    expect(isBestVolumeTier(mockTiers[0], mockTiers)).toBe(false);
-    expect(isBestVolumeTier(mockTiers[1], mockTiers)).toBe(false);
-  });
-
-  it("returns false when no volume tiers exist", () => {
-    expect(isBestVolumeTier(mockTiersOnlyBase[0], mockTiersOnlyBase)).toBe(false);
-  });
-});
-
 // Real shop shape: the deepest discount needs 160 units, the entry tier 60.
 const shopTiers = [
   { id: "t1", branch_id: "b1", branch_name: "Principal", min_quantity: 1, price: 20000 },
@@ -341,8 +275,8 @@ describe("getEntryVolumeTier", () => {
     expect(entry).not.toBeNull();
     expect(entry!.min_quantity).toBe(60);
     expect(entry!.price).toBe(9000);
-    // The deepest-discount tier is a different concept: it must not be the badge.
-    expect(getBestVolumeBadge(shopTiers)!.min_quantity).toBe(160);
+    // The deepest-discount row is a different concept: it must not be the badge.
+    expect(shopTiers[2].min_quantity).toBe(160);
   });
 
   it("ignores array order", () => {
