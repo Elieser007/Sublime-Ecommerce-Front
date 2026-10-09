@@ -1,9 +1,20 @@
+# pnpm workspace configuration for the Astro storefront (Cloudflare Pages).
+#
+# Supply-chain policy: pnpm 11 applies `minimumReleaseAge` (24 h) by default and
+# `pnpm install --frozen-lockfile` fails hard when a lockfile entry was
+# published inside that window. The opt-out that used to live here and in
+# .npmrc disabled the gate; the exact pins below remove the cause instead.
+minimumReleaseAge: 1440
+
 allowBuilds:
   esbuild: true
   sharp: true
-minimumReleaseAge: 0
 
+# Exact pins for security fixes on transitive dependencies. These ranges used
+# to re-resolve to the newest matching release on every lockfile regeneration,
+# which is exactly what tripped the release-age gate in the backend repo
+# (postcss -> nanoid). Keep them exact.
 overrides:
-  fast-uri: ^3.1.5
-  js-yaml: ^4.3.1
-  nanoid: ^3.3.17
+  fast-uri: 3.1.5
+  js-yaml: 4.3.1
+  nanoid: 3.3.18

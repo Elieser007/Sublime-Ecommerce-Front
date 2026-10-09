@@ -1,21 +1,33 @@
 import type { PriceTier } from "./public-api";
 import { formatPrice } from "./format";
 
-export function getBestVolumeBadge(tiers: PriceTier[]): PriceTier | null {
+export function getVolumeTierCount(tiers: PriceTier[]): number {
+  if (!tiers || tiers.length === 0) return 0;
+
+  return tiers.filter((t) => t.min_quantity > 1).length;
+}
+
+export function getEntryVolumeTier(tiers: PriceTier[]): PriceTier | null {
   if (!tiers || tiers.length === 0) return null;
 
   const volumeTiers = tiers.filter((t) => t.min_quantity > 1);
   if (volumeTiers.length === 0) return null;
 
-  return volumeTiers.reduce((best, current) =>
-    current.price < best.price ? current : best
+  return volumeTiers.reduce((entry, current) =>
+    current.min_quantity < entry.min_quantity ? current : entry
   );
 }
 
-export function getVolumeTierCount(tiers: PriceTier[]): number {
-  if (!tiers || tiers.length === 0) return 0;
+export function getVolumeBadgeInfo(
+  tiers: PriceTier[]
+): { label: string; extraCount: number } | null {
+  const entry = getEntryVolumeTier(tiers);
+  if (!entry) return null;
 
-  return tiers.filter((t) => t.min_quantity > 1).length;
+  return {
+    label: formatTierLabel(entry),
+    extraCount: getVolumeTierCount(tiers) - 1,
+  };
 }
 
 export function getTierPrice(tiers: PriceTier[], qty: number, fallbackPrice = 0): number {
@@ -72,11 +84,6 @@ export function getTierForQuantity(tiers: PriceTier[], qty: number): PriceTier |
   }
 
   return applicable;
-}
-
-export function isBestVolumeTier(tier: PriceTier, tiers: PriceTier[]): boolean {
-  const best = getBestVolumeBadge(tiers);
-  return best?.id === tier.id;
 }
 
 export function formatTierOption(tier: PriceTier): string {

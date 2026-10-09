@@ -4,15 +4,15 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  getBestVolumeBadge,
   getTierPrice,
   formatTierLabel,
   formatTierOption,
   getTierSavings,
   getTierSavingsPercent,
   getTierForQuantity,
-  isBestVolumeTier,
   getVolumeTierCount,
+  getEntryVolumeTier,
+  getVolumeBadgeInfo,
 } from "./price-utils";
 
 const mockTiers = [
@@ -26,55 +26,6 @@ const mockTiersOnlyBase = [
 ];
 
 const emptyTiers: typeof mockTiers = [];
-
-describe("getBestVolumeBadge", () => {
-  it("returns null for empty tiers", () => {
-    expect(getBestVolumeBadge(emptyTiers)).toBeNull();
-  });
-
-  it("returns null when only base tier exists", () => {
-    expect(getBestVolumeBadge(mockTiersOnlyBase)).toBeNull();
-  });
-
-  it("returns tier with lowest price among volume tiers", () => {
-    const best = getBestVolumeBadge(mockTiers);
-    expect(best).not.toBeNull();
-    expect(best!.id).toBe("t3");
-    expect(best!.min_quantity).toBe(50);
-  });
-
-  it("handles unsorted tiers", () => {
-    const unsorted = [
-      { id: "a", branch_id: "b1", branch_name: "P", min_quantity: 10, price: 90000 },
-      { id: "b", branch_id: "b1", branch_name: "P", min_quantity: 1, price: 100000 },
-      { id: "c", branch_id: "b1", branch_name: "P", min_quantity: 50, price: 80000 },
-    ];
-    const best = getBestVolumeBadge(unsorted);
-    expect(best!.id).toBe("c");
-  });
-
-  it("returns lowest-priced tier for batch-shaped data without base row", () => {
-    const batchTiers = [
-      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 216000 },
-      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 408000 },
-    ];
-    const best = getBestVolumeBadge(batchTiers);
-    expect(best).not.toBeNull();
-    expect(best!.id).toBe("v1");
-    expect(best!.price).toBe(216000);
-  });
-
-  it("returns lowest-priced tier regardless of min_quantity order", () => {
-    const reversedPriceTiers = [
-      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 408000 },
-      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 216000 },
-    ];
-    const best = getBestVolumeBadge(reversedPriceTiers);
-    expect(best).not.toBeNull();
-    expect(best!.id).toBe("v2");
-    expect(best!.price).toBe(216000);
-  });
-});
 
 describe("getTierPrice", () => {
   it("returns 0 for empty tiers", () => {
@@ -305,17 +256,69 @@ describe("getVolumeTierCount", () => {
   });
 });
 
-describe("isBestVolumeTier", () => {
-  it("returns true for best volume tier", () => {
-    expect(isBestVolumeTier(mockTiers[2], mockTiers)).toBe(true);
+// Real shop shape: the deepest discount needs 160 units, the entry tier 60.
+const shopTiers = [
+  { id: "t1", branch_id: "b1", branch_name: "Principal", min_quantity: 1, price: 20000 },
+  { id: "t2", branch_id: "b1", branch_name: "Principal", min_quantity: 60, price: 9000 },
+  { id: "t3", branch_id: "b1", branch_name: "Principal", min_quantity: 160, price: 6500 },
+];
+
+describe("getEntryVolumeTier", () => {
+  it("returns null for empty tiers and for a base tier only", () => {
+    expect(getEntryVolumeTier(emptyTiers)).toBeNull();
+    expect(getEntryVolumeTier(mockTiersOnlyBase)).toBeNull();
   });
 
-  it("returns false for other tiers", () => {
-    expect(isBestVolumeTier(mockTiers[0], mockTiers)).toBe(false);
-    expect(isBestVolumeTier(mockTiers[1], mockTiers)).toBe(false);
+  it("returns the tier with the LOWEST quantity, not the lowest price", () => {
+    const entry = getEntryVolumeTier(shopTiers);
+
+    expect(entry).not.toBeNull();
+    expect(entry!.min_quantity).toBe(60);
+    expect(entry!.price).toBe(9000);
+    // The deepest-discount row is a different concept: it must not be the badge.
+    expect(shopTiers[2].min_quantity).toBe(160);
   });
 
-  it("returns false when no volume tiers exist", () => {
-    expect(isBestVolumeTier(mockTiersOnlyBase[0], mockTiersOnlyBase)).toBe(false);
+  it("ignores array order", () => {
+    const unsorted = [shopTiers[2], shopTiers[0], shopTiers[1]];
+
+    expect(getEntryVolumeTier(unsorted)!.id).toBe("t2");
+  });
+
+  it("picks the lowest quantity for batch-shaped data without a base row", () => {
+    const batchTiers = [
+      { id: "v2", branch_id: "b1", branch_name: "Principal", min_quantity: 24, price: 408000 },
+      { id: "v1", branch_id: "b1", branch_name: "Principal", min_quantity: 12, price: 216000 },
+    ];
+
+    expect(getEntryVolumeTier(batchTiers)!.id).toBe("v1");
+  });
+});
+
+describe("getVolumeBadgeInfo", () => {
+  it("builds the badge label from the entry tier", () => {
+    const info = getVolumeBadgeInfo(shopTiers);
+
+    expect(info).toEqual({ label: "Desde 60 unds: Gs. 9.000", extraCount: 1 });
+  });
+
+  it("counts the remaining volume tiers for the +N badge", () => {
+    const fourTiers = [
+      ...shopTiers,
+      { id: "t4", branch_id: "b1", branch_name: "Principal", min_quantity: 500, price: 5000 },
+    ];
+
+    expect(getVolumeBadgeInfo(fourTiers)!.extraCount).toBe(2);
+  });
+
+  it("reports no extras when there is a single volume tier", () => {
+    const single = [shopTiers[0], shopTiers[1]];
+
+    expect(getVolumeBadgeInfo(single)!.extraCount).toBe(0);
+  });
+
+  it("returns null when there is nothing to advertise", () => {
+    expect(getVolumeBadgeInfo(emptyTiers)).toBeNull();
+    expect(getVolumeBadgeInfo(mockTiersOnlyBase)).toBeNull();
   });
 });

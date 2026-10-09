@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { getBestVolumeBadge, formatTierLabel } from "../lib/price-utils";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import { getEntryVolumeTier, formatTierLabel } from "../lib/price-utils";
+
+const badgeSource = readFileSync(resolve(__dirname, "VolumePriceBadge.astro"), "utf-8");
 
 // Mock the component behavior
 const mockTiers = [
@@ -13,20 +17,25 @@ const mockTiers = [
 ];
 
 describe("VolumePriceBadge logic", () => {
-  it("getBestVolumeBadge returns null for empty tiers", () => {
-    expect(getBestVolumeBadge([])).toBeNull();
+  it("getEntryVolumeTier returns null for empty tiers", () => {
+    expect(getEntryVolumeTier([])).toBeNull();
   });
 
-  it("getBestVolumeBadge returns null for only base tier", () => {
+  it("getEntryVolumeTier returns null for only base tier", () => {
     const onlyBase = [{ id: "t1", branch_id: "b1", branch_name: "P", min_quantity: 1, price: 100000 }];
-    expect(getBestVolumeBadge(onlyBase)).toBeNull();
+    expect(getEntryVolumeTier(onlyBase)).toBeNull();
   });
 
-  it("getBestVolumeBadge returns lowest price discount tier", () => {
-    const result = getBestVolumeBadge(mockTiers);
+  it("getEntryVolumeTier returns the lowest quantity discount tier", () => {
+    const result = getEntryVolumeTier(mockTiers);
     expect(result).not.toBeNull();
-    expect(result!.min_quantity).toBe(50);
-    expect(result!.price).toBe(80000);
+    expect(result!.min_quantity).toBe(10);
+    expect(result!.price).toBe(90000);
+  });
+
+  it("component renders the entry tier, never the deepest discount", () => {
+    expect(badgeSource).toContain("getEntryVolumeTier");
+    expect(badgeSource).not.toContain("getBestVolumeBadge");
   });
 
   it("formatTierLabel formats correctly", () => {
