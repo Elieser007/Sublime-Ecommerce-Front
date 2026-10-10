@@ -17,9 +17,14 @@ allowBuilds:
 #
 # devalue, fast-uri, js-yaml, sharp, smol-toml, source-map-js and svgo are
 # pinned to the patched versions required by the open Dependabot advisories.
+# http-cache-semantics is pinned to 4.3.0 as well: GitHub's advisory metadata
+# has no `patched_versions` entry (so Dependabot reports "no patched version"),
+# but 4.3.0 sits outside the vulnerable `<= 4.2.0` range and upstream closed the
+# advisory (issue #56) with the fixes released in 4.3.0.
 overrides:
   devalue: 5.9.4
   fast-uri: 3.1.8
+  http-cache-semantics: 4.3.0
   js-yaml: 4.3.2
   nanoid: 3.3.18
   sharp: 0.35.5
