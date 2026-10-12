@@ -109,18 +109,10 @@ try {
     </div>
   </section>
 
-  <!-- Initialize product-card Web Components -->
-  <script is:inline>
-    document.querySelectorAll('product-card').forEach((el) => {
-      const attr = el.getAttribute('product');
-      if (attr) {
-        try {
-          const data = JSON.parse(attr);
-          el.product = data;
-        } catch (e) {}
-      }
-    });
-  </script>
+  <!-- No page-level init script: product-card reads its `product` attribute in
+       connectedCallback. A per-page is:inline payload here would be deduped by
+       ClientRouter and silently skipped on an SPA revisit
+       (odd/tasks/product-detail-spa-revisit.md). -->
 </BaseLayout>
 
 <style>
