@@ -137,6 +137,14 @@ const mainImageAlt = primary?.alt || alt;
   // wiring re-arms against the CURRENT page's nodes. All zoom/pan/nav math
   // comes from the pure lib module; this script is thin DOM wiring.
   function initGalleries() {
+    // The lightbox locks body scroll while open; an SPA navigation with
+    // the lightbox open would leave the new page unscrollable. Release the
+    // lock only when the gallery itself left it behind — other modals also
+    // write body overflow, so never clobber theirs (see __galleryBodyLock).
+    if ((window as any).__galleryBodyLock) {
+      document.body.style.overflow = '';
+      (window as any).__galleryBodyLock = false;
+    }
     const galleries = Array.from(document.querySelectorAll('[data-gallery]'));
 
     if (galleries.length === 0) {
@@ -151,277 +159,279 @@ const mainImageAlt = primary?.alt || alt;
     }
 
     galleries.forEach((gallery) => {
-    const mainImg = gallery.querySelector('[data-main-image]') as HTMLImageElement;
-    const thumbs = Array.from(gallery.querySelectorAll('[data-thumb-id]')) as HTMLButtonElement[];
-    const mainViewer = gallery.querySelector('.gallery-main') as HTMLElement;
-    const counter = gallery.querySelector('[data-counter]') as HTMLElement | null;
-    const fullscreenBtn = gallery.querySelector('[data-action="fullscreen"]') as HTMLButtonElement | null;
-    const lightbox = gallery.querySelector('[data-lightbox]') as HTMLElement | null;
-    const stage = lightbox?.querySelector('[data-lightbox-stage]') as HTMLElement | null;
-    let currentIndex = 0;
+      const mainImg = gallery.querySelector('[data-main-image]') as HTMLImageElement;
+      const thumbs = Array.from(gallery.querySelectorAll('[data-thumb-id]')) as HTMLButtonElement[];
+      const mainViewer = gallery.querySelector('.gallery-main') as HTMLElement;
+      const counter = gallery.querySelector('[data-counter]') as HTMLElement | null;
+      const fullscreenBtn = gallery.querySelector('[data-action="fullscreen"]') as HTMLButtonElement | null;
+      const lightbox = gallery.querySelector('[data-lightbox]') as HTMLElement | null;
+      const stage = lightbox?.querySelector('[data-lightbox-stage]') as HTMLElement | null;
+      let currentIndex = 0;
 
-    // Lightbox zoom/pan state (plain ZoomState object, fed by lib functions).
-    let zoom: ZoomState = resetZoom();
-    let activePointers = new Map<number, { x: number; y: number }>();
-    let pinchStart: { dist: number; scale: number } | null = null;
-    let dragOffset: { x: number; y: number } | null = null;
+      // Lightbox zoom/pan state (plain ZoomState object, fed by lib functions).
+      let zoom: ZoomState = resetZoom();
+      let activePointers = new Map<number, { x: number; y: number }>();
+      let pinchStart: { dist: number; scale: number } | null = null;
+      let dragOffset: { x: number; y: number } | null = null;
 
-    if (!mainImg) return;
+      if (!mainImg) return;
 
-    // Fractional stage dimensions (getBoundingClientRect, not clientWidth/
-    // clientHeight) so pan clamping never exceeds the true stage bounds.
-    const stageDims = () => {
-      if (!stage) return { w: 0, h: 0 };
-      const r = stage.getBoundingClientRect();
-      return { w: r.width, h: r.height };
-    };
-
-    function updateMain(index: number) {
-      const thumb = thumbs[index];
-      if (!thumb) return;
-      const imgSrc = thumb.querySelector('img')?.src;
-      const imgAlt = thumb.querySelector('img')?.alt;
-      if (imgSrc && mainImg) {
-        mainImg.src = imgSrc;
-        mainImg.alt = imgAlt || '';
-      }
-      // Update active state
-      thumbs.forEach((t, i) => {
-        t.classList.toggle('gallery-thumb--active', i === index);
-        t.setAttribute('aria-selected', i === index ? 'true' : 'false');
-      });
-      if (counter) counter.textContent = formatCounter(index, thumbs.length);
-      currentIndex = index;
-      if (lightbox && !lightbox.hidden) renderLightbox();
-    }
-
-    // ── Lightbox ──────────────────────────────────────────────
-
-    function renderLightbox() {
-      if (!lightbox) return;
-      const lightboxImg = lightbox.querySelector('[data-lightbox-img]') as HTMLImageElement;
-      const lightboxCounter = lightbox.querySelector('[data-lightbox-counter]') as HTMLElement | null;
-      const lightboxThumbs = Array.from(lightbox.querySelectorAll('[data-lightbox-thumb-idx]')) as HTMLButtonElement[];
-
-      const thumb = thumbs[currentIndex];
-      if (lightboxImg) {
-        if (thumb) {
-          lightboxImg.src = thumb.querySelector('img')?.src || '';
-          lightboxImg.alt = thumb.getAttribute('aria-label') || '';
-        } else if (mainImg) {
-          // Single-image products: no thumb strip, use the main image itself.
-          lightboxImg.src = mainImg.src;
-          lightboxImg.alt = mainImg.alt || '';
-        }
-      }
-      if (lightboxCounter) lightboxCounter.textContent = formatCounter(currentIndex, Math.max(thumbs.length, 1));
-      lightboxThumbs.forEach((t, i) => {
-        t.classList.toggle('lightbox-thumb--active', i === currentIndex);
-        t.setAttribute('aria-selected', i === currentIndex ? 'true' : 'false');
-      });
-      // REQ-16: zoom resets on image change and lightbox open.
-      zoom = resetZoom();
-      applyZoom();
-    }
-
-    function openLightbox() {
-      if (!lightbox) return;
-      renderLightbox();
-      lightbox.hidden = false;
-      document.body.style.overflow = 'hidden';
-      lightbox.querySelector('[data-action="lightbox-close"]')?.focus();
-    }
-
-    function closeLightbox() {
-      if (!lightbox || lightbox.hidden) return;
-      lightbox.hidden = true;
-      document.body.style.overflow = '';
-      fullscreenBtn?.focus();
-    }
-
-    function applyZoom() {
-      const lightboxImg = lightbox?.querySelector('[data-lightbox-img]') as HTMLImageElement;
-      if (lightboxImg) lightboxImg.style.transform = applyTransform(zoom);
-    }
-
-    const showPrev = () => updateMain(prevIndex(currentIndex, thumbs.length));
-    const showNext = () => updateMain(nextIndex(currentIndex, thumbs.length));
-
-    // ── Gallery events ────────────────────────────────────────
-
-    // Clicking the main image opens the lightbox (unless a control was hit).
-    mainViewer?.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('button')) return;
-      openLightbox();
-    });
-
-    // Hover zoom (D5 / REQ-7): --x/--y origin tracks the pointer position
-    mainViewer?.addEventListener('mousemove', (e) => {
-      const rect = mainViewer.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-      mainViewer.style.setProperty('--x', `${x}%`);
-      mainViewer.style.setProperty('--y', `${y}%`);
-    });
-    mainViewer?.addEventListener('mouseenter', () => {
-      mainImg?.classList.add('gallery-main__img--zoomed');
-    });
-    mainViewer?.addEventListener('mouseleave', () => {
-      mainImg?.classList.remove('gallery-main__img--zoomed');
-    });
-
-    // Keyboard navigation (REQ-9): ←/→ wrap around from focused controls
-    gallery.addEventListener('keydown', (e) => {
-      if (thumbs.length === 0) return;
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        updateMain(nextIndex(currentIndex, thumbs.length));
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        updateMain(prevIndex(currentIndex, thumbs.length));
-      }
-    });
-
-    // Thumbnail clicks
-    thumbs.forEach((thumb, idx) => {
-      thumb.addEventListener('click', () => updateMain(idx));
-    });
-
-    // Arrow navigation
-    gallery.querySelector('[data-action="prev"]')?.addEventListener('click', () => {
-      showPrev();
-    });
-    gallery.querySelector('[data-action="next"]')?.addEventListener('click', () => {
-      showNext();
-    });
-
-    // Fullscreen toggle
-    fullscreenBtn?.addEventListener('click', () => openLightbox());
-    lightbox?.querySelector('[data-action="lightbox-close"]')?.addEventListener('click', () => closeLightbox());
-    lightbox?.querySelector('[data-action="lightbox-prev"]')?.addEventListener('click', () => showPrev());
-    lightbox?.querySelector('[data-action="lightbox-next"]')?.addEventListener('click', () => showNext());
-
-    // Lightbox thumbnail clicks
-    lightbox?.querySelectorAll('[data-lightbox-thumb-idx]').forEach((thumb, idx) => {
-      thumb.addEventListener('click', () => updateMain(idx));
-    });
-
-    // Click on the dark backdrop (outside controls) closes the lightbox
-    lightbox?.addEventListener('click', (e) => {
-      if (e.target === lightbox) closeLightbox();
-    });
-
-    // ── Lightbox zoom & pan (wheel, buttons, drag, pinch) ─────
-
-    if (stage) {
-      stage.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const rect = stage.getBoundingClientRect();
-        const { w, h } = stageDims();
-        // wheelZoomFactor keeps the locked conventions: plain deltaY > 0 and
-        // trackpad pinch (ctrlKey, deltaY < 0) zoom in; zero deltaY is a no-op.
-        zoom = zoomAt(zoom, e.clientX - rect.left, e.clientY - rect.top, wheelZoomFactor(e.ctrlKey, e.deltaY), w, h);
-        applyZoom();
-      }, { passive: false });
-
-      stage.addEventListener('dblclick', (e) => {
-        const rect = stage.getBoundingClientRect();
-        const { w, h } = stageDims();
-        zoom = toggleZoomAt(zoom, e.clientX - rect.left, e.clientY - rect.top, w, h);
-        applyZoom();
-      });
-
-      stage.addEventListener('pointerdown', (e) => {
-        stage.setPointerCapture(e.pointerId);
-        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (activePointers.size === 2) {
-          const [a, b] = Array.from(activePointers.values());
-          pinchStart = { dist: Math.hypot(a.x - b.x, a.y - b.y), scale: zoom.scale };
-          dragOffset = null;
-        } else {
-          pinchStart = null;
-          dragOffset = { x: e.clientX - zoom.tx, y: e.clientY - zoom.ty };
-        }
-      });
-
-      stage.addEventListener('pointermove', (e) => {
-        if (!activePointers.has(e.pointerId)) return;
-        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        const { w, h } = stageDims();
-        if (activePointers.size === 2 && pinchStart) {
-          const [a, b] = Array.from(activePointers.values());
-          const dist = Math.hypot(a.x - b.x, a.y - b.y);
-          zoom = clampPan({ ...zoom, scale: pinchScale(pinchStart.scale, pinchStart.dist, dist) }, w, h);
-          applyZoom();
-        } else if (activePointers.size === 1 && zoom.scale > 1 && dragOffset) {
-          zoom = panTo(zoom, e.clientX - dragOffset.x, e.clientY - dragOffset.y, w, h);
-          applyZoom();
-        }
-      });
-
-      const endPointer = (e: PointerEvent) => {
-        activePointers.delete(e.pointerId);
-        if (activePointers.size < 2) pinchStart = null;
-        if (activePointers.size === 0) dragOffset = null;
+      // Fractional stage dimensions (getBoundingClientRect, not clientWidth/
+      // clientHeight) so pan clamping never exceeds the true stage bounds.
+      const stageDims = () => {
+        if (!stage) return { w: 0, h: 0 };
+        const r = stage.getBoundingClientRect();
+        return { w: r.width, h: r.height };
       };
-      stage.addEventListener('pointerup', endPointer);
-      stage.addEventListener('pointercancel', endPointer);
 
-      // Zoom toolbar buttons (centered on the stage)
-      lightbox?.querySelector('[data-action="zoom-in"]')?.addEventListener('click', () => {
-        const { w, h } = stageDims();
-        zoom = zoomBy(zoom, ZOOM_STEP, w, h);
-        applyZoom();
-      });
-      lightbox?.querySelector('[data-action="zoom-out"]')?.addEventListener('click', () => {
-        const { w, h } = stageDims();
-        zoom = zoomBy(zoom, 1 / ZOOM_STEP, w, h);
-        applyZoom();
-      });
-      lightbox?.querySelector('[data-action="zoom-reset"]')?.addEventListener('click', () => {
-        zoom = resetZoom();
-        applyZoom();
-      });
-    }
+      function updateMain(index: number) {
+        const thumb = thumbs[index];
+        if (!thumb) return;
+        const imgSrc = thumb.querySelector('img')?.src;
+        const imgAlt = thumb.querySelector('img')?.alt;
+        if (imgSrc && mainImg) {
+          mainImg.src = imgSrc;
+          mainImg.alt = imgAlt || '';
+        }
+        // Update active state
+        thumbs.forEach((t, i) => {
+          t.classList.toggle('gallery-thumb--active', i === index);
+          t.setAttribute('aria-selected', i === index ? 'true' : 'false');
+        });
+        if (counter) counter.textContent = formatCounter(index, thumbs.length);
+        currentIndex = index;
+        if (lightbox && !lightbox.hidden) renderLightbox();
+      }
 
-    // ── Lightbox keyboard shortcuts ───────────────────────────
+      // ── Lightbox ──────────────────────────────────────────────
 
-    function handleLightboxKey(e: KeyboardEvent) {
-      if (!lightbox || lightbox.hidden) return;
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeLightbox();
-      } else if (e.key === 'ArrowLeft' && thumbs.length > 0) {
-        e.preventDefault();
-        showPrev();
-      } else if (e.key === 'ArrowRight' && thumbs.length > 0) {
-        e.preventDefault();
-        showNext();
-      } else if (e.key === '+' || e.key === '=') {
-        e.preventDefault();
-        const { w, h } = stageDims();
-        zoom = zoomBy(zoom, ZOOM_STEP, w, h);
-        applyZoom();
-      } else if (e.key === '-') {
-        e.preventDefault();
-        const { w, h } = stageDims();
-        zoom = zoomBy(zoom, 1 / ZOOM_STEP, w, h);
-        applyZoom();
-      } else if (e.key === '0') {
-        e.preventDefault();
+      function renderLightbox() {
+        if (!lightbox) return;
+        const lightboxImg = lightbox.querySelector('[data-lightbox-img]') as HTMLImageElement;
+        const lightboxCounter = lightbox.querySelector('[data-lightbox-counter]') as HTMLElement | null;
+        const lightboxThumbs = Array.from(lightbox.querySelectorAll('[data-lightbox-thumb-idx]')) as HTMLButtonElement[];
+
+        const thumb = thumbs[currentIndex];
+        if (lightboxImg) {
+          if (thumb) {
+            lightboxImg.src = thumb.querySelector('img')?.src || '';
+            lightboxImg.alt = thumb.getAttribute('aria-label') || '';
+          } else if (mainImg) {
+            // Single-image products: no thumb strip, use the main image itself.
+            lightboxImg.src = mainImg.src;
+            lightboxImg.alt = mainImg.alt || '';
+          }
+        }
+        if (lightboxCounter) lightboxCounter.textContent = formatCounter(currentIndex, Math.max(thumbs.length, 1));
+        lightboxThumbs.forEach((t, i) => {
+          t.classList.toggle('lightbox-thumb--active', i === currentIndex);
+          t.setAttribute('aria-selected', i === currentIndex ? 'true' : 'false');
+        });
+        // REQ-16: zoom resets on image change and lightbox open.
         zoom = resetZoom();
         applyZoom();
       }
-    }
 
-    // Replace the previous key handler instead of stacking one per page
-    // load (the handler resolves THIS gallery's closure; the first gallery
-    // of a fresh page-load removes the previous page's handler).
-    if ((window as any).__galleryLightboxKeyHandler) {
-      document.removeEventListener('keydown', (window as any).__galleryLightboxKeyHandler);
-    }
-    (window as any).__galleryLightboxKeyHandler = handleLightboxKey;
-    document.addEventListener('keydown', (window as any).__galleryLightboxKeyHandler);
+      function openLightbox() {
+        if (!lightbox) return;
+        renderLightbox();
+        lightbox.hidden = false;
+        document.body.style.overflow = 'hidden';
+        (window as any).__galleryBodyLock = true;
+        lightbox.querySelector('[data-action="lightbox-close"]')?.focus();
+      }
+
+      function closeLightbox() {
+        if (!lightbox || lightbox.hidden) return;
+        lightbox.hidden = true;
+        document.body.style.overflow = '';
+        (window as any).__galleryBodyLock = false;
+        fullscreenBtn?.focus();
+      }
+
+      function applyZoom() {
+        const lightboxImg = lightbox?.querySelector('[data-lightbox-img]') as HTMLImageElement;
+        if (lightboxImg) lightboxImg.style.transform = applyTransform(zoom);
+      }
+
+      const showPrev = () => updateMain(prevIndex(currentIndex, thumbs.length));
+      const showNext = () => updateMain(nextIndex(currentIndex, thumbs.length));
+
+      // ── Gallery events ────────────────────────────────────────
+
+      // Clicking the main image opens the lightbox (unless a control was hit).
+      mainViewer?.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('button')) return;
+        openLightbox();
+      });
+
+      // Hover zoom (D5 / REQ-7): --x/--y origin tracks the pointer position
+      mainViewer?.addEventListener('mousemove', (e) => {
+        const rect = mainViewer.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        mainViewer.style.setProperty('--x', `${x}%`);
+        mainViewer.style.setProperty('--y', `${y}%`);
+      });
+      mainViewer?.addEventListener('mouseenter', () => {
+        mainImg?.classList.add('gallery-main__img--zoomed');
+      });
+      mainViewer?.addEventListener('mouseleave', () => {
+        mainImg?.classList.remove('gallery-main__img--zoomed');
+      });
+
+      // Keyboard navigation (REQ-9): ←/→ wrap around from focused controls
+      gallery.addEventListener('keydown', (e) => {
+        if (thumbs.length === 0) return;
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          updateMain(nextIndex(currentIndex, thumbs.length));
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          updateMain(prevIndex(currentIndex, thumbs.length));
+        }
+      });
+
+      // Thumbnail clicks
+      thumbs.forEach((thumb, idx) => {
+        thumb.addEventListener('click', () => updateMain(idx));
+      });
+
+      // Arrow navigation
+      gallery.querySelector('[data-action="prev"]')?.addEventListener('click', () => {
+        showPrev();
+      });
+      gallery.querySelector('[data-action="next"]')?.addEventListener('click', () => {
+        showNext();
+      });
+
+      // Fullscreen toggle
+      fullscreenBtn?.addEventListener('click', () => openLightbox());
+      lightbox?.querySelector('[data-action="lightbox-close"]')?.addEventListener('click', () => closeLightbox());
+      lightbox?.querySelector('[data-action="lightbox-prev"]')?.addEventListener('click', () => showPrev());
+      lightbox?.querySelector('[data-action="lightbox-next"]')?.addEventListener('click', () => showNext());
+
+      // Lightbox thumbnail clicks
+      lightbox?.querySelectorAll('[data-lightbox-thumb-idx]').forEach((thumb, idx) => {
+        thumb.addEventListener('click', () => updateMain(idx));
+      });
+
+      // Click on the dark backdrop (outside controls) closes the lightbox
+      lightbox?.addEventListener('click', (e) => {
+        if (e.target === lightbox) closeLightbox();
+      });
+
+      // ── Lightbox zoom & pan (wheel, buttons, drag, pinch) ─────
+
+      if (stage) {
+        stage.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const rect = stage.getBoundingClientRect();
+          const { w, h } = stageDims();
+          // wheelZoomFactor keeps the locked conventions: plain deltaY > 0 and
+          // trackpad pinch (ctrlKey, deltaY < 0) zoom in; zero deltaY is a no-op.
+          zoom = zoomAt(zoom, e.clientX - rect.left, e.clientY - rect.top, wheelZoomFactor(e.ctrlKey, e.deltaY), w, h);
+          applyZoom();
+        }, { passive: false });
+
+        stage.addEventListener('dblclick', (e) => {
+          const rect = stage.getBoundingClientRect();
+          const { w, h } = stageDims();
+          zoom = toggleZoomAt(zoom, e.clientX - rect.left, e.clientY - rect.top, w, h);
+          applyZoom();
+        });
+
+        stage.addEventListener('pointerdown', (e) => {
+          stage.setPointerCapture(e.pointerId);
+          activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (activePointers.size === 2) {
+            const [a, b] = Array.from(activePointers.values());
+            pinchStart = { dist: Math.hypot(a.x - b.x, a.y - b.y), scale: zoom.scale };
+            dragOffset = null;
+          } else {
+            pinchStart = null;
+            dragOffset = { x: e.clientX - zoom.tx, y: e.clientY - zoom.ty };
+          }
+        });
+
+        stage.addEventListener('pointermove', (e) => {
+          if (!activePointers.has(e.pointerId)) return;
+          activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          const { w, h } = stageDims();
+          if (activePointers.size === 2 && pinchStart) {
+            const [a, b] = Array.from(activePointers.values());
+            const dist = Math.hypot(a.x - b.x, a.y - b.y);
+            zoom = clampPan({ ...zoom, scale: pinchScale(pinchStart.scale, pinchStart.dist, dist) }, w, h);
+            applyZoom();
+          } else if (activePointers.size === 1 && zoom.scale > 1 && dragOffset) {
+            zoom = panTo(zoom, e.clientX - dragOffset.x, e.clientY - dragOffset.y, w, h);
+            applyZoom();
+          }
+        });
+
+        const endPointer = (e: PointerEvent) => {
+          activePointers.delete(e.pointerId);
+          if (activePointers.size < 2) pinchStart = null;
+          if (activePointers.size === 0) dragOffset = null;
+        };
+        stage.addEventListener('pointerup', endPointer);
+        stage.addEventListener('pointercancel', endPointer);
+
+        // Zoom toolbar buttons (centered on the stage)
+        lightbox?.querySelector('[data-action="zoom-in"]')?.addEventListener('click', () => {
+          const { w, h } = stageDims();
+          zoom = zoomBy(zoom, ZOOM_STEP, w, h);
+          applyZoom();
+        });
+        lightbox?.querySelector('[data-action="zoom-out"]')?.addEventListener('click', () => {
+          const { w, h } = stageDims();
+          zoom = zoomBy(zoom, 1 / ZOOM_STEP, w, h);
+          applyZoom();
+        });
+        lightbox?.querySelector('[data-action="zoom-reset"]')?.addEventListener('click', () => {
+          zoom = resetZoom();
+          applyZoom();
+        });
+      }
+
+      // ── Lightbox keyboard shortcuts ───────────────────────────
+
+      function handleLightboxKey(e: KeyboardEvent) {
+        if (!lightbox || lightbox.hidden) return;
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeLightbox();
+        } else if (e.key === 'ArrowLeft' && thumbs.length > 0) {
+          e.preventDefault();
+          showPrev();
+        } else if (e.key === 'ArrowRight' && thumbs.length > 0) {
+          e.preventDefault();
+          showNext();
+        } else if (e.key === '+' || e.key === '=') {
+          e.preventDefault();
+          const { w, h } = stageDims();
+          zoom = zoomBy(zoom, ZOOM_STEP, w, h);
+          applyZoom();
+        } else if (e.key === '-') {
+          e.preventDefault();
+          const { w, h } = stageDims();
+          zoom = zoomBy(zoom, 1 / ZOOM_STEP, w, h);
+          applyZoom();
+        } else if (e.key === '0') {
+          e.preventDefault();
+          zoom = resetZoom();
+          applyZoom();
+        }
+      }
+
+      // Replace the previous key handler instead of stacking one per page
+      // load (the handler resolves THIS gallery's closure; the first gallery
+      // of a fresh page-load removes the previous page's handler).
+      if ((window as any).__galleryLightboxKeyHandler) {
+        document.removeEventListener('keydown', (window as any).__galleryLightboxKeyHandler);
+      }
+      (window as any).__galleryLightboxKeyHandler = handleLightboxKey;
+      document.addEventListener('keydown', (window as any).__galleryLightboxKeyHandler);
     });
   }
 
