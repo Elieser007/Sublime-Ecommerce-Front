@@ -1,6 +1,6 @@
 # Feature: keep the product detail payload correct across SPA revisits
 
-Status: fixed on `fix/detail-spa-revisit-stale-data`, pending user decision on push/merge
+Status: ready to push on `fix/detail-spa-revisit-stale-data` (5 commits); push/PR/merge are the user's decision
 Owner: orchestrator + user
 Reported by: user — "cuando vas navegando llega un momento en el que no
 funciona… tengo que recargarlo para que vuelva a funcionar"
@@ -112,13 +112,57 @@ is why the spec documents that precondition.
 ## Commits
 
 - `50e16b5` test(e2e): reproduce stale product payload on SPA revisit (RED)
-- `0e20e4b` fix(detail): read the baked payload from the DOM, not from one-shot inline scripts (GREEN)
+- `d7ccb7c` fix(detail): read the baked payload from the DOM, not from one-shot inline scripts (GREEN)
+- `93eda47` docs(odd): record the product-detail SPA revisit fix and its evidence
 
-## Not in scope (follow-ups)
+## Follow-up round (after the first review)
 
-- `src/pages/home.astro:113` still has an `is:inline` script with the same
-  shape (dead code: it assigns `el.product`, while `product-card` reads the
-  `product` attribute). Safe to delete.
+The native review approved the change with one advisory finding, and the user
+asked for both follow-ups on the same branch before pushing.
+
+- [x] Task 4 — `R3-001`: `readBakedPayload` degrades in silence. Warn on a
+      missing/corrupt payload and make the blocked state explicit instead of
+      leaving an apparently active button that does nothing.
+- [x] Task 5 — delete the dead `is:inline` script in `src/pages/home.astro:113`
+      (same shape; it assigned `el.product` while `product-card` reads the
+      `product` attribute) and guard the featured grid with an e2e check.
+- [x] Task 6 — full battery + production build/preview + fresh native review
+      on the new candidate.
+
+### Evidence — Task 4
+
+New e2e in `e2e/detail-revisit.spec.ts`: removes `#product-data` and
+`#variants-data`, re-runs the page script through `astro:page-load`, and
+asserts the warning plus the blocked controls.
+
+- **RED**: `Expected substring: "product-data" / Received string: ""` — not a
+  single warning; the add-to-cart stayed enabled and inert.
+- **GREEN**: both specs in the file pass. In the production build the state is
+  `warn=SI {"disabled":true,"label":"Producto no disponible","wa":"true"}`.
+
+### Evidence — Task 5
+
+`e2e/home.spec.ts` guards the surviving contract (attribute-driven render + the
+modal opening). It passed **before** the deletion (so the guard is not vacuous)
+and after: `cards=8 nombre="Combo Cumple Infantil 1" modal=true` on the built
+preview. The deleted helper was dead code — `ProductCard` reads the `product`
+attribute in `connectedCallback` and defines no `product` accessor.
+
+### Verification — round 2
+
+| Check | Result |
+| --- | --- |
+| Public e2e battery (home, detail-revisit, detail-volume, catalog, cart, wishlist, responsive) | **151 passed (1.7m)** |
+| `npm test` (vitest) | **70 files / 1351 tests passed** |
+| Production build (104 pages) + `astro preview` | revisit `Gs. 230.000` + correct cart item, missing-payload blocked state, `/home` grid + modal, **0 pageerrors** |
+
+### Commits — round 2
+
+- `0cc67be` fix(detail): never let a missing baked payload pass as a live button
+- `3d37104` chore(home): drop the dead product-card init script
+
+## Not in scope
+
 - Any future per-page SSG payload must use the inert-JSON pattern; an
   `is:inline` assignment will silently break again on the second SPA visit to
   that route.
