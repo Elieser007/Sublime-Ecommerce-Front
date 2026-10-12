@@ -93,7 +93,29 @@ const { promotions, id = 'carousel' } = Astro.props;
     if (slides.length > 1) startAuto();
   }
 
-  document.querySelectorAll('.carousel-promo').forEach((el) => initCarousel(el as HTMLElement));
+  // ClientRouter executes this bundle at most once per document session
+  // (Astro dedupes scripts by src), while `astro:page-load` fires after the
+  // DOM swap on every navigation and on the initial load. The query-and-init
+  // below therefore runs per page-load against the CURRENT page's nodes.
+  function initCarousels() {
+    document.querySelectorAll('.carousel-promo').forEach((el) => {
+      // Guard against double-starting the autoplay interval for a container
+      // already initialised in this page load (a repeated page-load event
+      // must not stack intervals or listeners on the same nodes). Swapped-in
+      // nodes are fresh and carry no flag, so post-navigation pages init once.
+      if ((el as HTMLElement).dataset.carouselInit === 'true') return;
+      (el as HTMLElement).dataset.carouselInit = 'true';
+      initCarousel(el as HTMLElement);
+    });
+  }
+
+  // Replace the previous page-load listener instead of stacking one per
+  // bundle evaluation, so initCarousels runs exactly once per navigation.
+  if ((window as any).__carouselPromoInit) {
+    document.removeEventListener('astro:page-load', (window as any).__carouselPromoInit);
+  }
+  (window as any).__carouselPromoInit = initCarousels;
+  document.addEventListener('astro:page-load', (window as any).__carouselPromoInit);
 </script>
 
 <style>
