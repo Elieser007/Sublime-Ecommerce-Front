@@ -25,6 +25,18 @@ const carouselSource = readFileSync(
   resolve(__dirname, "../components/promo/CarouselPromo.astro"),
   "utf-8"
 );
+const attributeManagerSource = readFileSync(
+  resolve(__dirname, "../components/admin/AttributeManager.astro"),
+  "utf-8"
+);
+const adminProductFormSource = readFileSync(
+  resolve(__dirname, "../components/AdminProductForm.astro"),
+  "utf-8"
+);
+const imageUploaderSource = readFileSync(
+  resolve(__dirname, "../components/ImageUploader.astro"),
+  "utf-8"
+);
 
 // Pinned exact string: a future edit must not silently move wiring back to
 // module scope without also tripping this guard.
@@ -39,5 +51,20 @@ describe("ClientRouter script wiring", () => {
   it("CarouselPromo re-arms its wiring on every astro:page-load", () => {
     expect(carouselSource).toContain(PAGE_LOAD_LISTENER);
     expect(carouselSource).toContain("__carouselPromoInit");
+  });
+
+  it("AttributeManager re-arms its wiring on every astro:page-load", () => {
+    expect(attributeManagerSource).toContain(PAGE_LOAD_LISTENER);
+    expect(attributeManagerSource).toContain("__adminAttributeManagerInit");
+  });
+
+  it("AdminProductForm re-arms its wiring on every astro:page-load", () => {
+    expect(adminProductFormSource).toContain(PAGE_LOAD_LISTENER);
+    expect(adminProductFormSource).toContain("__adminProductFormInit");
+  });
+
+  it("ImageUploader re-arms its wiring on every astro:page-load", () => {
+    expect(imageUploaderSource).toContain(PAGE_LOAD_LISTENER);
+    expect(imageUploaderSource).toContain("__imageUploaderInit");
   });
 });

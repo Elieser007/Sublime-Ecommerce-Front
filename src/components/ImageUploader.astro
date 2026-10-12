@@ -137,78 +137,94 @@ const { currentImage } = Astro.props;
   // ImageUploader — Tarea 2 integration
   // Uses processImage() from /src/lib/image.ts for canvas-based processing
 
-  const area = document.getElementById('upload-area');
-  const input = document.getElementById('image-input') as HTMLInputElement;
-  const preview = document.getElementById('upload-preview') as HTMLImageElement;
-  const placeholder = document.getElementById('upload-placeholder');
-  const status = document.getElementById('upload-status');
-  const info = document.getElementById('upload-info');
-  const infoText = document.getElementById('upload-info-text');
+  // ClientRouter executes this bundle at most once per document session
+  // (Astro dedupes scripts by src), while `astro:page-load` fires after the
+  // DOM swap on every navigation and on the initial load. All DOM is
+  // therefore queried inside initImageUploader — never at module scope — so
+  // the wiring re-arms against the CURRENT page's nodes (the upload-area
+  // click/dragover/drop handlers were dead on the 2nd+ SPA visit before).
+  function initImageUploader() {
+    const area = document.getElementById('upload-area');
+    const input = document.getElementById('image-input') as HTMLInputElement;
+    const preview = document.getElementById('upload-preview') as HTMLImageElement;
+    const placeholder = document.getElementById('upload-placeholder');
+    const status = document.getElementById('upload-status');
+    const info = document.getElementById('upload-info');
+    const infoText = document.getElementById('upload-info-text');
 
-  if (area && input) {
-    // Click to open file picker
-    area.addEventListener('click', () => input.click());
+    if (area && input) {
+      // Click to open file picker
+      area.addEventListener('click', () => input.click());
 
-    // Drag events
-    area.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      area.classList.add('dragover');
-    });
+      // Drag events
+      area.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        area.classList.add('dragover');
+      });
 
-    area.addEventListener('dragleave', () => {
-      area.classList.remove('dragover');
-    });
+      area.addEventListener('dragleave', () => {
+        area.classList.remove('dragover');
+      });
 
-    area.addEventListener('drop', (e) => {
-      e.preventDefault();
-      area.classList.remove('dragover');
-      const file = e.dataTransfer?.files[0];
-      if (file) handleFile(file);
-    });
+      area.addEventListener('drop', (e) => {
+        e.preventDefault();
+        area.classList.remove('dragover');
+        const file = e.dataTransfer?.files[0];
+        if (file) handleFile(file);
+      });
 
-    // File input change
-    input.addEventListener('change', () => {
-      const file = input.files?.[0];
-      if (file) handleFile(file);
-    });
-  }
+      // File input change
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (file) handleFile(file);
+      });
+    }
 
-  async function handleFile(file: File) {
-    try {
-      // Show processing status
-      if (status) status.style.display = 'flex';
-      if (info) info.style.display = 'none';
+    async function handleFile(file: File) {
+      try {
+        // Show processing status
+        if (status) status.style.display = 'flex';
+        if (info) info.style.display = 'none';
 
-      // Dynamically import processImage (client-side only, uses <canvas>)
-      const { processImage, formatFileSize } = await import('/src/lib/image.ts');
+        // Dynamically import processImage (client-side only, uses <canvas>)
+        const { processImage, formatFileSize } = await import('/src/lib/image.ts');
 
-      // Process image: validate, resize to 1000x1000, convert to WebP 80%
-      const processedBlob = await processImage(file);
+        // Process image: validate, resize to 1000x1000, convert to WebP 80%
+        const processedBlob = await processImage(file);
 
-      // Show preview of processed image
-      const processedUrl = URL.createObjectURL(processedBlob);
-      if (placeholder) placeholder.style.display = 'none';
-      if (preview) {
-        preview.src = processedUrl;
-        preview.style.display = 'block';
+        // Show preview of processed image
+        const processedUrl = URL.createObjectURL(processedBlob);
+        if (placeholder) placeholder.style.display = 'none';
+        if (preview) {
+          preview.src = processedUrl;
+          preview.style.display = 'block';
+        }
+
+        // Show file info
+        if (info && infoText) {
+          const savings = ((1 - processedBlob.size / file.size) * 100).toFixed(0);
+          infoText.textContent = `WebP procesado: ${formatFileSize(processedBlob.size)} (${savings}% menor que original)`;
+          info.style.display = 'block';
+        }
+
+        // Store processed blob globally for form submission
+        // AdminProductForm reads (window).__processedImage when creating/updating product
+        (window as any).__processedImage = processedBlob;
+        (window as any).__processedImageName = file.name.replace(/\.[^.]+$/, '.webp');
+
+      } catch (err: any) {
+        alert(err.message || 'Error al procesar la imagen');
+      } finally {
+        if (status) status.style.display = 'none';
       }
-
-      // Show file info
-      if (info && infoText) {
-        const savings = ((1 - processedBlob.size / file.size) * 100).toFixed(0);
-        infoText.textContent = `WebP procesado: ${formatFileSize(processedBlob.size)} (${savings}% menor que original)`;
-        info.style.display = 'block';
-      }
-
-      // Store processed blob globally for form submission
-      // AdminProductForm reads (window).__processedImage when creating/updating product
-      (window as any).__processedImage = processedBlob;
-      (window as any).__processedImageName = file.name.replace(/\.[^.]+$/, '.webp');
-
-    } catch (err: any) {
-      alert(err.message || 'Error al procesar la imagen');
-    } finally {
-      if (status) status.style.display = 'none';
     }
   }
+
+  // Replace the previous page-load listener instead of stacking one per
+  // bundle evaluation, so initImageUploader runs exactly once per navigation.
+  if ((window as any).__imageUploaderInit) {
+    document.removeEventListener('astro:page-load', (window as any).__imageUploaderInit);
+  }
+  (window as any).__imageUploaderInit = initImageUploader;
+  document.addEventListener('astro:page-load', (window as any).__imageUploaderInit);
 </script>
