@@ -130,12 +130,27 @@ const mainImageAlt = primary?.alt || alt;
   } from '../lib/gallery-lightbox';
   import type { ZoomState } from '../lib/gallery-lightbox';
 
-  // Client-side gallery navigation. Loops over every gallery on the page so
-  // this stays correct under ClientRouter re-execution. All zoom/pan/nav
-  // math comes from the pure lib module; this script is thin DOM wiring.
-  const galleries = Array.from(document.querySelectorAll('[data-gallery]'));
+  // ClientRouter executes this bundle at most once per document session
+  // (Astro dedupes scripts by src), while `astro:page-load` fires after the
+  // DOM swap on every navigation and on the initial load. All DOM is
+  // therefore queried inside initGalleries — never at module scope — so the
+  // wiring re-arms against the CURRENT page's nodes. All zoom/pan/nav math
+  // comes from the pure lib module; this script is thin DOM wiring.
+  function initGalleries() {
+    const galleries = Array.from(document.querySelectorAll('[data-gallery]'));
 
-  galleries.forEach((gallery) => {
+    if (galleries.length === 0) {
+      // Gallery-less page reached via SPA: drop the previous page's key
+      // handler (its closure points at detached nodes) instead of leaving
+      // it stacked on the document.
+      if ((window as any).__galleryLightboxKeyHandler) {
+        document.removeEventListener('keydown', (window as any).__galleryLightboxKeyHandler);
+        (window as any).__galleryLightboxKeyHandler = undefined;
+      }
+      return;
+    }
+
+    galleries.forEach((gallery) => {
     const mainImg = gallery.querySelector('[data-main-image]') as HTMLImageElement;
     const thumbs = Array.from(gallery.querySelectorAll('[data-thumb-id]')) as HTMLButtonElement[];
     const mainViewer = gallery.querySelector('.gallery-main') as HTMLElement;
@@ -399,14 +414,24 @@ const mainImageAlt = primary?.alt || alt;
       }
     }
 
-    // ClientRouter re-executes this script per navigation: replace the
-    // previous key handler instead of stacking one per visit.
+    // Replace the previous key handler instead of stacking one per page
+    // load (the handler resolves THIS gallery's closure; the first gallery
+    // of a fresh page-load removes the previous page's handler).
     if ((window as any).__galleryLightboxKeyHandler) {
       document.removeEventListener('keydown', (window as any).__galleryLightboxKeyHandler);
     }
     (window as any).__galleryLightboxKeyHandler = handleLightboxKey;
     document.addEventListener('keydown', (window as any).__galleryLightboxKeyHandler);
-  });
+    });
+  }
+
+  // Replace the previous page-load listener instead of stacking one per
+  // bundle evaluation, so initGalleries runs exactly once per navigation.
+  if ((window as any).__galleryInit) {
+    document.removeEventListener('astro:page-load', (window as any).__galleryInit);
+  }
+  (window as any).__galleryInit = initGalleries;
+  document.addEventListener('astro:page-load', (window as any).__galleryInit);
 </script>
 
 <style>
