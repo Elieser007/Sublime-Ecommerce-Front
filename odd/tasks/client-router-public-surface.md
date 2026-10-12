@@ -1,7 +1,8 @@
 # Feature: re-arm component scripts after a ClientRouter navigation
 
 Status: implemented, verified, committed on `fix/client-router-public-surface`
-(3 commits); push/PR/merge are the user's decision
+(4 commits), native review **approved** and receipt burned; push/PR/merge are the
+user's decision
 Owner: orchestrator + user
 Reported by: user — "cuando entro a un producto, voy atrás para volver al
 catálogo y entro en otro: la galería de imágenes no funciona, parece que al
@@ -134,11 +135,30 @@ the same spec passes on the dev server and on the production artifact.
 - `src/__tests__/client-router-script-wiring.test.ts` is a source-containment
   guard, not behavioural proof — the e2e file carries the behaviour.
 
+## Native review (RDD)
+
+Candidate: the committed range `main..HEAD` (5 paths, untracked excluded).
+Lineage `review-1541ae1cad15e484`, tier `medium`, one lens (`review-reliability`),
+correction budget 200 lines.
+
+- Capture closure: **approved**, receipt acknowledged, authority burned
+  (`gentle-ai.review-acknowledged/v1`). No correction was opened.
+- Two advisory, non-blocking findings (informational; they never reopen this
+  review and are separate later work):
+  - `R3-001` — reliability, `src/components/promo/CarouselPromo.astro:96` (the
+    new `initCarousels`), WARNING.
+  - `R3-002` — reliability, `src/components/ProductGallery.astro:133` (the
+    comment block above `initGalleries`), WARNING.
+
+Delivery stays under ordinary repository policy: commit, push, PR and merge are
+human decisions.
+
 ## Commits
 
 - `f522aeb` test(e2e): prove the gallery goes dead on the second SPA product (RED)
 - `30d3228` fix(gallery): re-arm the gallery wiring on every astro:page-load (GREEN)
 - `4fce62b` fix(carousel): re-arm the promo carousel per page-load + wiring guard
+- `1cfc0b6` docs(odd): record the ClientRouter component-script re-arm fix
 
 ## Verification plan (as run)
 
@@ -158,6 +178,7 @@ click-based version dropped clicks mid-transition and timed the test out.
 ## Not in scope / follow-ups
 
 - The four admin components listed above (same shape, separate surface).
+- The two advisory findings above (`R3-001`, `R3-002`), if the user wants them.
 - A Back-repo seed with a `carousel` promotion section so `CarouselPromo` can
   have its own committed e2e regression.
 - Deleting the inactive `CategoryFilter.astro` / `VariantSelector.astro` and the
