@@ -113,4 +113,32 @@ test.describe("Product detail — SPA revisit", () => {
       expect(cart.at(-1)?.name, "the revisited product must be the one added").toBe(baseline.name);
     }
   });
+
+  test("a missing payload warns and blocks add-to-cart instead of dying silently", async ({
+    page,
+  }) => {
+    const cards = await readCatalogCards(page);
+    await page.goto(cards[0].href);
+    await expect(page.locator(PRICE)).toBeVisible();
+
+    const warnings: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "warning") warnings.push(message.text());
+    });
+
+    // Drop the payload and re-run the page script through the lifecycle event
+    // it listens to: this is the shape of a build that lost the JSON payload.
+    // The page must say so, not present a button that does nothing (R3-001).
+    await page.evaluate(() => {
+      document.getElementById("product-data")?.remove();
+      document.getElementById("variants-data")?.remove();
+      document.dispatchEvent(new Event("astro:page-load"));
+    });
+
+    expect(warnings.join("\n"), "the reader must warn about the missing payload").toContain(
+      "product-data"
+    );
+    await expect(page.locator("#detail-add-cart")).toBeDisabled();
+    await expect(page.locator("#detail-whatsapp")).toHaveAttribute("aria-disabled", "true");
+  });
 });

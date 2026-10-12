@@ -219,13 +219,21 @@ const basePriceFormatted = formatPrice(product.base_price);
    * once per document session, so a module-scope read would freeze the first
    * product visited. Reading from the DOM keeps every SPA revisit bound to the
    * product that is actually rendered.
+   *
+   * A missing or corrupt payload cannot happen in a correct build (the page is
+   * pre-rendered from the same data), so it must never degrade in silence:
+   * warn here, and let initDetailPage surface the blocked state in the UI.
    */
   function readBakedPayload<T>(id: string): T | null {
     const el = document.getElementById(id);
-    if (!el) return null;
+    if (!el) {
+      console.warn(`[detail] baked payload #${id} is missing from the page`);
+      return null;
+    }
     try {
       return JSON.parse(el.textContent || 'null') as T;
-    } catch {
+    } catch (err) {
+      console.warn(`[detail] baked payload #${id} is not valid JSON`, err);
       return null;
     }
   }
@@ -451,6 +459,19 @@ const basePriceFormatted = formatPrice(product.base_price);
       const complete = isSelectionComplete(currentVariantModules, selectedAttributesMap);
       if ($addCart) $addCart.disabled = variantUi.showFallbackNotice || !complete;
       updatePriceDisplay();
+    } else {
+      // R3-001: no payload means no data to bind, and a purchase control that
+      // looks active but does nothing is worse than an honest blocked state.
+      // readBakedPayload has already warned with the cause.
+      if ($addCart) {
+        $addCart.disabled = true;
+        $addCart.setAttribute('aria-disabled', 'true');
+        $addCart.textContent = 'Producto no disponible';
+      }
+      if ($whatsappBtn) {
+        $whatsappBtn.setAttribute('aria-disabled', 'true');
+        $whatsappBtn.removeAttribute('href');
+      }
     }
 
     if (currentTiers.length > 0) {
