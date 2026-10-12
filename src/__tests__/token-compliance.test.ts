@@ -37,10 +37,6 @@ const EXEMPT_FILES = [
   'src/components/admin/TableAction.astro',
   // Admin attribute manager — undocumented rgba and hex (Phase 5)
   'src/components/admin/AttributeManager.astro',
-  // Admin dependency form — undocumented rgba and hex (Phase 5)
-  'src/components/admin/DependencyForm.astro',
-  // Variant selector — JS fallback color
-  'src/components/product/VariantSelector.astro',
 
   // ── Promo components (decorative overlays) ──
   'src/components/promo/HeroPromo.astro',

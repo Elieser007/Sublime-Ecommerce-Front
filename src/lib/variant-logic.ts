@@ -5,7 +5,8 @@
  * - Price calculation (base + modifiers)
  * - Selection completeness check
  *
- * Used by: VariantSelector.astro
+ * Used by: src/pages/products/[slug].astro (renderVariantSelector) and
+ * src/components/variant-modal.js (live <variant-selector> consumers).
  */
 
 // ─── TYPES ────────────────────────────────────────────────
