@@ -4,9 +4,9 @@
  *
  * SSG: pre-rendered at build time via getStaticPaths().
  * Product data + variant graph (attribute modules, dependency rules, base
- * price) come from Astro.props (build-time fetch) and are injected as
- * window globals — variant selection resolves fully client-side, with zero
- * runtime backend requests on catalog pages.
+ * price) come from Astro.props (build-time fetch) and travel to the client as
+ * inert JSON payloads embedded in the page — variant selection resolves fully
+ * client-side, with zero runtime backend requests on catalog pages.
  * Add-to-cart uses LocalStorage. WhatsApp checkout with tier info.
  */
 
@@ -63,6 +63,16 @@ export async function getStaticPaths() {
 }
 
 const { product, related = [], variantsData = EMPTY_VARIANTS_DATA, relatedVariants = {}, bakeFailed = false } = Astro.props;
+
+// Build-time payload for the client script, serialized once and embedded as
+// inert JSON (see the <script type="application/json"> tags below). ClientRouter
+// executes each script once per document session — inline ones are deduped by
+// text — so an inline assignment here would be skipped on an SPA revisit and
+// the page would bind the PREVIOUS product's data (wrong price, wrong variants,
+// wrong item added to the cart) until a hard reload.
+// `</` is escaped so the payload cannot close its own <script> element.
+const productPayload = JSON.stringify(product).replace(/<\//g, '<\\/');
+const variantsPayload = JSON.stringify(variantsData).replace(/<\//g, '<\\/');
 
 // Server-side fallback decision: bake-outcome based (see
 // src/lib/variant-fallback.ts). Products with a clean payload and zero
@@ -182,10 +192,12 @@ const basePriceFormatted = formatPrice(product.base_price);
     )}
   </div>
 
-  <!-- Inject build-time product data for client-side script -->
-  <script is:inline set:html={`window.__PRODUCT_DATA__ = ${JSON.stringify(product).replace(/<\//g, '<\\/')};`} />
-  <!-- Inject the build-time attribute-variant graph (modules + dependency rules + base price) -->
-  <script is:inline set:html={`window.__VARIANTS_DATA__ = ${JSON.stringify(variantsData).replace(/<\//g, '<\\/')};`} />
+  <!-- Build-time product payload for the client script: inert JSON in the DOM,
+       never executed, so every ClientRouter navigation re-reads THIS product's
+       data instead of stale window globals. -->
+  <script type="application/json" id="product-data" set:html={productPayload} />
+  <!-- Build-time attribute-variant graph (modules + dependency rules + base price) -->
+  <script type="application/json" id="variants-data" set:html={variantsPayload} />
 </BaseLayout>
 
 <script>
@@ -199,6 +211,32 @@ const basePriceFormatted = formatPrice(product.base_price);
   import { resolveAvailable, resolveFinalPrice } from '../../lib/variant-filter';
   import { resolveVariantUiState } from '../../lib/variant-fallback';
   import { addToCartWithOptions, updateCartBadge } from '../../lib/cart.js';
+
+  /**
+   * Read a build-time payload embedded as inert JSON in the page.
+   *
+   * Must be called per astro:page-load, never at module scope: this bundle runs
+   * once per document session, so a module-scope read would freeze the first
+   * product visited. Reading from the DOM keeps every SPA revisit bound to the
+   * product that is actually rendered.
+   *
+   * A missing or corrupt payload cannot happen in a correct build (the page is
+   * pre-rendered from the same data), so it must never degrade in silence:
+   * warn here, and let initDetailPage surface the blocked state in the UI.
+   */
+  function readBakedPayload<T>(id: string): T | null {
+    const el = document.getElementById(id);
+    if (!el) {
+      console.warn(`[detail] baked payload #${id} is missing from the page`);
+      return null;
+    }
+    try {
+      return JSON.parse(el.textContent || 'null') as T;
+    } catch (err) {
+      console.warn(`[detail] baked payload #${id} is not valid JSON`, err);
+      return null;
+    }
+  }
 
   // ClientRouter dedupes module scripts: this bundle executes once per
   // session while astro:page-load fires on every navigation. All captured
@@ -361,8 +399,8 @@ const basePriceFormatted = formatPrice(product.base_price);
     $whatsappBtn = document.getElementById('detail-whatsapp');
     $price = document.getElementById('detail-price');
 
-    currentProduct = (window as any).__PRODUCT_DATA__;
-    bakedVariants = (window as any).__VARIANTS_DATA__;
+    currentProduct = readBakedPayload<any>('product-data');
+    bakedVariants = readBakedPayload<any>('variants-data');
 
     currentVariantModules = bakedVariants?.modules || [];
     currentDependencies = bakedVariants?.dependencies || [];
@@ -421,6 +459,19 @@ const basePriceFormatted = formatPrice(product.base_price);
       const complete = isSelectionComplete(currentVariantModules, selectedAttributesMap);
       if ($addCart) $addCart.disabled = variantUi.showFallbackNotice || !complete;
       updatePriceDisplay();
+    } else {
+      // R3-001: no payload means no data to bind, and a purchase control that
+      // looks active but does nothing is worse than an honest blocked state.
+      // readBakedPayload has already warned with the cause.
+      if ($addCart) {
+        $addCart.disabled = true;
+        $addCart.setAttribute('aria-disabled', 'true');
+        $addCart.textContent = 'Producto no disponible';
+      }
+      if ($whatsappBtn) {
+        $whatsappBtn.setAttribute('aria-disabled', 'true');
+        $whatsappBtn.removeAttribute('href');
+      }
     }
 
     if (currentTiers.length > 0) {

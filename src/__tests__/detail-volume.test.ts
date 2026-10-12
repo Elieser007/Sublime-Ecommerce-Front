@@ -72,8 +72,24 @@ describe("[slug].astro server-rendered volume UI (D2)", () => {
 });
 
 describe("[slug].astro — static variant data flow (SSG)", () => {
-  it("injects the baked variant graph as window.__VARIANTS_DATA__", () => {
-    expect(detailSource).toContain("window.__VARIANTS_DATA__");
+  it("embeds the baked payloads as inert JSON, not as executed inline scripts", () => {
+    expect(detailSource).toContain('type="application/json"');
+    expect(detailSource).toContain('id="product-data"');
+    expect(detailSource).toContain('id="variants-data"');
+    // Regression guard (odd/tasks/product-detail-spa-revisit.md): a payload
+    // exposed as a window global is deduped away by ClientRouter on an SPA
+    // revisit and the page binds the previous product's data.
+    expect(detailSource).not.toContain("window.__PRODUCT_DATA__");
+    expect(detailSource).not.toContain("window.__VARIANTS_DATA__");
+  });
+
+  it("reads the payloads inside initDetailPage, per page-load", () => {
+    const initIndex = detailSource.indexOf("function initDetailPage");
+    expect(initIndex).toBeGreaterThan(-1);
+
+    const initBody = detailSource.slice(initIndex);
+    expect(initBody).toContain("readBakedPayload<any>('product-data')");
+    expect(initBody).toContain("readBakedPayload<any>('variants-data')");
   });
 
   it("resolves availability + price client-side from baked data", () => {

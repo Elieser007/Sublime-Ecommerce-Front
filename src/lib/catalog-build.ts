@@ -24,7 +24,8 @@
 import { fetchCatalogBatches, type ProductWithDetails } from "./catalog-batch";
 import type { BakedModule, VariantDependency } from "./variant-filter";
 
-/** Shape of the baked graph passed to the modal / __VARIANTS_DATA__. */
+/** Shape of the baked graph consumed by the variant modal and embedded in the
+ * product page as the inert `variants-data` JSON payload. */
 export interface BakedVariantData {
   modules: BakedModule[];
   dependencies: VariantDependency[];
