@@ -97,5 +97,20 @@ test.describe("Product detail — SPA revisit", () => {
 
     await expect(page.locator(NAME)).toHaveText(baseline.name);
     await expect(page.locator(PRICE)).toHaveText(baseline.price);
+
+    // The stale payload reached the cart too: the revisited page used to add
+    // the PREVIOUS product (that is the user-visible damage). Products with
+    // options need a selection first, so the cart assertion is scoped to the
+    // option-free case.
+    const optionFree = (await page.locator("#variant-section variant-selector").count()) === 0;
+    if (optionFree) {
+      await page.click("#detail-add-cart");
+      await expect(page.locator("#detail-add-cart")).toHaveText(/Agregado/i);
+
+      const cart = await page.evaluate<Array<{ name: string }>>(() =>
+        JSON.parse(localStorage.getItem("cart") || "[]")
+      );
+      expect(cart.at(-1)?.name, "the revisited product must be the one added").toBe(baseline.name);
+    }
   });
 });
