@@ -1,6 +1,6 @@
 # Feature: keep the product detail payload correct across SPA revisits
 
-Status: in progress (`fix/detail-spa-revisit-stale-data`)
+Status: fixed on `fix/detail-spa-revisit-stale-data`, pending user decision on push/merge
 Owner: orchestrator + user
 Reported by: user — "cuando vas navegando llega un momento en el que no
 funciona… tengo que recargarlo para que vuelva a funcionar"
@@ -83,9 +83,42 @@ stale — the product B value on product A's page.
 
 ### GREEN
 
-Pending Task 2.
+`npx playwright test e2e/detail-revisit.spec.ts --project=chromium`
+
+```
+✓ 1 [chromium] › Product detail — SPA revisit › revisited product renders its own price and name
+1 passed (20.0s)
+```
+
+Regression battery after the fix — `detail-volume`, `detail-revisit`, `catalog`,
+`cart`, `wishlist` (chromium): **80 passed (1.3m)**.
+
+`npm test` (vitest): **70 files / 1351 tests passed**.
+
+Production mode: `npm run build` (104 pages, backend on :8787) + `astro preview`,
+then the A→B→A flow with add-to-cart on the built output:
+
+| Step | URL | Price shown | Cart after click |
+| --- | --- | --- | --- |
+| A direct | /products/combo-cumple-infantil-1 | Gs. 230.000 | Combo Cumple Infantil 1 x1 |
+| A→B SPA | /products/combo-cumple-infantil-10 | Gs. 770.000 | Combo Cumple Infantil 10 x1 |
+| **B→A SPA** | /products/combo-cumple-infantil-1 | **Gs. 230.000** | **Combo Cumple Infantil 1 x2** |
+
+The built page also carries a valid `application/json` payload for both ids and
+no `window.__*_DATA__` assignment. The cart assertion is scoped to option-free
+products (a product with variants needs a selection before add-to-cart), which
+is why the spec documents that precondition.
 
 ## Commits
 
-- `test(e2e): reproduce stale product payload on SPA revisit` (RED)
-- `fix(detail): read the baked payload from the DOM, not from a one-shot inline script` (GREEN)
+- `50e16b5` test(e2e): reproduce stale product payload on SPA revisit (RED)
+- `0e20e4b` fix(detail): read the baked payload from the DOM, not from one-shot inline scripts (GREEN)
+
+## Not in scope (follow-ups)
+
+- `src/pages/home.astro:113` still has an `is:inline` script with the same
+  shape (dead code: it assigns `el.product`, while `product-card` reads the
+  `product` attribute). Safe to delete.
+- Any future per-page SSG payload must use the inert-JSON pattern; an
+  `is:inline` assignment will silently break again on the second SPA visit to
+  that route.
