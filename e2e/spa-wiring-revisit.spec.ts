@@ -21,10 +21,26 @@ import { test, expect, type Page } from "@playwright/test";
  * load would re-evaluate the module scripts and make the regression invisible
  * (a vacuous pass).
  *
- * Cost honesty: the scan legitimately navigates several routes against the
- * on-demand dev server (observed ~43s isolated), so the test is marked
- * `test.slow()` (90s budget) instead of leaving it hostage to the 30s
- * default. Assertions are not weakened to buy time.
+ * B is deterministic: the Back repo's seed-e2e gallery fixture
+ * (`scripts/seed-e2e.ts`) gives the seeded product
+ * `prod-remera-premium-estampada` two extra fixed-id images beside its
+ * untouched primary, so `/products/remera-premium-estampada` always renders
+ * a multi-thumbnail gallery. B used to be found by crawling all 83 catalog
+ * cards for a multi-image product that only existed as hand-made dev rows —
+ * slow (~40s) and non-deterministic. Product A stays dynamic: the first
+ * catalog card (other than the fixture) rendering `[data-gallery]`. If the
+ * fixture seed did not run, the precondition fails loudly — never
+ * `test.skip`, never a vacuous pass.
+ *
+ * Pagination note: the catalog renders one batch at a time (`renderPage()`
+ * sets the rest to `display:none` until `#load-more`), so the spec reveals
+ * the fixture card the way a user would — bounded `#load-more` clicks —
+ * before navigating to it. Clicking a still-hidden card would hang on
+ * visibility instead of failing loudly.
+ *
+ * Cost honesty: a few SPA hops against on-demand dev compiles, so the test
+ * is marked `test.slow()` instead of leaving it hostage to the 30s default.
+ * Assertions are not weakened to buy time.
  */
 
 const CATALOG = "/";
@@ -39,6 +55,14 @@ const LIGHTBOX_CLOSE = '[data-action="lightbox-close"]';
 // Failure converter only, not the settle mechanism: if the router never
 // settles, fail loudly here instead of burning the whole test budget.
 const SETTLE_CAP_MS = 20_000;
+
+// Deterministic multi-image product B (Back-repo seed-e2e gallery fixture).
+const FIXTURE_HREF = "/products/remera-premium-estampada";
+const FIXTURE_MESSAGE =
+  "gallery fixture missing: scripts/seed-e2e.ts in Sublime-Ecommerce-Back " +
+  "must have run via `pnpm run seed:e2e` (prod-remera-premium-estampada must " +
+  "carry the two pimg-e2e-gallery-* images beside its primary) — never skip, " +
+  "this fails loudly by design";
 
 async function readCatalogHrefs(page: Page): Promise<string[]> {
   await page.goto(CATALOG);
@@ -56,11 +80,13 @@ test.describe("SPA wiring revisit — gallery re-arms after navigation", () => {
   test("second multi-image product keeps a live gallery after SPA revisits", async ({
     page,
   }) => {
-    // Scanning test: several SPA round-trips against on-demand dev compiles.
     test.slow();
 
     const hrefs = await readCatalogHrefs(page);
     expect(hrefs.length, "catalog must expose at least one product card").toBeGreaterThan(0);
+    // Fixture precondition, loud: the deterministic multi-image product
+    // must be linked from the catalog.
+    expect(hrefs, FIXTURE_MESSAGE).toContain(FIXTURE_HREF);
 
     // Full load = fresh Astro document session; tag it to prove the rest
     // of the flow stays client-side.
@@ -119,12 +145,14 @@ test.describe("SPA wiring revisit — gallery re-arms after navigation", () => {
 
     const thumbCountOnPage = () => page.locator(THUMB).count();
 
-    // Product A: first catalog product rendering [data-gallery]. No thumbnail
-    // strip required — this visit only has to load the gallery bundle into
-    // the session dedupe set.
+    // Product A: the first catalog card (other than the fixture) rendering
+    // [data-gallery]. No thumbnail strip required — this visit only has to
+    // load the gallery bundle into the session dedupe set. Bounded to a few
+    // cards: every seeded product carries an image, so the first card wins
+    // in practice; the cap only guards against a pathological crawl.
     let firstHref: string | null = null;
     let firstMainSrc: string | null = null;
-    for (const href of hrefs) {
+    for (const href of hrefs.filter((h) => h !== FIXTURE_HREF).slice(0, 6)) {
       await spaToProduct(href);
       // Every product page renders #detail-name; imageless products render
       // a plain <img> instead of the gallery and arm nothing.
@@ -140,34 +168,46 @@ test.describe("SPA wiring revisit — gallery re-arms after navigation", () => {
     }
     expect(
       firstHref,
-      "catalog must expose a product rendering [data-gallery] for this regression to be meaningful"
+      "catalog must expose a non-fixture product rendering [data-gallery] for this regression to be meaningful"
     ).toBeTruthy();
 
-    // SPA back to the catalog, then to a DIFFERENT multi-image product whose
-    // main image differs from the first product's.
+    // SPA back to the catalog, then to the deterministic fixture product B,
+    // whose main image differs from A's (distinct picsum seeds per slug).
     await spaToCatalog();
 
-    let secondHref: string | null = null;
-    for (const href of hrefs) {
-      if (href === firstHref) continue;
-      await spaToProduct(href);
-      await expect(page.locator("#detail-name")).toBeVisible();
-      if ((await thumbCountOnPage()) <= 1) {
-        await spaToCatalog();
-        continue;
-      }
-      const mainSrc = await page.locator(MAIN_IMAGE).getAttribute("src");
-      if (mainSrc === firstMainSrc) {
-        await spaToCatalog();
-        continue;
-      }
-      secondHref = href;
-      break;
+    // The catalog paginates (`display:none` past the first batch): reveal
+    // the fixture card with bounded load-more clicks. If the card never
+    // becomes visible the final assertion fails loudly instead of hanging.
+    const fixtureLink = () =>
+      page.locator(`product-card a.product-link[href="${FIXTURE_HREF}"]`);
+    await expect(fixtureLink(), FIXTURE_MESSAGE).toHaveCount(1);
+    for (let i = 0; i < 6; i++) {
+      if (await fixtureLink().isVisible()) break;
+      const loadMore = page.locator("#load-more");
+      if (await loadMore.isVisible()) await loadMore.click();
+      else break;
     }
+    await expect(
+      fixtureLink(),
+      "the fixture product card must become visible via load-more pagination"
+    ).toBeVisible();
+
+    await spaToProduct(FIXTURE_HREF);
+    await expect(page.locator("#detail-name")).toBeVisible();
+    await expect(
+      page.locator(GALLERY),
+      `${FIXTURE_MESSAGE} (the fixture product must render a gallery)`
+    ).toHaveCount(1);
+    const thumbTotal = await thumbCountOnPage();
     expect(
-      secondHref,
-      "catalog must expose a second multi-image product with a different main image for this regression to be meaningful"
-    ).toBeTruthy();
+      thumbTotal,
+      `${FIXTURE_MESSAGE} (the fixture product must render more than one thumbnail)`
+    ).toBeGreaterThan(1);
+    const fixtureMainSrc = await page.locator(MAIN_IMAGE).getAttribute("src");
+    expect(
+      fixtureMainSrc,
+      "the fixture product's main image must differ from product A's"
+    ).not.toBe(firstMainSrc);
     expect(await spaTagOf(), "final product page must still be the SPA session").toBe(spaTag);
 
     // The exact contract: after an SPA revisit the gallery wiring is re-armed.
@@ -175,7 +215,7 @@ test.describe("SPA wiring revisit — gallery re-arms after navigation", () => {
     const mainBefore = await main.getAttribute("src");
     const counterBefore = await page.locator(COUNTER).textContent();
     const liveThumb = page.locator(`${THUMB}:not(.gallery-thumb--active)`).first();
-    await expect(liveThumb, "second product must expose a non-active thumbnail").toBeVisible();
+    await expect(liveThumb, "fixture product must expose a non-active thumbnail").toBeVisible();
     const targetSrc = await liveThumb.locator("img").getAttribute("src");
     expect(targetSrc, "thumbnails must carry an image src").toBeTruthy();
 
