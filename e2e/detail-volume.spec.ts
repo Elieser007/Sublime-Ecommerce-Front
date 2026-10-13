@@ -34,7 +34,28 @@ test.describe("Detail Volume UI (D2/D3)", () => {
       );
     });
 
-    // 10 units qualifies the 10+ tier
-    await expect(page.locator("#detail-price")).toContainText("117.000");
+    // 10 units qualifies the 10+ tier. The expectation is read from the
+    // server-rendered tier table on this same page — SSG HTML baked from the
+    // payload at build time — while #detail-price is rewritten at runtime by
+    // the page script's number-input:change listener through the
+    // astro:page-load wiring (getTierForQuantity tier math). The two values
+    // come from different code paths, so this is a cross-path consistency
+    // check, not a self-comparison: dead wiring leaves the qty-1 price in
+    // place, broken tier math disagrees with the table, and a missing 10+
+    // row fails loudly below instead of skipping. No API fetch: the table
+    // is static HTML, so this stays runnable against the built artifact
+    // with the backend stopped.
+    const tier10PriceCell = page.locator('tr[data-tier-row][data-min-qty="10"] .tier-col-price');
+    await expect(tier10PriceCell, "the SSG tier table must contain a 10+ row").toHaveCount(1);
+    const digitsOnly = (s: string | null) => (s ?? "").replace(/[^0-9]/g, "");
+    const expectedTier10 = digitsOnly(await tier10PriceCell.textContent());
+    expect(expectedTier10, "the 10+ tier cell must carry a numeric price").toMatch(/^[0-9]+$/);
+    console.log(`TIER10 expected digits=${expectedTier10}`);
+
+    const shownPrice = digitsOnly(await page.locator("#detail-price").textContent());
+    expect(
+      shownPrice,
+      `qty 10 must show the SSG 10+ tier price (table=${expectedTier10}, shown=${shownPrice})`
+    ).toBe(expectedTier10);
   });
 });

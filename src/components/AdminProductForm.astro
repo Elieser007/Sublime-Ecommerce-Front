@@ -134,117 +134,135 @@ const title = mode === 'create' ? 'Nuevo Producto' : 'Editar Producto';
   import { escapeHtml } from '../lib/escape-html';
 
   const API_URL = getApiUrl();
-  const $ = (id: string) => document.getElementById(id);
-  const form = document.getElementById('product-form');
 
-  // ─── Cascade: Section → Category → Subcategory ─────────────
-  let sections: any[] = [];
-  let categories: any[] = [];
-  let subcategories: any[] = [];
+  // ClientRouter executes this bundle at most once per document session
+  // (Astro dedupes scripts by src), while `astro:page-load` fires after the
+  // DOM swap on every navigation and on the initial load. All DOM is
+  // therefore queried inside initAdminProductForm — never at module scope —
+  // so the wiring re-arms against the CURRENT page's nodes (the
+  // section/category cascade and the submit handler were dead on the 2nd+
+  // SPA visit of /admin/new before).
+  function initAdminProductForm() {
+    const $ = (id: string) => document.getElementById(id);
+    const form = document.getElementById('product-form');
 
-  function populateSelect(id: string, data: any[], placeholder: string, valueKey = 'id', labelKey = 'name') {
-    const el = $(id) as HTMLSelectElement;
-    if (!el) return;
-    el.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>` + data.map((d: any) => `<option value="${escapeHtml(d[valueKey])}">${escapeHtml(d[labelKey])}</option>`).join('');
-  }
+    // ─── Cascade: Section → Category → Subcategory ─────────────
+    let sections: any[] = [];
+    let categories: any[] = [];
+    let subcategories: any[] = [];
 
-  async function loadDependencies() {
-    try {
-      const [sec, cats, subs] = await Promise.all([
-        fetch(`${API_URL}/api/sections`, { credentials: 'include' }).then(r => r.ok ? r.json() : { sections: [] }),
-        fetch(`${API_URL}/api/categories`, { credentials: 'include' }).then(r => r.ok ? r.json() : { categories: [] }),
-        fetch(`${API_URL}/api/subcategories`, { credentials: 'include' }).then(r => r.ok ? r.json() : { subcategories: [] }),
-      ]);
-      sections = sec.sections || [];
-      categories = cats.categories || [];
-      subcategories = subs.subcategories || [];
-      populateSelect('section-select', sections, 'Seleccionar...');
-    } catch {
-      // Cascade stays empty; the form submit validates required ids.
+    function populateSelect(id: string, data: any[], placeholder: string, valueKey = 'id', labelKey = 'name') {
+      const el = $(id) as HTMLSelectElement;
+      if (!el) return;
+      el.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>` + data.map((d: any) => `<option value="${escapeHtml(d[valueKey])}">${escapeHtml(d[labelKey])}</option>`).join('');
     }
-  }
 
-  function onSectionChange() {
-    const sectionId = ($('section-select') as HTMLSelectElement).value;
-    const filtered = sectionId ? categories.filter((c: any) => c.section_id === sectionId) : [];
-    populateSelect('category-select', filtered, 'Seleccionar...');
-    populateSelect('subcategory-select', [], 'Seleccionar categoría primero');
-  }
-
-  function onCategoryChange() {
-    const categoryId = ($('category-select') as HTMLSelectElement).value;
-    const filtered = categoryId ? subcategories.filter((s: any) => s.category_id === categoryId) : [];
-    populateSelect('subcategory-select', filtered, 'Seleccionar...');
-  }
-
-  $('section-select')?.addEventListener('change', onSectionChange);
-  $('category-select')?.addEventListener('change', onCategoryChange);
-
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const formData = new FormData(form as HTMLFormElement);
-    const data = Object.fromEntries(formData.entries());
-
-    // Check for processed image from ImageUploader component
-    const processedImage = (window as any).__processedImage;
-    const processedImageName = (window as any).__processedImageName;
-
-    try {
-      // Dynamically import product form logic (client-side only)
-      const { createProductWithImage, uploadImage, validateProductForm } = await import('/src/lib/product-form.ts');
-
-      // Build form data for validation
-      const productData = {
-        name: data.name as string,
-        price: data.price ? Number(data.price) : null,
-        sectionId: data.sectionId as string,
-        categoryId: data.categoryId as string,
-        subcategoryId: (data.subcategoryId as string) || undefined,
-        description: data.description as string,
-      };
-
-      // Validate
-      const validationError = validateProductForm(productData);
-      if (validationError) {
-        alert(validationError);
-        return;
+    async function loadDependencies() {
+      try {
+        const [sec, cats, subs] = await Promise.all([
+          fetch(`${API_URL}/api/sections`, { credentials: 'include' }).then(r => r.ok ? r.json() : { sections: [] }),
+          fetch(`${API_URL}/api/categories`, { credentials: 'include' }).then(r => r.ok ? r.json() : { categories: [] }),
+          fetch(`${API_URL}/api/subcategories`, { credentials: 'include' }).then(r => r.ok ? r.json() : { subcategories: [] }),
+        ]);
+        sections = sec.sections || [];
+        categories = cats.categories || [];
+        subcategories = subs.subcategories || [];
+        populateSelect('section-select', sections, 'Seleccionar...');
+      } catch {
+        // Cascade stays empty; the form submit validates required ids.
       }
+    }
 
-      // Step 1: Upload image if present
-      let imageUrl: string | undefined;
-      if (processedImage) {
-        const uploadResult = await uploadImage(
-          new File([processedImage], processedImageName || 'image.webp', { type: 'image/webp' })
-        );
-        if (!uploadResult.success) {
-          alert(`Error al subir imagen: ${uploadResult.error}`);
+    function onSectionChange() {
+      const sectionId = ($('section-select') as HTMLSelectElement).value;
+      const filtered = sectionId ? categories.filter((c: any) => c.section_id === sectionId) : [];
+      populateSelect('category-select', filtered, 'Seleccionar...');
+      populateSelect('subcategory-select', [], 'Seleccionar categoría primero');
+    }
+
+    function onCategoryChange() {
+      const categoryId = ($('category-select') as HTMLSelectElement).value;
+      const filtered = categoryId ? subcategories.filter((s: any) => s.category_id === categoryId) : [];
+      populateSelect('subcategory-select', filtered, 'Seleccionar...');
+    }
+
+    $('section-select')?.addEventListener('change', onSectionChange);
+    $('category-select')?.addEventListener('change', onCategoryChange);
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(form as HTMLFormElement);
+      const data = Object.fromEntries(formData.entries());
+
+      // Check for processed image from ImageUploader component
+      const processedImage = (window as any).__processedImage;
+      const processedImageName = (window as any).__processedImageName;
+
+      try {
+        // Dynamically import product form logic (client-side only)
+        const { createProductWithImage, uploadImage, validateProductForm } = await import('/src/lib/product-form.ts');
+
+        // Build form data for validation
+        const productData = {
+          name: data.name as string,
+          price: data.price ? Number(data.price) : null,
+          sectionId: data.sectionId as string,
+          categoryId: data.categoryId as string,
+          subcategoryId: (data.subcategoryId as string) || undefined,
+          description: data.description as string,
+        };
+
+        // Validate
+        const validationError = validateProductForm(productData);
+        if (validationError) {
+          alert(validationError);
           return;
         }
-        imageUrl = uploadResult.url;
+
+        // Step 1: Upload image if present
+        let imageUrl: string | undefined;
+        if (processedImage) {
+          const uploadResult = await uploadImage(
+            new File([processedImage], processedImageName || 'image.webp', { type: 'image/webp' })
+          );
+          if (!uploadResult.success) {
+            alert(`Error al subir imagen: ${uploadResult.error}`);
+            return;
+          }
+          imageUrl = uploadResult.url;
+        }
+
+        // Step 2: Create product with optional image
+        const result = await createProductWithImage({
+          ...productData,
+          imageUrl,
+        });
+
+        if (!result.success) {
+          alert(`Error: ${result.error}`);
+          return;
+        }
+
+        // Clean up
+        (window as any).__processedImage = null;
+        (window as any).__processedImageName = null;
+
+        // Redirect to admin products list
+        window.location.href = '/admin/products';
+      } catch (err: any) {
+        alert(err.message || 'Error al guardar el producto');
       }
+    });
 
-      // Step 2: Create product with optional image
-      const result = await createProductWithImage({
-        ...productData,
-        imageUrl,
-      });
+    loadDependencies();
+  }
 
-      if (!result.success) {
-        alert(`Error: ${result.error}`);
-        return;
-      }
-
-      // Clean up
-      (window as any).__processedImage = null;
-      (window as any).__processedImageName = null;
-
-      // Redirect to admin products list
-      window.location.href = '/admin/products';
-    } catch (err: any) {
-      alert(err.message || 'Error al guardar el producto');
-    }
-  });
-
-  loadDependencies();
+  // Replace the previous page-load listener instead of stacking one per
+  // bundle evaluation, so initAdminProductForm runs exactly once per navigation.
+  if ((window as any).__adminProductFormInit) {
+    document.removeEventListener('astro:page-load', (window as any).__adminProductFormInit);
+  }
+  (window as any).__adminProductFormInit = initAdminProductForm;
+  document.addEventListener('astro:page-load', (window as any).__adminProductFormInit);
 </script>

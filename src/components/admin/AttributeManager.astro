@@ -309,489 +309,512 @@ const { productId, productName } = Astro.props;
 
   const API_URL = getApiUrl();
 
-  // State
-  let productId = '';
-  let allModules: any[] = [];
-  let productAttributes: any[] = [];
-  let dependencies: any[] = [];
-  let expandedModule: string | null = null;
+  // ClientRouter executes this bundle at most once per document session
+  // (Astro dedupes scripts by src), while `astro:page-load` fires after the
+  // DOM swap on every navigation and on the initial load. All DOM is
+  // therefore queried inside initAttributeManager — never at module scope —
+  // so the wiring re-arms against the CURRENT page's nodes (the modal
+  // open/close handlers were dead on the 2nd+ SPA visit before).
+  function initAttributeManager() {
+    // State
+    let productId = '';
+    let allModules: any[] = [];
+    let productAttributes: any[] = [];
+    let dependencies: any[] = [];
+    let expandedModule: string | null = null;
 
-  const $ = (id: string) => document.getElementById(id);
+    const $ = (id: string) => document.getElementById(id);
 
-  // ─── SECURITY: XSS PREVENTION ─────────────────────────
-  function escapeHtml(str: string): string {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  // ─── TOAST NOTIFICATIONS ────────────────────────────────
-  function showToast(message: string, type: 'success' | 'error' = 'success') {
-    const toast = document.createElement('div');
-    toast.className = `attr-toast attr-toast--${type}`;
-    toast.textContent = message;
-    toast.style.cssText = `
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      padding: 12px 20px;
-      background: ${type === 'success' ? 'rgba(130, 207, 255, 0.9)' : 'rgba(255, 180, 171, 0.9)'};
-      color: ${type === 'success' ? 'var(--surface-dim)' : 'var(--surface-dim)'};
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      border-radius: 0px;
-      z-index: 400;
-      animation: fadeInOut 3s ease forwards;
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-  }
-
-  // ─── LOAD DATA ──────────────────────────────────────────
-  async function loadModules() {
-    const res = await fetch(`${API_URL}/api/admin/attributes/modules`, { credentials: 'include' });
-    if (!res.ok) return;
-    const data = await res.json();
-    allModules = data.data || [];
-  }
-
-  async function loadProductAttributes() {
-    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes`, { credentials: 'include' });
-    if (!res.ok) return;
-    const data = await res.json();
-    productAttributes = data.attributes || [];
-    renderAssignedModules();
-    populateAddModuleSelect();
-    const depBtn = $('show-dependency-btn') as HTMLButtonElement;
-    if (depBtn) depBtn.style.display = productAttributes.length >= 2 ? '' : 'none';
-  }
-
-  async function loadDependencies() {
-    const res = await fetch(`${API_URL}/api/admin/attributes/dependencies`, { credentials: 'include' });
-    if (!res.ok) return;
-    const data = await res.json();
-    const allDeps = data.data || [];
-    const assignedModuleIds = new Set(productAttributes.map((a: any) => a.module_id));
-    dependencies = allDeps.filter((dep: any) =>
-      assignedModuleIds.has(dep.parent_module_id) && assignedModuleIds.has(dep.child_module_id)
-    );
-    renderDependencies();
-  }
-
-  // ─── RENDER ─────────────────────────────────────────────
-  function renderAssignedModules() {
-    const container = $('assigned-modules-list');
-    if (!container) return;
-
-    if (productAttributes.length === 0) {
-      container.innerHTML = '<p class="attr-empty-state">No hay módulos asignados</p>';
-      return;
+    // ─── SECURITY: XSS PREVENTION ─────────────────────────
+    function escapeHtml(str: string): string {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
     }
 
-    container.innerHTML = productAttributes.map((attr: any) => `
-      <div class="attr-module-card" data-module-id="${attr.module_id}">
-        <div class="attr-module-header">
-          <span class="attr-module-name ${expandedModule === attr.module_id ? 'expanded' : ''}" 
-                onclick="toggleModule('${attr.module_id}')">
-            ${escapeHtml(attr.module_name)}
-            <span class="badge badge--sm">${attr.values.length} valores</span>
-          </span>
-          <div class="attr-module-actions">
-            <button class="btn btn--primary btn--sm" onclick="openValuePicker('${attr.module_id}', '${escapeHtml(attr.module_name)}')">
-              + Agregar Valor
-            </button>
-            <button class="btn btn--danger btn--sm" onclick="unassignModule('${attr.module_id}', '${attr.module_name}')">
-              Quitar
-            </button>
+    // ─── TOAST NOTIFICATIONS ────────────────────────────────
+    function showToast(message: string, type: 'success' | 'error' = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `attr-toast attr-toast--${type}`;
+      toast.textContent = message;
+      toast.style.cssText = `
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        padding: 12px 20px;
+        background: ${type === 'success' ? 'rgba(130, 207, 255, 0.9)' : 'rgba(255, 180, 171, 0.9)'};
+        color: ${type === 'success' ? 'var(--surface-dim)' : 'var(--surface-dim)'};
+        font-family: 'Space Mono', monospace;
+        font-size: 12px;
+        border-radius: 0px;
+        z-index: 400;
+        animation: fadeInOut 3s ease forwards;
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // ─── LOAD DATA ──────────────────────────────────────────
+    async function loadModules() {
+      const res = await fetch(`${API_URL}/api/admin/attributes/modules`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      allModules = data.data || [];
+    }
+
+    async function loadProductAttributes() {
+      const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      productAttributes = data.attributes || [];
+      renderAssignedModules();
+      populateAddModuleSelect();
+      const depBtn = $('show-dependency-btn') as HTMLButtonElement;
+      if (depBtn) depBtn.style.display = productAttributes.length >= 2 ? '' : 'none';
+    }
+
+    async function loadDependencies() {
+      const res = await fetch(`${API_URL}/api/admin/attributes/dependencies`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const allDeps = data.data || [];
+      const assignedModuleIds = new Set(productAttributes.map((a: any) => a.module_id));
+      dependencies = allDeps.filter((dep: any) =>
+        assignedModuleIds.has(dep.parent_module_id) && assignedModuleIds.has(dep.child_module_id)
+      );
+      renderDependencies();
+    }
+
+    // ─── RENDER ─────────────────────────────────────────────
+    function renderAssignedModules() {
+      const container = $('assigned-modules-list');
+      if (!container) return;
+
+      if (productAttributes.length === 0) {
+        container.innerHTML = '<p class="attr-empty-state">No hay módulos asignados</p>';
+        return;
+      }
+
+      container.innerHTML = productAttributes.map((attr: any) => `
+        <div class="attr-module-card" data-module-id="${attr.module_id}">
+          <div class="attr-module-header">
+            <span class="attr-module-name ${expandedModule === attr.module_id ? 'expanded' : ''}" 
+                  onclick="toggleModule('${attr.module_id}')">
+              ${escapeHtml(attr.module_name)}
+              <span class="badge badge--sm">${attr.values.length} valores</span>
+            </span>
+            <div class="attr-module-actions">
+              <button class="btn btn--primary btn--sm" onclick="openValuePicker('${attr.module_id}', '${escapeHtml(attr.module_name)}')">
+                + Agregar Valor
+              </button>
+              <button class="btn btn--danger btn--sm" onclick="unassignModule('${attr.module_id}', '${attr.module_name}')">
+                Quitar
+              </button>
+            </div>
+          </div>
+          <div class="attr-values-list ${expandedModule === attr.module_id ? 'visible' : ''}" id="values-${attr.module_id}">
+            ${attr.values.length === 0 
+              ? '<p class="attr-empty-state">No hay valores asignados</p>'
+              : attr.values.map((v: any) => `
+                <div class="attr-value-row">
+                  <span class="attr-value-label">
+                    ${v.hex_color ? `<span class="attr-value-color" style="background:${v.hex_color}"></span>` : ''}
+                    ${v.label}
+                  </span>
+                  <div class="attr-value-price">
+                    <input type="number" class="form-input form-input--sm"
+                           value="${v.price_modifier}" 
+                           onchange="updatePriceModifier('${attr.module_id}', '${v.id}', this.value)"
+                           placeholder="Mod. precio" />
+                    <span class="price-modifier">${v.price_modifier > 0 ? '+' : ''}${v.price_modifier}</span>
+                  </div>
+                  <button class="btn btn--danger btn--sm" onclick="removeValue('${attr.module_id}', '${v.id}')">✕</button>
+                </div>
+              `).join('')
+            }
           </div>
         </div>
-        <div class="attr-values-list ${expandedModule === attr.module_id ? 'visible' : ''}" id="values-${attr.module_id}">
-          ${attr.values.length === 0 
-            ? '<p class="attr-empty-state">No hay valores asignados</p>'
-            : attr.values.map((v: any) => `
-              <div class="attr-value-row">
-                <span class="attr-value-label">
-                  ${v.hex_color ? `<span class="attr-value-color" style="background:${v.hex_color}"></span>` : ''}
-                  ${v.label}
-                </span>
-                <div class="attr-value-price">
-                  <input type="number" class="form-input form-input--sm"
-                         value="${v.price_modifier}" 
-                         onchange="updatePriceModifier('${attr.module_id}', '${v.id}', this.value)"
-                         placeholder="Mod. precio" />
-                  <span class="price-modifier">${v.price_modifier > 0 ? '+' : ''}${v.price_modifier}</span>
-                </div>
-                <button class="btn btn--danger btn--sm" onclick="removeValue('${attr.module_id}', '${v.id}')">✕</button>
-              </div>
-            `).join('')
-          }
-        </div>
-      </div>
-    `).join('');
-  }
-
-  function renderDependencies() {
-    const container = $('dependencies-list');
-    if (!container) return;
-
-    if (dependencies.length === 0) {
-      container.innerHTML = '<p class="attr-empty-state">No hay dependencias configuradas</p>';
-      return;
+      `).join('');
     }
 
-    container.innerHTML = dependencies.map((dep: any) => `
-      <div class="attr-dep-item">
-        <span class="attr-dep-info">
-          <strong>${escapeHtml(dep.parent_module_name || 'Módulo')}</strong>: ${escapeHtml(dep.parent_value_label)}
-          <span class="dep-arrow">→</span>
-          <strong>${escapeHtml(dep.child_module_name || 'Módulo')}</strong>: ${escapeHtml(dep.child_value_label || 'Todos')}
-        </span>
-        <button class="btn btn--danger btn--sm" onclick="deleteDependency('${dep.id}')">✕</button>
-      </div>
-    `).join('');
-  }
+    function renderDependencies() {
+      const container = $('dependencies-list');
+      if (!container) return;
 
-  function populateAddModuleSelect() {
-    const select = $('add-module-select') as HTMLSelectElement;
-    if (!select) return;
-
-    const assignedIds = new Set(productAttributes.map((a: any) => a.module_id));
-    const available = allModules.filter((m) => !assignedIds.has(m.id));
-
-    select.innerHTML = '<option value="">+ Agregar Módulo</option>' + 
-      available.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
-  }
-
-  // ─── MODULE OPERATIONS ──────────────────────────────────
-  (window as any).toggleModule = (moduleId: string) => {
-    expandedModule = expandedModule === moduleId ? null : moduleId;
-    renderAssignedModules();
-  };
-
-  (window as any).unassignModule = async (moduleId: string, moduleName: string) => {
-    if (!confirm(`¿Quitar módulo "${moduleName}" del producto?`)) return;
-
-    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-
-    if (res.ok) {
-      showToast(`Módulo "${moduleName}" removido`);
-      await loadProductAttributes();
-    } else {
-      showToast('Error al quitar módulo', 'error');
-    }
-  };
-
-  $('add-module-select')?.addEventListener('change', async (e) => {
-    const moduleId = (e.target as HTMLSelectElement).value;
-    if (!moduleId) return;
-
-    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ module_id: moduleId }),
-    });
-
-    if (res.ok) {
-      const mod = allModules.find((m) => m.id === moduleId);
-      showToast(`Módulo "${mod?.name}" asignado`);
-      (e.target as HTMLSelectElement).value = '';
-      await loadProductAttributes();
-    } else {
-      const err = await res.json();
-      showToast(err.error || 'Error al asignar módulo', 'error');
-    }
-  });
-
-  // ─── VALUE OPERATIONS ───────────────────────────────────
-  let currentPickerModuleId: string | null = null;
-
-  async function loadModuleValues(moduleId: string): Promise<any[]> {
-    const res = await fetch(`${API_URL}/api/admin/attributes/values?module_id=${moduleId}`, { credentials: 'include' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.data || [];
-  }
-
-  (window as any).openValuePicker = async (moduleId: string, moduleName: string) => {
-    currentPickerModuleId = moduleId;
-    $('value-picker-title')!.textContent = `Valores de ${moduleName}`;
-    $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">Cargando valores...</p>';
-    valuePickerModal.open();
-
-    const allValues = await loadModuleValues(moduleId);
-    const currentAttr = productAttributes.find((a: any) => a.module_id === moduleId);
-    const assignedIds = new Set(currentAttr?.values?.map((v: any) => v.id) || []);
-    // REQ-4: the picker lists ONLY unassigned dictionary values (keyed by API id)
-    const unassignedValues = allValues.filter((v: any) => !assignedIds.has(v.id));
-
-    if (allValues.length === 0) {
-      $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">No hay valores disponibles para este módulo</p>';
-      return;
-    }
-
-    if (unassignedValues.length === 0) {
-      $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">Todos los valores ya están asignados</p>';
-      return;
-    }
-
-    $('value-picker-list')!.innerHTML = unassignedValues.map((v: any) => `
-      <div class="attr-picker-item">
-        <span class="attr-picker-item-info">
-          ${v.hex_color ? `<span class="attr-value-color" style="background:${v.hex_color}"></span>` : ''}
-          ${escapeHtml(v.label)}
-        </span>
-        <button class="btn btn--primary btn--sm" onclick="assignValueFromPicker('${moduleId}', '${v.id}')">
-          Agregar
-        </button>
-      </div>
-    `).join('');
-  };
-
-  (window as any).assignValueFromPicker = async (moduleId: string, valueId: string) => {
-    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ value_id: valueId, price_modifier: 0 }),
-    });
-
-    if (res.ok) {
-      showToast('Valor agregado');
-      await loadProductAttributes();
-      if (currentPickerModuleId) {
-        const attr = productAttributes.find((a: any) => a.module_id === currentPickerModuleId);
-        (window as any).openValuePicker(currentPickerModuleId, attr?.module_name || '');
+      if (dependencies.length === 0) {
+        container.innerHTML = '<p class="attr-empty-state">No hay dependencias configuradas</p>';
+        return;
       }
-    } else {
-      const err = await res.json();
-      showToast(err.error || 'Error al agregar valor', 'error');
-    }
-  };
 
-  (window as any).updatePriceModifier = async (moduleId: string, valueId: string, newPrice: string) => {
-    const priceModifier = parseInt(newPrice) || 0;
-
-    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values/${valueId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ price_modifier: priceModifier }),
-    });
-
-    if (res.ok) {
-      showToast('Precio actualizado');
-      await loadProductAttributes();
-    } else {
-      showToast('Error al actualizar precio', 'error');
-    }
-  };
-
-  (window as any).removeValue = async (moduleId: string, valueId: string) => {
-    if (!confirm('¿Quitar este valor del producto?')) return;
-
-    const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values/${valueId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-
-    if (res.ok) {
-      showToast('Valor removido');
-      await loadProductAttributes();
-    } else {
-      showToast('Error al quitar valor', 'error');
-    }
-  };
-
-  function closeValuePicker() {
-    valuePickerModal.close();
-    currentPickerModuleId = null;
-  }
-
-  // ─── DEPENDENCY FORM ────────────────────────────────────
-  function openDependencyForm() {
-    depModal.open();
-    populateParentModuleSelect();
-    populateChildModuleSelect();
-  }
-
-  function closeDependencyForm() {
-    depModal.close();
-    ($('dependency-form') as HTMLFormElement)?.reset();
-    $('dep-form-error')!.textContent = '';
-    ($('parent-value-select') as HTMLSelectElement).disabled = true;
-    $('child-values-checklist')!.innerHTML = '<p class="attr-empty-state">Seleccioná módulo hijo primero</p>';
-  }
-
-  function populateParentModuleSelect() {
-    const select = $('parent-module-select') as HTMLSelectElement;
-    if (!select) return;
-    const assignedModules = allModules.filter((m) =>
-      productAttributes.some((a: any) => a.module_id === m.id)
-    );
-    select.innerHTML = '<option value="">Seleccionar...</option>' +
-      assignedModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
-  }
-
-  function populateChildModuleSelect() {
-    const select = $('child-module-select') as HTMLSelectElement;
-    if (!select) return;
-    const assignedModules = allModules.filter((m) =>
-      productAttributes.some((a: any) => a.module_id === m.id)
-    );
-    select.innerHTML = '<option value="">Seleccionar...</option>' +
-      assignedModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
-  }
-
-  async function loadModuleValuesForDep(moduleId: string): Promise<any[]> {
-    const res = await fetch(`${API_URL}/api/admin/attributes/values?module_id=${moduleId}`, { credentials: 'include' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.data || [];
-  }
-
-  $('parent-module-select')?.addEventListener('change', async (e) => {
-    const moduleId = (e.target as HTMLSelectElement).value;
-    const valueSelect = $('parent-value-select') as HTMLSelectElement;
-    
-    if (!moduleId) {
-      valueSelect.disabled = true;
-      valueSelect.innerHTML = '<option value="">Seleccionar módulo primero</option>';
-      return;
+      container.innerHTML = dependencies.map((dep: any) => `
+        <div class="attr-dep-item">
+          <span class="attr-dep-info">
+            <strong>${escapeHtml(dep.parent_module_name || 'Módulo')}</strong>: ${escapeHtml(dep.parent_value_label)}
+            <span class="dep-arrow">→</span>
+            <strong>${escapeHtml(dep.child_module_name || 'Módulo')}</strong>: ${escapeHtml(dep.child_value_label || 'Todos')}
+          </span>
+          <button class="btn btn--danger btn--sm" onclick="deleteDependency('${dep.id}')">✕</button>
+        </div>
+      `).join('');
     }
 
-    const values = await loadModuleValuesForDep(moduleId);
-    valueSelect.disabled = false;
-    valueSelect.innerHTML = '<option value="">Seleccionar...</option>' + 
-      values.map((v: any) => `<option value="${v.id}">${v.label}</option>`).join('');
-  });
+    function populateAddModuleSelect() {
+      const select = $('add-module-select') as HTMLSelectElement;
+      if (!select) return;
 
-  $('child-module-select')?.addEventListener('change', async (e) => {
-    const moduleId = (e.target as HTMLSelectElement).value;
-    const checklist = $('child-values-checklist');
-    
-    if (!moduleId) {
-      checklist!.innerHTML = '<p class="attr-empty-state">Seleccioná módulo hijo primero</p>';
-      return;
+      const assignedIds = new Set(productAttributes.map((a: any) => a.module_id));
+      const available = allModules.filter((m) => !assignedIds.has(m.id));
+
+      select.innerHTML = '<option value="">+ Agregar Módulo</option>' + 
+        available.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
     }
 
-    const values = await loadModuleValuesForDep(moduleId);
-    if (values.length === 0) {
-      checklist!.innerHTML = '<p class="attr-empty-state">No hay valores disponibles</p>';
-      return;
-    }
+    // ─── MODULE OPERATIONS ──────────────────────────────────
+    (window as any).toggleModule = (moduleId: string) => {
+      expandedModule = expandedModule === moduleId ? null : moduleId;
+      renderAssignedModules();
+    };
 
-    checklist!.innerHTML = values.map((v: any) => `
-      <label class="attr-checklist-item">
-        <input type="checkbox" name="childValues" value="${v.id}" />
-        ${v.label}
-      </label>
-    `).join('');
-  });
+    (window as any).unassignModule = async (moduleId: string, moduleName: string) => {
+      if (!confirm(`¿Quitar módulo "${moduleName}" del producto?`)) return;
 
-  $('dependency-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const parentModuleId = (form.querySelector('[name="parentModuleId"]') as HTMLSelectElement).value;
-    const parentValueId = (form.querySelector('[name="parentValueId"]') as HTMLSelectElement).value;
-    const childModuleId = (form.querySelector('[name="childModuleId"]') as HTMLSelectElement).value;
-    
-    const childValueCheckboxes = form.querySelectorAll('[name="childValues"]:checked') as NodeListOf<HTMLInputElement>;
-    const childValueIds = Array.from(childValueCheckboxes).map((cb) => cb.value);
+      const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
 
-    // Validation
-    if (!parentModuleId || !parentValueId || !childModuleId) {
-      $('dep-form-error')!.textContent = 'Completá todos los campos obligatorios';
-      return;
-    }
+      if (res.ok) {
+        showToast(`Módulo "${moduleName}" removido`);
+        await loadProductAttributes();
+      } else {
+        showToast('Error al quitar módulo', 'error');
+      }
+    };
 
-    if (parentModuleId === childModuleId) {
-      $('dep-form-error')!.textContent = 'El módulo hijo debe ser diferente al padre';
-      return;
-    }
+    $('add-module-select')?.addEventListener('change', async (e) => {
+      const moduleId = (e.target as HTMLSelectElement).value;
+      if (!moduleId) return;
 
-    // Create dependencies (one per selected child value, or one with null if none selected)
-    const valuesToCreate = childValueIds.length > 0 ? childValueIds : [null];
-    
-    for (const childValueId of valuesToCreate) {
-      await fetch(`${API_URL}/api/admin/attributes/dependencies`, {
+      const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ 
-          parent_module_id: parentModuleId, 
-          parent_value_id: parentValueId, 
-          child_module_id: childModuleId, 
-          child_value_id: childValueId 
-        }),
+        body: JSON.stringify({ module_id: moduleId }),
       });
-    }
 
-    showToast('Dependencia(s) creada(s)');
-    closeDependencyForm();
-    await loadDependencies();
-  });
-
-  (window as any).deleteDependency = async (depId: string) => {
-    if (!confirm('¿Eliminar esta dependencia?')) return;
-
-    const res = await fetch(`${API_URL}/api/admin/attributes/dependencies/${depId}`, {
-      method: 'DELETE',
-      credentials: 'include',
+      if (res.ok) {
+        const mod = allModules.find((m) => m.id === moduleId);
+        showToast(`Módulo "${mod?.name}" asignado`);
+        (e.target as HTMLSelectElement).value = '';
+        await loadProductAttributes();
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Error al asignar módulo', 'error');
+      }
     });
 
-    if (res.ok) {
-      showToast('Dependencia eliminada');
-      await loadDependencies();
-    } else {
-      showToast('Error al eliminar dependencia', 'error');
+    // ─── VALUE OPERATIONS ───────────────────────────────────
+    let currentPickerModuleId: string | null = null;
+
+    async function loadModuleValues(moduleId: string): Promise<any[]> {
+      const res = await fetch(`${API_URL}/api/admin/attributes/values?module_id=${moduleId}`, { credentials: 'include' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.data || [];
     }
-  };
 
-  // ─── MODAL CONTROLS ─────────────────────────────────────
-  function openModal() {
-    attrModal.open();
-    loadProductAttributes();
-    loadDependencies();
-  }
+    (window as any).openValuePicker = async (moduleId: string, moduleName: string) => {
+      currentPickerModuleId = moduleId;
+      $('value-picker-title')!.textContent = `Valores de ${moduleName}`;
+      $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">Cargando valores...</p>';
+      valuePickerModal.open();
 
-  function closeModal() {
-    attrModal.close();
-  }
+      const allValues = await loadModuleValues(moduleId);
+      const currentAttr = productAttributes.find((a: any) => a.module_id === moduleId);
+      const assignedIds = new Set(currentAttr?.values?.map((v: any) => v.id) || []);
+      // REQ-4: the picker lists ONLY unassigned dictionary values (keyed by API id)
+      const unassignedValues = allValues.filter((v: any) => !assignedIds.has(v.id));
 
-  $('attr-modal-close')?.addEventListener('click', closeModal);
-  $('attr-modal-cancel')?.addEventListener('click', closeModal);
-  $('attr-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+      if (allValues.length === 0) {
+        $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">No hay valores disponibles para este módulo</p>';
+        return;
+      }
 
-  $('show-dependency-btn')?.addEventListener('click', openDependencyForm);
-  $('dep-modal-close')?.addEventListener('click', closeDependencyForm);
-  $('dep-cancel')?.addEventListener('click', closeDependencyForm);
-  $('dep-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeDependencyForm(); });
+      if (unassignedValues.length === 0) {
+        $('value-picker-list')!.innerHTML = '<p class="attr-empty-state">Todos los valores ya están asignados</p>';
+        return;
+      }
 
-  $('value-picker-close')?.addEventListener('click', closeValuePicker);
-  $('value-picker-cancel')?.addEventListener('click', closeValuePicker);
-  $('value-picker-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeValuePicker(); });
+      $('value-picker-list')!.innerHTML = unassignedValues.map((v: any) => `
+        <div class="attr-picker-item">
+          <span class="attr-picker-item-info">
+            ${v.hex_color ? `<span class="attr-value-color" style="background:${v.hex_color}"></span>` : ''}
+            ${escapeHtml(v.label)}
+          </span>
+          <button class="btn btn--primary btn--sm" onclick="assignValueFromPicker('${moduleId}', '${v.id}')">
+            Agregar
+          </button>
+        </div>
+      `).join('');
+    };
 
-  // Initialize
-  productId = $('attr-overlay')?.dataset.productId || '';
-  if (productId) {
-    loadModules().then(() => openModal());
-  }
+    (window as any).assignValueFromPicker = async (moduleId: string, valueId: string) => {
+      const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ value_id: valueId, price_modifier: 0 }),
+      });
 
-  // Listen for custom event from products.astro
-  window.addEventListener('open-attributes', (e: Event) => {
-    const detail = (e as CustomEvent).detail;
-    if (detail?.productId) {
-      productId = detail.productId;
-      $('attr-overlay')!.dataset.productId = detail.productId;
+      if (res.ok) {
+        showToast('Valor agregado');
+        await loadProductAttributes();
+        if (currentPickerModuleId) {
+          const attr = productAttributes.find((a: any) => a.module_id === currentPickerModuleId);
+          (window as any).openValuePicker(currentPickerModuleId, attr?.module_name || '');
+        }
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Error al agregar valor', 'error');
+      }
+    };
+
+    (window as any).updatePriceModifier = async (moduleId: string, valueId: string, newPrice: string) => {
+      const priceModifier = parseInt(newPrice) || 0;
+
+      const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values/${valueId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ price_modifier: priceModifier }),
+      });
+
+      if (res.ok) {
+        showToast('Precio actualizado');
+        await loadProductAttributes();
+      } else {
+        showToast('Error al actualizar precio', 'error');
+      }
+    };
+
+    (window as any).removeValue = async (moduleId: string, valueId: string) => {
+      if (!confirm('¿Quitar este valor del producto?')) return;
+
+      const res = await fetch(`${API_URL}/api/admin/products/${productId}/attributes/${moduleId}/values/${valueId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        showToast('Valor removido');
+        await loadProductAttributes();
+      } else {
+        showToast('Error al quitar valor', 'error');
+      }
+    };
+
+    function closeValuePicker() {
+      valuePickerModal.close();
+      currentPickerModuleId = null;
+    }
+
+    // ─── DEPENDENCY FORM ────────────────────────────────────
+    function openDependencyForm() {
+      depModal.open();
+      populateParentModuleSelect();
+      populateChildModuleSelect();
+    }
+
+    function closeDependencyForm() {
+      depModal.close();
+      ($('dependency-form') as HTMLFormElement)?.reset();
+      $('dep-form-error')!.textContent = '';
+      ($('parent-value-select') as HTMLSelectElement).disabled = true;
+      $('child-values-checklist')!.innerHTML = '<p class="attr-empty-state">Seleccioná módulo hijo primero</p>';
+    }
+
+    function populateParentModuleSelect() {
+      const select = $('parent-module-select') as HTMLSelectElement;
+      if (!select) return;
+      const assignedModules = allModules.filter((m) =>
+        productAttributes.some((a: any) => a.module_id === m.id)
+      );
+      select.innerHTML = '<option value="">Seleccionar...</option>' +
+        assignedModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
+    }
+
+    function populateChildModuleSelect() {
+      const select = $('child-module-select') as HTMLSelectElement;
+      if (!select) return;
+      const assignedModules = allModules.filter((m) =>
+        productAttributes.some((a: any) => a.module_id === m.id)
+      );
+      select.innerHTML = '<option value="">Seleccionar...</option>' +
+        assignedModules.map((m) => `<option value="${m.id}">${m.name}</option>`).join('');
+    }
+
+    async function loadModuleValuesForDep(moduleId: string): Promise<any[]> {
+      const res = await fetch(`${API_URL}/api/admin/attributes/values?module_id=${moduleId}`, { credentials: 'include' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.data || [];
+    }
+
+    $('parent-module-select')?.addEventListener('change', async (e) => {
+      const moduleId = (e.target as HTMLSelectElement).value;
+      const valueSelect = $('parent-value-select') as HTMLSelectElement;
+    
+      if (!moduleId) {
+        valueSelect.disabled = true;
+        valueSelect.innerHTML = '<option value="">Seleccionar módulo primero</option>';
+        return;
+      }
+
+      const values = await loadModuleValuesForDep(moduleId);
+      valueSelect.disabled = false;
+      valueSelect.innerHTML = '<option value="">Seleccionar...</option>' + 
+        values.map((v: any) => `<option value="${v.id}">${v.label}</option>`).join('');
+    });
+
+    $('child-module-select')?.addEventListener('change', async (e) => {
+      const moduleId = (e.target as HTMLSelectElement).value;
+      const checklist = $('child-values-checklist');
+    
+      if (!moduleId) {
+        checklist!.innerHTML = '<p class="attr-empty-state">Seleccioná módulo hijo primero</p>';
+        return;
+      }
+
+      const values = await loadModuleValuesForDep(moduleId);
+      if (values.length === 0) {
+        checklist!.innerHTML = '<p class="attr-empty-state">No hay valores disponibles</p>';
+        return;
+      }
+
+      checklist!.innerHTML = values.map((v: any) => `
+        <label class="attr-checklist-item">
+          <input type="checkbox" name="childValues" value="${v.id}" />
+          ${v.label}
+        </label>
+      `).join('');
+    });
+
+    $('dependency-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const parentModuleId = (form.querySelector('[name="parentModuleId"]') as HTMLSelectElement).value;
+      const parentValueId = (form.querySelector('[name="parentValueId"]') as HTMLSelectElement).value;
+      const childModuleId = (form.querySelector('[name="childModuleId"]') as HTMLSelectElement).value;
+    
+      const childValueCheckboxes = form.querySelectorAll('[name="childValues"]:checked') as NodeListOf<HTMLInputElement>;
+      const childValueIds = Array.from(childValueCheckboxes).map((cb) => cb.value);
+
+      // Validation
+      if (!parentModuleId || !parentValueId || !childModuleId) {
+        $('dep-form-error')!.textContent = 'Completá todos los campos obligatorios';
+        return;
+      }
+
+      if (parentModuleId === childModuleId) {
+        $('dep-form-error')!.textContent = 'El módulo hijo debe ser diferente al padre';
+        return;
+      }
+
+      // Create dependencies (one per selected child value, or one with null if none selected)
+      const valuesToCreate = childValueIds.length > 0 ? childValueIds : [null];
+    
+      for (const childValueId of valuesToCreate) {
+        await fetch(`${API_URL}/api/admin/attributes/dependencies`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ 
+            parent_module_id: parentModuleId, 
+            parent_value_id: parentValueId, 
+            child_module_id: childModuleId, 
+            child_value_id: childValueId 
+          }),
+        });
+      }
+
+      showToast('Dependencia(s) creada(s)');
+      closeDependencyForm();
+      await loadDependencies();
+    });
+
+    (window as any).deleteDependency = async (depId: string) => {
+      if (!confirm('¿Eliminar esta dependencia?')) return;
+
+      const res = await fetch(`${API_URL}/api/admin/attributes/dependencies/${depId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        showToast('Dependencia eliminada');
+        await loadDependencies();
+      } else {
+        showToast('Error al eliminar dependencia', 'error');
+      }
+    };
+
+    // ─── MODAL CONTROLS ─────────────────────────────────────
+    function openModal() {
+      attrModal.open();
+      loadProductAttributes();
+      loadDependencies();
+    }
+
+    function closeModal() {
+      attrModal.close();
+    }
+
+    $('attr-modal-close')?.addEventListener('click', closeModal);
+    $('attr-modal-cancel')?.addEventListener('click', closeModal);
+    $('attr-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+    $('show-dependency-btn')?.addEventListener('click', openDependencyForm);
+    $('dep-modal-close')?.addEventListener('click', closeDependencyForm);
+    $('dep-cancel')?.addEventListener('click', closeDependencyForm);
+    $('dep-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeDependencyForm(); });
+
+    $('value-picker-close')?.addEventListener('click', closeValuePicker);
+    $('value-picker-cancel')?.addEventListener('click', closeValuePicker);
+    $('value-picker-overlay')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeValuePicker(); });
+
+    // Initialize
+    productId = $('attr-overlay')?.dataset.productId || '';
+    if (productId) {
       loadModules().then(() => openModal());
     }
-  });
 
-  // Keyboard shortcuts — handled by global modalStackHandler.js
-  // The global Escape handler closes the topmost modal in the stack,
-  // which matches the priority chain: value picker > dep form > main modal
+    // Listen for custom event from products.astro. Window-level listener:
+    // replace the previous one instead of stacking per page-load (the handler
+    // resolves the CURRENT page's DOM at call time).
+    function handleOpenAttributes(e: Event) {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.productId) {
+        productId = detail.productId;
+        $('attr-overlay')!.dataset.productId = detail.productId;
+        loadModules().then(() => openModal());
+      }
+    }
+    if ((window as any).__adminAttributeManagerOpenHandler) {
+      window.removeEventListener('open-attributes', (window as any).__adminAttributeManagerOpenHandler);
+    }
+    (window as any).__adminAttributeManagerOpenHandler = handleOpenAttributes;
+    window.addEventListener('open-attributes', (window as any).__adminAttributeManagerOpenHandler);
+
+    // Keyboard shortcuts — handled by global modalStackHandler.js
+    // The global Escape handler closes the topmost modal in the stack,
+    // which matches the priority chain: value picker > dep form > main modal
+  }
+
+  // Replace the previous page-load listener instead of stacking one per
+  // bundle evaluation, so initAttributeManager runs exactly once per navigation.
+  if ((window as any).__adminAttributeManagerInit) {
+    document.removeEventListener('astro:page-load', (window as any).__adminAttributeManagerInit);
+  }
+  (window as any).__adminAttributeManagerInit = initAttributeManager;
+  document.addEventListener('astro:page-load', (window as any).__adminAttributeManagerInit);
 </script>
