@@ -1,4 +1,44 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+// The mobile category tree is baked into the served HTML per request
+// (index.astro:45 fetches the tree in frontmatter with a 10s
+// fetchWithTimeout; on abort the page bakes "Sin categorías" —
+// CategoryTree.astro:20/75 — and no runtime fetch ever repairs it: the panel
+// open path only toggles hidden/open classes via rAF, index.astro:629-633).
+// Under parallel full-battery load wrangler dev fails that tree fetch in
+// bursts (three parallel workers were observed serving "Sin categorías"
+// with healthy products repeatedly), so a served page can contain zero real
+// category labels no matter how long the test then waits (a 15s toBeAttached
+// gate was observed timing out on exactly such a serve). Probe the baked DOM
+// once initCatalog has run — the trailing inline script executes after the
+// tree markup is parsed, so the count is final — and retry with a fresh
+// request until a 20s budget is spent instead of sleeping or waiting on a
+// condition that can never become true. Empty-baked serves are cheap (the
+// tree fetch fails fast), so bursts get many retries; the 20s cap + 5s loud
+// gate keep the whole test inside the 30s test timeout.
+async function loadCatalogWithBakedTree(page: Page) {
+  const deadline = Date.now() + 20_000;
+  let firstServe = true;
+  for (;;) {
+    if (firstServe) {
+      await page.goto("/");
+      firstServe = false;
+    } else {
+      await page.reload();
+    }
+    await page.waitForFunction(() => (window as any).__catalogInitialized === true);
+    const baked = await page
+      .locator('#mobile-category-panel .tree-label:not([data-filter="all"]), #category-tree-container .tree-label:not([data-filter="all"])')
+      .count();
+    if (baked > 0) return;
+    if (Date.now() >= deadline) break;
+  }
+  // Loud failure on the app's own readiness signal (never vacuously green):
+  // the backend served an empty tree for the whole budget.
+  await expect(
+    page.locator('#mobile-category-panel .tree-label:not([data-filter="all"])').first(),
+  ).toBeAttached({ timeout: 5_000 });
+}
 
 // ============================================================
 // Responsive Design E2E Tests
@@ -242,10 +282,10 @@ test.describe("Mobile Category Panel", () => {
   });
 
   test("category selection works in mobile panel", async ({ page }) => {
-    await page.goto("/");
-    // The mobile tree handlers are attached in initCatalog (index.astro);
-    // wait for the wiring itself so the click cannot land before it.
-    await page.waitForFunction(() => (window as any).__catalogInitialized === true);
+    // Empty-baked serves (see loadCatalogWithBakedTree) carry no real
+    // category to click, so (re)serve until the tree is baked. The mobile
+    // tree handlers are attached in initCatalog, which the helper awaits.
+    await loadCatalogWithBakedTree(page);
     await page.click("#open-categories");
     const panel = page.locator("#mobile-category-panel");
     await expect(panel).toHaveClass(/open/);
