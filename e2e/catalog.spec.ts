@@ -114,11 +114,23 @@ test.describe("Search", () => {
 test.describe("Category Filter", () => {
   test("category tree labels are clickable", async ({ page }) => {
     await page.goto("/");
-    const firstLabel = page.locator(".tree-label").first();
-    await expect(firstLabel).toBeVisible();
-    await firstLabel.click();
-    // Category should become active
-    await expect(firstLabel).toHaveClass(/active/);
+    // The catalog wires the .tree-label handlers in initCatalog (index.astro);
+    // a click that lands before that is a no-op, so wait for the wiring
+    // itself rather than a fixed delay.
+    await page.waitForFunction(() => (window as any).__catalogInitialized === true);
+    // Scope to the desktop tree and pick a real category (not "Todos", which
+    // is a no-op filter): the old `.tree-label.first()` resolved to "Todos"
+    // and re-resolved after the click, so it could assert a different node
+    // than the one clicked.
+    const target = page.locator('#category-tree-container .tree-label:not([data-filter="all"])').first();
+    await expect(target).toBeVisible();
+    const filter = await target.getAttribute("data-filter");
+    await target.click();
+    // Scoped to the node actually clicked (index.astro adds .active to the
+    // clicked label) plus the observable filter effect, so the test still
+    // fails if category selection stops working.
+    await expect(page.locator(`#category-tree-container .tree-label[data-filter="${filter}"]`)).toHaveClass(/active/);
+    await expect(page.locator("#clear-filters")).toBeVisible();
   });
 });
 
@@ -229,17 +241,30 @@ test.describe("Mobile Catalog", () => {
 
   test("category drawer opens, selects category, and closes", async ({ page }) => {
     await page.goto("/");
+    // Same wiring gate as above: the mobile tree handlers are attached in
+    // initCatalog, so wait for that instead of racing it.
+    await page.waitForFunction(() => (window as any).__catalogInitialized === true);
     await page.click("#open-categories");
     const panel = page.locator("#mobile-category-panel");
     await expect(panel).toHaveClass(/open/);
 
-    // Select a category
-    const firstLabel = panel.locator(".tree-label").first();
-    await firstLabel.click();
-    await page.waitForTimeout(500);
+    // Select a real category (not "Todos") and remember which node was
+    // clicked so the assertions below cannot re-resolve to another node.
+    const target = panel.locator('.tree-label:not([data-filter="all"])').first();
+    await expect(target).toBeVisible();
+    const filter = await target.getAttribute("data-filter");
+    await target.click();
 
-    // Panel should close
+    // hideCategoryPanel (index.astro) removes .open synchronously and adds
+    // .hidden after the 300ms close animation: both states are auto-retried
+    // by expect, so no fixed delay drives this assertion.
     await expect(panel).not.toHaveClass(/open/);
+    await expect(panel).toHaveClass(/hidden/);
+    // Observable effect of the selection (index.astro syncs the desktop
+    // sidebar active state and activates the filter): still fails if
+    // category selection stops working.
+    await expect(page.locator(`#category-tree-container .tree-label[data-filter="${filter}"]`)).toHaveClass(/active/);
+    await expect(page.locator("#clear-filters")).toBeVisible();
   });
 
   test("category panel tree toggle expands subcategories", async ({ page }) => {
