@@ -117,6 +117,23 @@ The state was moved aside (`Sublime-Ecommerce-Back/.wrangler/state.bak-20261012-
 non-deterministic test dependencies (gallery fixture, `detail-volume`'s
 hard-coded tier price), both fixed in this change.
 
+## Native review (this round)
+
+The controller refused the whole delta as one candidate:
+`lens_context_budget_exceeded` (22 files / 1689 lines, "review this change as
+smaller candidates"). It was split into two chained candidates, each reviewed
+with the workspace detached at its boundary commit (every commit left intact):
+
+| Candidate | Scope | Outcome |
+| --- | --- | --- |
+| `8fd3efa..9362cd4` | admin e2e spec, admin re-arm, gallery scroll lock (6 files) | **approved**, receipt burned; one advisory `R3-001` at `src/components/ProductGallery.astro:140` (informational) |
+| `9362cd4..dae5ef3` | carousel timers, the three regressions, dead-code removal (15 files) | **approved**, receipt burned; no findings |
+
+The trailing `docs(odd)` commit is the trivial passive-documentation case and
+is not a review candidate. The first slice's START also produced one expired
+consent envelope (10 minutes without an answer); the retry with a fresh
+idempotency key resolved it.
+
 ## Commits
 
 - `test(e2e): prove the admin wiring dies on the second SPA visit`
@@ -126,7 +143,12 @@ hard-coded tier price), both fixed in this change.
 - `test(e2e): make the gallery, carousel and volume regressions deterministic`
 - `chore(cleanup): delete the unreferenced variant and category components`
 - `docs(odd): record the admin re-arm, advisory fixes and cleanup`
-- Back repo: `test(seed): add deterministic gallery and carousel e2e fixtures`
+- Back repo (`test/e2e-gallery-carousel-fixtures`): `test(seed): add deterministic gallery and carousel e2e fixtures`
+
+Note: during commit preparation both repositories had a stale index (a
+`git add -A` from a tool plus pruned loose objects left `invalid object` errors
+and an invalid cache-tree). `git reset` rebuilt the index, `git fsck
+--connectivity-only` is clean again, and no commit content was affected.
 
 ## Not in scope (follow-ups, all pre-existing)
 
