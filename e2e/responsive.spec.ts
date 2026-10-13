@@ -1,43 +1,75 @@
 import { test, expect, type Page } from "@playwright/test";
 
 // The mobile category tree is baked into the served HTML per request
-// (index.astro:45 fetches the tree in frontmatter with a 10s
-// fetchWithTimeout; on abort the page bakes "Sin categorías" —
-// CategoryTree.astro:20/75 — and no runtime fetch ever repairs it: the panel
-// open path only toggles hidden/open classes via rAF, index.astro:629-633).
-// Under parallel full-battery load wrangler dev fails that tree fetch in
-// bursts (three parallel workers were observed serving "Sin categorías"
-// with healthy products repeatedly), so a served page can contain zero real
-// category labels no matter how long the test then waits (a 15s toBeAttached
-// gate was observed timing out on exactly such a serve). Probe the baked DOM
+// (index.astro fetches the tree in frontmatter through fetchJsonWithRetry
+// and is FAIL-LOUD: an unavailable or empty tree throws, so `astro dev`
+// serves a loud 500 instead of a page with "Sin categorías" —
+// CategoryTree.astro:20/75 — and no runtime fetch ever repairs it: the
+// panel open path only toggles hidden/open classes via rAF). Under parallel
+// full-battery load wrangler dev fails that tree fetch in bursts, so a
+// serve can be an error page (retryable) or carry zero real category labels
+// (retryable) no matter how long the test then waits. Probe the baked DOM
 // once initCatalog has run — the trailing inline script executes after the
 // tree markup is parsed, so the count is final — and retry with a fresh
 // request until a 20s budget is spent instead of sleeping or waiting on a
-// condition that can never become true. Empty-baked serves are cheap (the
-// tree fetch fails fast), so bursts get many retries; the 20s cap + 5s loud
-// gate keep the whole test inside the 30s test timeout.
+// condition that can never become true. Non-OK serves are cheap (the tree
+// fetch fails fast), so bursts get many retries; the 20s cap keeps the
+// whole test inside the 30s test timeout. Budget exhaustion throws loudly
+// naming the last cause (never vacuously green).
 async function loadCatalogWithBakedTree(page: Page) {
   const deadline = Date.now() + 20_000;
   let firstServe = true;
+  let lastCause = "no serve attempted";
   for (;;) {
-    if (firstServe) {
-      await page.goto("/");
+    let response = null;
+    try {
+      response = firstServe ? await page.goto("/") : await page.reload();
+    } catch (err) {
+      lastCause = `navigation failed: ${err instanceof Error ? err.message : String(err)}`;
+      if (Date.now() >= deadline) break;
       firstServe = false;
-    } else {
-      await page.reload();
+      continue;
     }
-    await page.waitForFunction(() => (window as any).__catalogInitialized === true);
+    firstServe = false;
+    // Fail-loud tree: a genuinely failing backend serves an error page
+    // (loud 500 in dev) instead of an empty tree — retry the serve.
+    if (!response) {
+      lastCause = "navigation returned a null response (error page)";
+      if (Date.now() >= deadline) break;
+      continue;
+    }
+    if (!response.ok()) {
+      lastCause = `error page HTTP ${response.status()} (category tree unavailable)`;
+      if (Date.now() >= deadline) break;
+      continue;
+    }
+    let ready = false;
+    try {
+      await page.waitForFunction(
+        () => (window as any).__catalogInitialized === true,
+        undefined,
+        { timeout: 5_000 }
+      );
+      ready = true;
+    } catch {
+      lastCause = "error page (catalog script never initialized)";
+    }
+    if (!ready) {
+      if (Date.now() >= deadline) break;
+      continue;
+    }
     const baked = await page
       .locator('#mobile-category-panel .tree-label:not([data-filter="all"]), #category-tree-container .tree-label:not([data-filter="all"])')
       .count();
     if (baked > 0) return;
+    lastCause = "served page baked zero real category labels (empty tree)";
     if (Date.now() >= deadline) break;
   }
-  // Loud failure on the app's own readiness signal (never vacuously green):
-  // the backend served an empty tree for the whole budget.
-  await expect(
-    page.locator('#mobile-category-panel .tree-label:not([data-filter="all"])').first(),
-  ).toBeAttached({ timeout: 5_000 });
+  // Loud failure naming the cause (never vacuously green): the backend
+  // served no usable tree for the whole budget.
+  throw new Error(
+    `loadCatalogWithBakedTree: catalog tree unavailable after retries (last cause: ${lastCause}).`
+  );
 }
 
 // ============================================================

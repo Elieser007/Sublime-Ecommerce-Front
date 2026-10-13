@@ -1,20 +1,35 @@
 ---
 /**
  * Shop — Homepage (/)
- * 
+ *
  * Layout:
  * - Promotion sections (top/bottom)
  * - Desktop: sidebar with category tree (3 levels) + filters
  * - Mobile: two buttons (Categorías, Filtros) → slide-in panels
  * - Product grid with search, filters, sort, pagination
- * 
+ *
  * SSG: All data fetched at build time via frontmatter.
  * Client-side: category filter, sort, search, price, pagination.
+ *
+ * BUILD CONTRACT (fail-loud tree): the category tree is fetched through
+ * fetchJsonWithRetry and is FAIL-LOUD — when every attempt fails, or the
+ * response is a valid but empty tree, the frontmatter throws and the build
+ * refuses to continue (in `astro dev` the same throw surfaces as a loud
+ * 500). A filter-less catalog must never ship silently: bursts of failed
+ * tree requests under parallel e2e load used to bake pages with zero
+ * `.tree-label` nodes, which made the mobile category specs flaky for
+ * three rounds while the product grid still rendered. Promotions stay on
+ * cosmetic degradation (a missing promo wall is not worth failing a
+ * deploy) but go through the same helper and log a loud warning when
+ * they end up empty because of a failure. The catalog batch itself is
+ * FAIL-LOUD too — awaited without a swallowing guard, so an unreachable
+ * backend fails the build (same contract as [slug].astro getStaticPaths).
  */
 
 import { formatPrice, getProductImageUrl } from '../lib/public-api';
 import { getApiUrl } from '../lib/api-url';
-import { getCatalogBuildData, fetchWithTimeout } from '../lib/catalog-build';
+import { getCatalogBuildData } from '../lib/catalog-build';
+import { fetchJsonWithRetry } from '../lib/fetch-retry';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PromotionWall from '../components/PromotionWall.astro';
 import Button from '../components/Button.astro';
@@ -25,14 +40,15 @@ const API_URL = getApiUrl();
 
 // Fetch products (batched catalog — shared with the other pages via the
 // memoized build module), category tree, and promotions at build time (SSG).
-// The auxiliary sections (tree, promotions) are fired in parallel with the
-// catalog and EACH is consumed through its own try/catch: a rejecting or
-// timed-out auxiliary fetch degrades ONLY that section (empty tree/promos)
-// while the product grid still renders. The catalog batch itself is
-// FAIL-LOUD — awaited without a swallowing guard, so an unreachable backend
-// fails the build (same contract as [slug].astro getStaticPaths — never
-// silently ship an empty catalog). All build fetches are
-// AbortController-guarded so a hung backend can't stall the build.
+// The tree and promotion fetches fire in parallel with the catalog through
+// fetchJsonWithRetry (bounded retries, per-attempt AbortController timeout).
+// The TREE is FAIL-LOUD — a rejected tree request, or a valid but empty
+// tree, throws below and fails the build instead of shipping a filter-less
+// catalog. Promotions are cosmetic degradation — a rejected promo request
+// logs a loud warning and renders without that wall. The catalog batch
+// itself is FAIL-LOUD — awaited without a swallowing guard, so an
+// unreachable backend fails the build (same contract as [slug].astro
+// getStaticPaths — never silently ship an empty catalog).
 let products: any[] = [];
 let variantsByProduct = new Map<string, any>();
 let bakeFailedByProduct = new Map<string, boolean>();
@@ -42,54 +58,105 @@ let topSectionInfo: any = null;
 let bottomPromotions: any[] = [];
 let bottomSectionInfo: any = null;
 
-const treeReq = fetchWithTimeout(`${API_URL}/api/public/categories/tree`, 10_000);
-const topPromoReq = fetchWithTimeout(`${API_URL}/api/public/promotions?section=always-catalog-top`, 10_000);
-const bottomPromoReq = fetchWithTimeout(`${API_URL}/api/public/promotions?section=always-catalog-bottom`, 10_000);
-// Defensive no-op rejection handlers: the FAIL-LOUD catalog await below runs
-// BEFORE the per-section try/catch attaches handlers to these promises, so a
-// concurrent rejection (full backend outage) must never surface as an
-// unhandled rejection that masks the primary catalog error. The per-section
-// try/catch below still observes the real rejection and degrades only its own
-// section; request count is unchanged.
-treeReq.catch(() => {});
-topPromoReq.catch(() => {});
-bottomPromoReq.catch(() => {});
+const TREE_ENDPOINT = `${API_URL}/api/public/categories/tree`;
+const TOP_PROMO_ENDPOINT = `${API_URL}/api/public/promotions?section=always-catalog-top`;
+const BOTTOM_PROMO_ENDPOINT = `${API_URL}/api/public/promotions?section=always-catalog-bottom`;
+// Retry budget for the build fetches (also named in the fail-loud errors).
+const BUILD_FETCH_ATTEMPTS = 3;
+const BUILD_FETCH_TIMEOUT_MS = 10_000;
 
+const treeReq = fetchJsonWithRetry<{ tree?: any[] }>(TREE_ENDPOINT, {
+  attempts: BUILD_FETCH_ATTEMPTS,
+  timeoutMs: BUILD_FETCH_TIMEOUT_MS,
+  // Loud from the FIRST failed attempt, not just at exhaustion: on a full
+  // backend outage a concurrent catalog failure may fail the build before
+  // this request's retry budget is spent, so waiting to make noise risks
+  // silence. Each warning names the endpoint, the attempt, and the
+  // fail-loud consequence while the retries keep going.
+  onRetry: ({ url, attempt, attempts, error }) => {
+    console.error(
+      `[build] Category tree fetch failed (attempt ${attempt}/${attempts}) — ` +
+        `refusing to build a filter-less catalog. ` +
+        `Endpoint ${url} will fail the build if every attempt fails: ` +
+        `${error instanceof Error ? error.message : String(error)}`
+    );
+  },
+});
+const topPromoReq = fetchJsonWithRetry<{ promotions?: any[]; section?: any }>(
+  TOP_PROMO_ENDPOINT,
+  { attempts: BUILD_FETCH_ATTEMPTS, timeoutMs: BUILD_FETCH_TIMEOUT_MS }
+);
+const bottomPromoReq = fetchJsonWithRetry<{ promotions?: any[]; section?: any }>(
+  BOTTOM_PROMO_ENDPOINT,
+  { attempts: BUILD_FETCH_ATTEMPTS, timeoutMs: BUILD_FETCH_TIMEOUT_MS }
+);
 const buildData = await getCatalogBuildData(API_URL);
 products = buildData.products;
 variantsByProduct = buildData.variantsByProduct;
 bakeFailedByProduct = buildData.bakeFailedByProduct;
+// Defensive no-op rejection handlers: the FAIL-LOUD catalog await above runs
+// BEFORE the per-section awaits attach handlers to these promises, so a
+// concurrent rejection (full backend outage) must never surface as an
+// unhandled rejection that masks the primary catalog error. The tree await
+// below still observes the real rejection and rethrows it fail-loud; the
+// promo awaits still observe theirs and degrade with a warning; request
+// count is unchanged.
+treeReq.catch(() => {});
+topPromoReq.catch(() => {});
+bottomPromoReq.catch(() => {});
 
+// Category tree — FAIL-LOUD: an unavailable tree, or a valid but empty
+// one, throws and fails the build (loud 500 under `astro dev`) instead of
+// silently shipping a catalog with no filters and no signal.
 try {
-  const treeRes = await treeReq;
-  if (treeRes.ok) {
-    const data = await treeRes.json();
-    tree = data.tree || [];
+  const treeData = await treeReq;
+  tree = treeData.tree ?? [];
+} catch (err) {
+  throw new Error(
+    `Category tree unavailable — refusing to build a filter-less catalog. ` +
+      `Endpoint ${TREE_ENDPOINT} failed after ${BUILD_FETCH_ATTEMPTS} attempts: ` +
+      `${err instanceof Error ? err.message : String(err)}`
+  );
+}
+if (tree.length === 0) {
+  throw new Error(
+    `Category tree empty — refusing to build a filter-less catalog. ` +
+      `Endpoint ${TREE_ENDPOINT} returned a valid but empty tree.`
+  );
+}
+
+// Promotions — cosmetic degradation through the same retry helper: a
+// failure logs a loud warning and renders without that wall.
+try {
+  const topData = await topPromoReq;
+  topPromotions = topData.promotions ?? [];
+  topSectionInfo = topData.section ?? null;
+  if (topPromotions.length === 0) {
+    console.warn(
+      `[build] Promotions empty for ${TOP_PROMO_ENDPOINT} — continuing without the top promo wall.`
+    );
   }
 } catch (err) {
-  console.error('Error fetching category tree at build time:', err);
+  console.warn(
+    `[build] Promotions unavailable at ${TOP_PROMO_ENDPOINT} — continuing without the top promo wall: ` +
+      `${err instanceof Error ? err.message : String(err)}`
+  );
 }
 
 try {
-  const topPromoRes = await topPromoReq;
-  if (topPromoRes.ok) {
-    const data = await topPromoRes.json();
-    topPromotions = data.promotions || [];
-    topSectionInfo = data.section || null;
+  const bottomData = await bottomPromoReq;
+  bottomPromotions = bottomData.promotions ?? [];
+  bottomSectionInfo = bottomData.section ?? null;
+  if (bottomPromotions.length === 0) {
+    console.warn(
+      `[build] Promotions empty for ${BOTTOM_PROMO_ENDPOINT} — continuing without the bottom promo wall.`
+    );
   }
 } catch (err) {
-  console.error('Error fetching top promotions at build time:', err);
-}
-
-try {
-  const bottomPromoRes = await bottomPromoReq;
-  if (bottomPromoRes.ok) {
-    const data = await bottomPromoRes.json();
-    bottomPromotions = data.promotions || [];
-    bottomSectionInfo = data.section || null;
-  }
-} catch (err) {
-  console.error('Error fetching bottom promotions at build time:', err);
+  console.warn(
+    `[build] Promotions unavailable at ${BOTTOM_PROMO_ENDPOINT} — continuing without the bottom promo wall: ` +
+      `${err instanceof Error ? err.message : String(err)}`
+  );
 }
 
 ---
