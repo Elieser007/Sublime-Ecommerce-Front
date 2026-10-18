@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { onlyDeviceProjects } from "./device-gate";
 
 const WISHLIST_ITEMS = [
   {
@@ -85,6 +86,13 @@ test.describe("Wishlist Page", () => {
   });
 
   test("header badge shows the stored count", async ({ page }) => {
+    // Desktop-only: #wishlist-count lives inside #wishlist-btn, which is
+    // display:none below 768px by design (Header.astro). Runs once, on
+    // public-pc; the hiding itself is covered by the mobile test below.
+    test.skip(
+      test.info().project.name !== "public-pc",
+      "wishlist header badge only exists at desktop widths: runs once on public-pc"
+    );
     await page.goto("/wishlist");
 
     const badge = page.locator("#wishlist-count");
@@ -94,6 +102,9 @@ test.describe("Wishlist Page", () => {
 });
 
 test.describe("Wishlist Page — Mobile", () => {
+  // Mobile-only: asserts the wishlist header button hides below 768px.
+  // Runs once, on public-mobile.
+  onlyDeviceProjects("public-mobile");
   test.use({ viewport: { width: 375, height: 812 } });
 
   test.beforeEach(async ({ page }) => {

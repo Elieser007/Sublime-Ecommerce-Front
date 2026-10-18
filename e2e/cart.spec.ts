@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { onlyDeviceProjects } from "./device-gate";
 
 const CART_ITEMS = [
   {
@@ -391,6 +392,9 @@ test.describe("Cart Page", () => {
 });
 
 test.describe("Cart Page — Tablet", () => {
+  // Tablet-only: pins the 700x800 hybrid viewport (2-col grid + mobile
+  // drawer UI). Runs once, on public-tablet.
+  onlyDeviceProjects("public-tablet");
   test.use({ viewport: { width: 700, height: 800 } });
 
   test.beforeEach(async ({ page }) => {
@@ -418,6 +422,9 @@ test.describe("Cart Page — Tablet", () => {
 });
 
 test.describe("Cart Page — Mobile", () => {
+  // Mobile-only: pins 375x812 for the stacking/touch-target/overflow
+  // assertions. Runs once, on public-mobile.
+  onlyDeviceProjects("public-mobile");
   test.use({ viewport: { width: 375, height: 812 } });
 
   test.beforeEach(async ({ page }) => {

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { onlyDeviceProjects } from "./device-gate";
 
 // The desktop sidebar shows ONE tab at a time (sidebar-tabs landed in 2be0321):
 // sort/price controls live in the "Filtros" panel, which is display:none until
@@ -101,6 +102,11 @@ test.describe("Catalog Browse", () => {
 });
 
 test.describe("Sort", () => {
+  // Desktop-only: the sort buttons live in the sidebar FilterPanel, which is
+  // display:none below the 768px desktop breakpoint (index.astro). Runs
+  // once, on public-pc; mobile/tablet sort coverage comes from the
+  // "Mobile Catalog" drawer tests below (same drawer UI below 768px).
+  onlyDeviceProjects("public-pc");
   // [data-sort] buttons exist twice (desktop sidebar + mobile filter panel),
   // so all assertions here scope to the visible aside set.
   test("sort by price ascending", async ({ page }) => {
@@ -137,6 +143,10 @@ test.describe("Sort", () => {
 });
 
 test.describe("Price Filter", () => {
+  // Desktop-only: #price-min/max-desktop live in the hidden-below-768px
+  // sidebar. Runs once, on public-pc; the mobile price inputs are covered
+  // by the "Mobile Catalog" drawer tests.
+  onlyDeviceProjects("public-pc");
   test("price range filter with apply button", async ({ page }) => {
     await page.goto("/");
     await openDesktopFilters(page);
@@ -159,6 +169,10 @@ test.describe("Price Filter", () => {
 });
 
 test.describe("Search", () => {
+  // Desktop-only: #search-input lives in .search-form, display:none below
+  // 768px (Header.astro). Runs once, on public-pc; mobile search is covered
+  // by the "Mobile Catalog" mobile-bar tests.
+  onlyDeviceProjects("public-pc");
   test("search input exists and is functional", async ({ page }) => {
     await page.goto("/");
     // Catalog search is the header search input (#catalog-search-input was
@@ -184,6 +198,10 @@ test.describe("Search", () => {
 });
 
 test.describe("Category Filter", () => {
+  // Desktop-only: #category-tree-container lives in the sidebar, hidden
+  // below 768px. Runs once, on public-pc; mobile category selection is
+  // covered by the "Mobile Catalog" drawer tests.
+  onlyDeviceProjects("public-pc");
   test("category tree labels are clickable", async ({ page }) => {
     // Empty-baked serves (see loadCatalogWithBakedTree) carry no real
     // category to click, so (re)serve until the tree is baked.
@@ -205,6 +223,9 @@ test.describe("Category Filter", () => {
 });
 
 test.describe("Clear Filters", () => {
+  // Desktop-only: drives the sidebar sort + desktop price inputs +
+  // #search-input, all hidden below 768px. Runs once, on public-pc.
+  onlyDeviceProjects("public-pc");
   test("clear button appears when filter is active", async ({ page }) => {
     await page.goto("/");
     await openDesktopFilters(page);
@@ -236,10 +257,21 @@ test.describe("Clear Filters", () => {
   });
 });
 
+// Viewport-aware catalog search driver: the desktop header search
+// (#search-input inside .search-form) is display:none below the 768px
+// breakpoint, where the catalog's own mobile bar (#mobile-search-bar-input)
+// takes over. Both wire the same filter state, so empty-state assertions
+// hold at every width and run once per device with no duplication.
+async function searchCatalog(page: Page, text: string) {
+  const width = page.viewportSize()?.width ?? 1280;
+  if (width < 768) await page.locator("#mobile-search-bar-input").fill(text);
+  else await page.locator("#search-input").fill(text);
+}
+
 test.describe("Empty State", () => {
   test("empty state shows when no products match", async ({ page }) => {
     await page.goto("/");
-    await page.locator("#search-input").fill("zzz_impossible_match_xyz");
+    await searchCatalog(page, "zzz_impossible_match_xyz");
     await page.waitForTimeout(400);
     await expect(page.locator("#empty-state")).toBeVisible();
     await expect(page.locator("#empty-state")).toContainText("No se encontraron productos");
@@ -247,7 +279,7 @@ test.describe("Empty State", () => {
 
   test("empty state clear button works", async ({ page }) => {
     await page.goto("/");
-    await page.locator("#search-input").fill("zzz_impossible");
+    await searchCatalog(page, "zzz_impossible");
     await page.waitForTimeout(400);
     await page.click("#empty-clear-btn");
     // Products show again — the empty state leaves the DOM-visible state
@@ -287,6 +319,9 @@ test.describe("Product Card", () => {
 });
 
 test.describe("Mobile Panels", () => {
+  // Mobile-only: forces a 375px viewport to drive the drawers. Runs once,
+  // on public-mobile.
+  onlyDeviceProjects("public-mobile");
   test("mobile categories button opens panel from left", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
@@ -307,6 +342,10 @@ test.describe("Mobile Panels", () => {
 });
 
 test.describe("Mobile Catalog", () => {
+  // Mobile-only drawer suite (test.use pins 375x812). Runs once, on
+  // public-mobile; the tablet project (700px) shares the same below-768px
+  // drawer UI, so no separate tablet run is needed.
+  onlyDeviceProjects("public-mobile");
   test.use({ viewport: { width: 375, height: 812 } });
 
   test("category drawer opens, selects category, and closes", async ({ page }) => {
@@ -455,6 +494,9 @@ test.describe("Mobile Catalog", () => {
 });
 
 test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
+  // Form-factor-pinned per test: the drawer/back tests need a 375px
+  // viewport (public-mobile), while the backdrop test forces a 1024px
+  // desktop viewport (public-pc). Each runs exactly once.
   test.use({ viewport: { width: 375, height: 812 } });
 
   /**
@@ -480,6 +522,10 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
   }
 
   test("back closes the category drawer with the URL unchanged", async ({ page }) => {
+    test.skip(
+      test.info().project.name !== "public-mobile",
+      "mobile drawer back-button behavior: runs once on public-mobile"
+    );
     await page.goto("/");
     await page.click("#open-categories");
     const panel = page.locator("#mobile-category-panel");
@@ -495,6 +541,10 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
   });
 
   test("back closes the filters drawer with the URL unchanged", async ({ page }) => {
+    test.skip(
+      test.info().project.name !== "public-mobile",
+      "mobile drawer back-button behavior: runs once on public-mobile"
+    );
     await page.goto("/");
     await page.click("#open-filters");
     const panel = page.locator("#mobile-filters-panel");
@@ -510,6 +560,10 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
   });
 
   test("back closes the variant modal with the URL unchanged", async ({ page }) => {
+    test.skip(
+      test.info().project.name !== "public-mobile",
+      "mobile modal back-button behavior: runs once on public-mobile"
+    );
     await page.goto("/");
     const firstCard = page.locator("product-card").first();
     await expect(firstCard).toBeVisible();
@@ -526,6 +580,10 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
   });
 
   test("ESC then back navigates normally with no spurious transition", async ({ page }) => {
+    test.skip(
+      test.info().project.name !== "public-mobile",
+      "mobile drawer back-button behavior: runs once on public-mobile"
+    );
     // Two real entries below the drawer's entry: /home then / — so a back
     // press AFTER ESC has somewhere real to go.
     await page.goto("/home");
@@ -548,6 +606,10 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
   });
 
   test("backdrop-closed variant modal leaves no stale entry: back navigates normally", async ({ page }) => {
+    test.skip(
+      test.info().project.name !== "public-pc",
+      "desktop modal back-button behavior: runs once on public-pc"
+    );
     // Desktop viewport: the variant modal is centered with a clickable
     // backdrop (on mobile it fills the screen and the X button only gets a
     // listener on successful content load). Backdrop close is a manual close
@@ -575,6 +637,9 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
 });
 
 test.describe("Mobile Panels Hidden on Desktop", () => {
+  // Desktop-only: forces a 1024px viewport to assert the mobile panels stay
+  // hidden. Runs once, on public-pc.
+  onlyDeviceProjects("public-pc");
   test("mobile action buttons are hidden on desktop", async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.goto("/");
@@ -603,6 +668,10 @@ test.describe("Button Colors", () => {
   // assert foreground differs from the background instead of a hard-coded
   // color.
   test("primary buttons have visible text color", async ({ page }) => {
+    test.skip(
+      test.info().project.name !== "public-pc",
+      "desktop sidebar apply button only exists at desktop widths: runs once on public-pc"
+    );
     await page.goto("/");
     await openDesktopFilters(page);
     // Check the apply filters button on desktop
