@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getCart,
   addToCart,
@@ -11,35 +11,9 @@ import {
   MAX_QUANTITY,
 } from './cart';
 import { getCartKey, hasAttribute, getAttributeValue, getEffectivePrice, getApplicableTier, getItemTotal, getCartTierBadge, sanitizeQuantity, reevalTier, migrateCart, isHashKey } from './cart-utils';
-
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: vi.fn((key: string) => store[key] || null),
-    setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-    removeItem: vi.fn((key: string) => { delete store[key]; }),
-    clear: vi.fn(() => { store = {}; }),
-    get length() { return Object.keys(store).length; },
-    key: vi.fn((i: number) => Object.keys(store)[i] || null),
-  };
-})();
-
-// Mock window.dispatchEvent
-const dispatchEventMock = vi.fn();
-Object.defineProperty(globalThis, 'window', {
-  value: {
-    dispatchEvent: dispatchEventMock,
-    addEventListener: vi.fn(),
-  },
-  writable: true,
-});
-
-// Mock localStorage on globalThis
-Object.defineProperty(globalThis, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-});
+// Shared fake browser environment (localStorage/window/document): installed for
+// every test file by vitest.config.ts -> setupFiles (see test/browser-env.ts)
+import { localStorageMock, dispatchEventMock, resetBrowserEnv } from '../../test/browser-env';
 
 describe('cart-utils', () => {
   describe('getCartKey', () => {
@@ -545,8 +519,7 @@ describe('cart-utils', () => {
 
 describe('cart', () => {
   beforeEach(() => {
-    localStorageMock.clear();
-    vi.clearAllMocks();
+    resetBrowserEnv();
   });
 
   describe('getCart', () => {

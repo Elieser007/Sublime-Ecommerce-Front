@@ -203,13 +203,30 @@ e2e/                          # Playwright E2E tests
 - **Run**: `pnpm test`
 - **TDD**: RED → GREEN → TRIANGULATE → REFACTOR
 - **Globals**: Enabled (`globals: true` in vitest.config.ts)
+- **Environment**: Node — no jsdom, `window`/`document`/`localStorage` do not exist. `test/setup.ts` (`setupFiles`) installs the shared fakes from `test/browser-env.ts` for every test file. Never re-declare them per file: import `localStorageMock`, `dispatchEventMock` or `registerElement()` from `test/browser-env.ts` and call `resetBrowserEnv()` in `beforeEach`.
+- **Not faked centrally**: `fetch` and `history` — stub them per file with `vi.stubGlobal` (see `src/lib/modalStack.test.ts`, `src/lib/auth-guard.test.ts`).
 
 ### E2E Tests (Playwright)
 
 - **Location**: `e2e/*.spec.ts`
 - **Run**: `pnpm exec playwright test`
 - **Browser**: Chromium only
-- **Config**: `playwright.config.ts` — auto-starts dev server on port 4321
+- **Config**: `playwright.config.ts` — auto-starts dev servers
+- **Ports (configurable)**: `E2E_FRONT_PORT` (default 4321), `E2E_BACK_PORT` (default 8787).
+  When the defaults are held by another project, move the whole matrix without editing the config:
+  `E2E_FRONT_PORT=4322 E2E_BACK_PORT=8788 pnpm exec playwright test`.
+  Astro dev is pointed at the backend via `PUBLIC_API_URL` injection (see `playwright.config.ts`
+  runbook). Backend runbook (Back repo, once): `pnpm run db:migrate && pnpm run seed:e2e`.
+  Between separate invocations, run `npx astro dev stop` and verify the ports are free — teardown
+  can race a rapidly chained next run (stale daemon holds the front port and Playwright refuses
+  to boot with `reuseExistingServer: false`).
+- **Device matrix**: the public surface (`catalog`, `cart`, `wishlist`, `detail-volume`, `home` specs)
+  runs once per device project — `public-mobile` 375x812 (<640px: 1-col grid, drawers),
+  `public-tablet` 700x800 (640-768px: 2-col grid + mobile drawer UI), `public-pc` 1280x800
+  (>=1024px: sidebar, full header). Viewport-agnostic tests inherit the project viewport;
+  form-factor-pinned tests declare their project via `e2e/device-gate.ts`. Viewport-only (no
+  touch emulation) so media-query regimes stay deterministic. Single-run specs (`responsive`
+  self-loops its own 4 viewports, `*-revisit` SPA-wiring suites) stay on the `chromium` project.
 - **CI**: JUnit reporter to `test-results/e2e.xml`, 2 retries
 
 ## Conventions

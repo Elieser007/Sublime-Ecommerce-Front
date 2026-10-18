@@ -7,53 +7,24 @@ import {
   getWishlistCount,
   updateWishlistBadge,
 } from './wishlist';
+// Shared fake browser environment (localStorage/window/document): installed for
+// every test file by vitest.config.ts -> setupFiles (see test/browser-env.ts)
+import {
+  localStorageMock,
+  dispatchEventMock,
+  registerElement,
+  resetBrowserEnv,
+} from '../../test/browser-env';
 
-// Mock localStorage (mirrors cart.test.ts)
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: vi.fn((key: string) => store[key] || null),
-    setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-    removeItem: vi.fn((key: string) => { delete store[key]; }),
-    clear: vi.fn(() => { store = {}; }),
-    get length() { return Object.keys(store).length; },
-    key: vi.fn((i: number) => Object.keys(store)[i] || null),
-  };
-})();
-
-// Mock window.dispatchEvent (mirrors cart.test.ts)
-const dispatchEventMock = vi.fn();
-Object.defineProperty(globalThis, 'window', {
-  value: {
-    dispatchEvent: dispatchEventMock,
-    addEventListener: vi.fn(),
-  },
-  writable: true,
-});
-
-// Mock localStorage on globalThis (mirrors cart.test.ts)
-Object.defineProperty(globalThis, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-});
-
-// Minimal document mock for badge assertions
+// Badge target for updateWishlistBadge() assertions
 const badgeElement = { textContent: '', style: { display: '' } };
-Object.defineProperty(globalThis, 'document', {
-  value: {
-    getElementById: vi.fn((id: string) => (id === 'wishlist-count' ? badgeElement : null)),
-  },
-  writable: true,
-});
+registerElement('wishlist-count', badgeElement);
 
 const sampleProduct = { id: '1', slug: 'remera', name: 'Remera', price: 100000, image: 'img.webp' };
 
 describe('wishlist', () => {
   beforeEach(() => {
-    localStorageMock.clear();
-    badgeElement.textContent = '';
-    badgeElement.style.display = '';
-    vi.clearAllMocks();
+    resetBrowserEnv();
   });
 
   describe('getWishlist', () => {
