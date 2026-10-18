@@ -45,11 +45,13 @@ repo's own documented breakpoints (`AGENTS.md`: 640px tablet, 768px desktop,
 | T2 | Add the device projects (mobile / tablet / PC) to `playwright.config.ts` | S1 | worker | C1 (this slice) |
 | T3 | Make the public specs viewport-aware: home/catalog, detail, cart, wishlist | S1, S2 | worker | C1 (this slice) |
 | T4 | Run the public surface on the three devices, stabilize, capture evidence | S1 | worker + verify | C1 (this slice) |
-| T5 | Admin + auth surfaces on the three devices | S4 | next iteration | — |
+| T5 | Admin + auth surfaces on the three devices | S4 | worker + verify | `1ec7d1c` |
 | T6 | Update `AGENTS.md` (E2E section) and the config comments for the matrix | S1, S2 | worker | C1 (this slice) |
 
-Status: T1–T4 and T6 landed in one slice (ports + matrix + specs are interlocked in
-`playwright.config.ts`, so they ship together). T5 is the remaining iteration.
+Status: T1–T6 landed. T1–T4 and T6 shipped in one slice (ports + matrix + specs are
+interlocked in `playwright.config.ts`, so they go together) = `9497b38`; the astro
+foreground lifecycle fix = `0ff4d08`; T5 = `1ec7d1c`; the typed form-factor gates
+(hardening from review finding C2) = `e0f1caf`.
 
 ## Log
 
@@ -210,3 +212,68 @@ Status: T1–T4 and T6 landed in one slice (ports + matrix + specs are interlock
   branch, because (A) an isolated e2e D1 (`wrangler --persist-to` + migrations + seed against that
   path) requires editing the separate `Sublime-Ecommerce-Back` repo and its `seed:e2e` script, which
   is the human's own repo and history; option A stays available on their word.
+
+- **L13 (defect found, repro kept, decision: not in this branch)** — `reseedE2E()` is a raw
+  `sqlite3` writer over the same local D1 SQLite file that the run's own `wrangler dev` has open,
+  and each admin spec file calls it from `beforeAll` (25–32 writers per invocation). Minimal repro
+  (isolated, no Playwright): start the backend on 8788 exactly as the config does, hammer
+  `/api/public/categories/tree` in a loop, run `pnpm run seed:e2e` ten times. The backend survived
+  all ten, but workerd logged
+  `workerd/util/sqlite.c++:1671: failed: SENTRY_DO SQLite failed; NOSENTRY database is locked: SQLITE_BUSY`
+  and the request path returned
+  `Error fetching category tree: D1_ERROR: Failed to parse body as JSON, got: Error: internal error`.
+  So the reseed is a **proven source of transient D1 errors** (write-lock contention with workerd),
+  and it is also **load-bearing**: `promotions.spec.ts:79` asserts the seeded tile geometry
+  `{x:0,y:0,w:4,h:2}` while later tests in the same file persist drags, resizes and carousel order
+  with Guardar + reload (`posX/posY`, spans, order), so only the per-file reseed restores the
+  baseline the next project's `shows the seeded tiles section` expects. Decision: **keep the
+  per-file reseed** for this branch (removing it would couple one project's promotions mutations to
+  the next project's assertions) and record the contention as a follow-up — the fix belongs either
+  in the Back repo (seed through the worker, or `wrangler --persist-to` isolation, i.e. D1 option A)
+  or in the specs that mutate seeded rows (restore them in-file).
+
+- **L14 (incident, not a spec defect)** — job-38 (four admin projects, `--workers=1`, load 3,38 at
+  start, ports 4322/8788 free) ran 14m26s and failed after the backend died ~2m10s in. The
+  discriminating evidence says the backend was **killed from outside, silently**: (a) the browser and
+  astro already logged `Failed to fetch` **before** wrangler wrote anything, so the backend was
+  already refusing connections; (b) wrangler's exit is silent — an empty `✘ [ERROR]`, then
+  `🪵 Logs were written to …`, no fatal, no shutdown message, and the crash log ends **mid normal
+  request** (`GET /api/branches 200` at 21:10:58.598Z); (c) **no OOM**: `dmesg`/journal for that
+  window show only the suspend/resume `OOM killer disabled/enabled` pairs, no `oom-kill`; (d) no
+  port was occupied before the run. A silent mid-request exit with nothing flushed is a **signal**,
+  not a crash. Corroboration: a **foreign Playwright suite for a different project**
+  (`POS_E-commerce_SaaS_Frontend`) was running in parallel — its own chromium at 113% CPU, its vite
+  on 5174, its own `workerd` — and that session was still running lint/tests while this was
+  diagnosed; `wrangler dev`'s worker process is literally named `workerd`, so any neighbour doing a
+  broad `pkill -f workerd` (or `wrangler`, or a port cleanup) takes this run's backend down with it.
+  Rule recorded in AGENTS.md: a silently dead backend (no fatal, no OOM, connection refused seen
+  first) is an **environment incident**; never "fix" a spec for it — re-run and confirm per project.
+  Also: the `kj::…disconnected: … Broken pipe` lines are **benign startup noise** (they appear in a
+  clean isolated boot that then serves 200s) and must not be read as the cause.
+
+- **L15 (forensics of the silent kill + the delivery decision)** — job-39 (same four admin projects)
+  reproduced job-38 and was dissected to the second. What is **known**: (1) the death lands ~2m10s
+  into the run in both cases (job-38: backend log 21:08:48→21:10:58; job-39: 23:09:37→23:11:46), i.e.
+  inside `promotions.spec.ts`; (2) in job-39 the last ✓ is test 31
+  (`promotions.spec.ts:144`, resize E2E-1 #2) and the first ✘ is test 32, while tests 33–36 are
+  `did not run` because the file is `test.describe.serial` — one failure bails the rest; (3) the
+  backend's last log line is a served request (`GET /api/promotions 200 (10ms)` in job-39,
+  `GET /api/branches 200` in job-38) — nothing was flushed, nothing was reported; (4) wrangler's
+  `🪵 Logs were written to …` is printed by an `onExit` handler *only when an error message was seen*
+  (`wrangler-dist/cli.js`: `hasSeenErrorMessage`), so the empty `✘ [ERROR]` + `🪵` pair is an exit
+  notification, not a diagnosis; (5) `coredumpctl` has no entry, `dmesg`/journal show no `oom-kill`,
+  no suspend/resume and no signal record for either window; (6) no port was occupied before either
+  run. What is **ruled out**: the specs. Isolated runs never lose the backend — `promotions.spec.ts`
+  alone on 8788 (`admin-mobile`, 9 passed, 38s, zero `Failed to fetch`), the whole public matrix on
+  the three devices (229 green / 0 red), and every single-project admin invocation (45/45, 45/45,
+  45/45, 1/1, 6/6). What ran **outside** my runs at those instants: another agent session executing
+  `wrangler d1 execute` against a **remote** database and `wrangler r2 bucket list` in a different
+  repo (`Magic-Ecommerce`, two processes within 0.7s of the job-39 death, sharing
+  `~/.config/.wrangler`), and later a second foreign Playwright suite (`POS_E-commerce_SaaS`) with its
+  own chromium + `workerd` + vite. Two sessions equipped to run `pkill -f workerd`/`wrangler` cleanup
+  were live on the machine; the exact killer is unidentified, the *class* is external. **Decision**:
+  the matrix is delivered as **eight single-project invocations** (`chromium`, `public-mobile`,
+  `public-tablet`, `public-pc`, `admin-mobile`, `admin-tablet`, `admin-pc`, `admin-touch`) with
+  `--workers=1` on ports 4322/8788 — the mode that survives — and multi-project invocations are
+  documented as environment-fragile. This is an environment constraint to report, not a defect to
+  patch in the specs.

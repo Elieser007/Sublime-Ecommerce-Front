@@ -239,6 +239,23 @@ e2e/                          # Playwright E2E tests
 - **Backend URL inside tests**: `playwright.config.ts` sets `E2E_BACKEND_URL` before the workers
   start; `e2e/admin/helpers.ts` reads it (falling back to `getApiUrl()`) so a run on
   `E2E_BACK_PORT` never reaches the default :8787 backend.
+- **Load sensitivity (read before a red matrix)**: every admin spec file reseeds the shared
+  local D1 in `beforeAll`, so a run writes the SQLite file that the run's own `wrangler dev` has
+  open (measured `SQLITE_BUSY` / `D1_ERROR: … internal error` blips; see L13 in
+  `odd/tasks/e2e-device-matrix.md`). On a busy machine, run **one device project per invocation**
+  (`--project=admin-mobile`, then `admin-tablet`, then `admin-pc`, plus `admin-touch`) instead of all
+  four at once, and re-run before believing a failure.
+- **A silently dead backend is an environment incident, not a spec defect**: if the backend stops
+  accepting connections mid-run, diagnose before editing tests. Incident signature: the browser logs
+  `Failed to fetch` *before* wrangler writes anything, wrangler exits with an empty `✘ [ERROR]` and
+  no shutdown message (crash log ends mid normal request), no `oom-kill` in `dmesg` and no coredump.
+  Cause class seen in practice: **other agent sessions on the same machine** doing their own heavy
+  `wrangler` / Playwright work. `wrangler dev`'s worker process is literally named `workerd`, so a
+  broad `pkill -f workerd` / `pkill -f wrangler` (or a port cleanup) from a neighbour takes this
+  run's backend down with it; the exact killer was never identified, only that it comes from
+  outside. Because of this, the whole matrix is delivered **one project per invocation** (see L15).
+  The `kj::… Broken pipe` lines, in contrast, are benign startup noise — a clean isolated boot
+  prints them and then serves 200s.
 - **CI**: JUnit reporter to `test-results/e2e.xml`, 2 retries
 
 ## Conventions
