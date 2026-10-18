@@ -227,6 +227,18 @@ e2e/                          # Playwright E2E tests
   form-factor-pinned tests declare their project via `e2e/device-gate.ts`. Viewport-only (no
   touch emulation) so media-query regimes stay deterministic. Single-run specs (`responsive`
   self-loops its own 4 viewports, `*-revisit` SPA-wiring suites) stay on the `chromium` project.
+- **Admin/auth device matrix**: the authenticated surface (`e2e/admin/**/*.spec.ts`) runs once per
+  device project too — `admin-mobile` 375x812, `admin-tablet` 700x800, `admin-pc` 1280x800 — all
+  depending on `admin-setup`, so credentials are submitted once per suite and every flow reuses
+  `e2e/admin/.auth/admin.json`. Invoke one device with
+  `E2E_FRONT_PORT=4322 E2E_BACK_PORT=8788 pnpm exec playwright test --project=admin-mobile`;
+  `pnpm run test:e2e:admin` still selects `e2e/admin` by path, forces `--workers=1` (shared seeded
+  D1) and therefore now covers all three devices. `promo-editor-touch.spec.ts` pins its own
+  hasTouch/isMobile 375x667 context (`TOUCH_CONTEXT`), so it runs exactly once on `admin-touch`
+  instead of once per device.
+- **Backend URL inside tests**: `playwright.config.ts` sets `E2E_BACKEND_URL` before the workers
+  start; `e2e/admin/helpers.ts` reads it (falling back to `getApiUrl()`) so a run on
+  `E2E_BACK_PORT` never reaches the default :8787 backend.
 - **CI**: JUnit reporter to `test-results/e2e.xml`, 2 retries
 
 ## Conventions

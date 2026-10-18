@@ -127,3 +127,68 @@ Status: T1–T4 and T6 landed in one slice (ports + matrix + specs are interlock
   For T5: `e2e/admin/flows/promotions.spec.ts:373,392` hardcode `http://localhost:8787` and
   `e2e/admin/helpers.ts` `getApiUrl()` falls back to 8787 under Node — admin on custom ports needs
   the same env treatment.
+- **L7 (T5 admin matrix, root cause + evidence)** — the admin login blocker was NOT CORS config,
+  credentials or the database. `pnpm run dev -- --port … --var …` reaches wrangler as `wrangler dev
+  -- --port … --var …`: everything after that inserted `--` becomes passthrough args for the
+  worker, so **every flag was silently dropped** and the backend ran on `.dev.vars`
+  (`CORS_ORIGINS`/`TRUSTED_ORIGINS = http://localhost:4321`). Measured: preflight from Origin 4322
+  → `204` **without** `Access-Control-Allow-Origin`, control Origin 4321 → ACAO
+  `http://localhost:4321`, real POST from 4322 → `403`; the Playwright log showed
+  `OPTIONS /api/auth/sign-in/email 204` and **no POST at all**, which is why the form reported
+  "Error de conexión" (that string is the `fetch`-rejected branch in `login.astro`, never an HTTP
+  status). Fix: the backend webServer now runs `exec ./node_modules/.bin/wrangler dev …` directly
+  (same `exec` determinism as astro). `admin-setup` then passed (23.2s) and wrote `storageState`
+  with `better-auth.session_token` (`domain localhost`, `httpOnly`). Hypotheses refuted along the
+  way, all recorded because each one cost a run: (a) D1 credentials — scrypt hashes are **salted**,
+  so equal passwords differ; the HTTP login returned `200` + cookie; (b) browser hitting 8787 — the
+  probe showed `/api/me` calls against 8788; (c) missing seed fixtures — `users.spec.ts` passes 6/6
+  in isolation and the fixtures (`user-admin-e2e`, `branch-principal`, `prod-*`) are still `0` in
+  the D1, so they cannot be the cause. Admin matrix evidence, one project per invocation,
+  `--workers=1`, `E2E_FRONT_PORT=4322 E2E_BACK_PORT=8788`: admin-mobile exit 1 (7 failed / 17 not
+  run / 21 passed, 398s), admin-tablet exit 1 (5 / 7 / 33, 413s), admin-pc exit 1 (9 / 28 / 8,
+  401s), admin-touch exit 0 (6 passed, 35s); total 1247s ≈ 20.8m. Running admin-mobile **alone**
+  afterwards gave 2 failed / 1 not run / 42 passed (289s), so the matrix numbers are dominated by
+  resource contention across back-to-back runs plus `test.describe.configure({mode:"serial"})`
+  amplifying the first failure into "did not run" (the tablet run logged `Category tree unavailable
+  … fetch failed` from astro, i.e. the backend failed to answer during page compilation). The two
+  surviving failures are genuine matrix findings: `spa-revisit.spec.ts` clicks
+  `.sidebar-link[data-section="dashboard"]`, which is off-canvas below the 768px breakpoint
+  (161 × "waiting for element to be visible, enabled and stable"), and `deploy.spec.ts:40` times out
+  at mobile for the same reason class. The old suite ran everything at the default 1280×720
+  viewport, so the device matrix surfaced specs that assumed a desktop layout.
+- **L8 (operational lessons, worth keeping)** — (1) an unbounded readiness gate (`until curl …; do
+  sleep 1; done`) silently hung a job for 2h13m and left an orphan backend holding 8788; every wait
+  is now bounded (`timeout`, max attempts) and servers run as foreground jobs so `job_stop` reaps
+  them. (2) A hand-written browser probe gave a **false positive**: clicking a generic
+  `button[type=submit]` hit the header search form instead of the login form, navigating to `/?q=`
+  with no `/api/auth/sign-in/email` request at all — the ground truth is the Playwright run, never a
+  convenience script. (3) The user's 4321/8787 listeners must never be touched; this slice always
+  runs on 4322/8788.
+- **L9 (tablet re-measurement, correction + the one real defect)** — the "7 failed / 22 did not
+  run" tablet signature was **not** a 700×800 layout defect: my "awkward middle viewport"
+  hypothesis is refuted. The drawer helpers work at 700px and no control is visible-but-covered
+  there. Those runs were **backend-death artifacts**: under machine pressure (loadavg 5–6, kswapd
+  active, ~13G swap in use, sibling agents) the wrangler/workerd backend on 8788 stalls mid-run —
+  astro answers 500 with `Category tree unavailable … fetch failed`, admin pages sit on
+  "Cargando…"/"Error al cargar", and `test.describe.configure({mode:"serial"})` turns the first
+  timeout into "did not run". Every green run in this slice happened at lower load. The one
+  genuine test defect found was a **data race in `attributes.spec.ts`**: `#show-dependency-btn` is
+  visible by default and the dependency form populates its selects **once, synchronously**, when it
+  opens, so button visibility never proved `loadProductAttributes` had resolved — the click could
+  reach an empty `#parent-module-select` (`selectOption` timeout, "did not find some options"),
+  reproduced 3/3 on mobile and 1/2 on tablet with isolated `-g` runs. Fixed with two data-wait
+  assertions (a rendered `.attr-module-card`, then `#parent-module-select` containing the module
+  name) using the same pattern `assignModule()` already relied on; no assertion weakened, no
+  retry, no skip, no gate. Final measured state, one project per invocation on 4322/8788:
+  admin-tablet 45 passed (2.8m), admin-mobile 45 passed (2.6m), admin-pc 45 passed (2.9m),
+  admin-setup 1 passed, admin-touch 6 passed. Follow-up for the owner (outside this repo's e2e
+  slice): the same race is an app-side weakness — `AttributeManager.astro` could disable
+  `#show-dependency-btn` until `loadProductAttributes` resolves instead of leaving it live against
+  an empty form.
+- **L10 (index hygiene, recurring)** — the shared index of this clone keeps receiving staged
+  reverts from concurrent writers while this session works: after commit `4188e60` the real index
+  held exactly the inverse of my commit (9 files, 227 deletions staged). Commits here are therefore
+  always built from a private `GIT_INDEX_FILE` + `git write-tree`/`git commit-tree` and the branch
+  moved with a compare-and-swap `git update-ref`, never by `git commit` on the shared index; each
+  time the shared index was resynced with `git reset` (mixed reset: index ← HEAD, worktree
+  untouched).

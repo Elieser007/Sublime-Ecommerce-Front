@@ -6,8 +6,10 @@
  * 1. Back repo: `npm run seed:e2e` (deterministic fixed-ID seed, task 2.2).
  * 2. Playwright starts the backend itself via the webServer entry with
  *    `--var RATE_LIMIT_DISABLED:true --var ENVIRONMENT:test` (rate-limit
- *    bypass, P4) and `reuseExistingServer: false`, so a manually running
- *    backend on :8787 must be stopped first.
+ *    bypass, P4) and `reuseExistingServer: false`, on the run's own port
+ *    (E2E_BACK_PORT, default 8787). Since the run never reuses an existing
+ *    server, a manually started backend on any port is irrelevant; the
+ *    port-parametrized backend URL reaches this process as E2E_BACKEND_URL.
  * 3. This setup runs once per suite; every admin flow project depends on it
  *    and reuses `e2e/admin/.auth/admin.json` — credentials are never
  *    re-submitted (spec: Single login via storageState).

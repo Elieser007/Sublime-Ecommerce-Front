@@ -4,7 +4,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getApiUrl } from "../../src/lib/api-url";
 
-export const BACKEND_URL = getApiUrl();
+// The Playwright run injects its port-parametrized backend URL as
+// E2E_BACKEND_URL (see playwright.config.ts). In this Node process
+// `import.meta.env` does not exist, so getApiUrl() would return its hardcoded
+// :8787 dev fallback — the WRONG backend whenever E2E_BACK_PORT moves the run.
+// The getApiUrl() fallback keeps a bare `playwright test` on the default ports
+// behaving exactly as before, and src/lib/api-url.ts remains the single place
+// that defines the browser-side policy.
+export const BACKEND_URL = (process.env.E2E_BACKEND_URL ?? getApiUrl()).replace(/\/+$/, "");
 
 const BACK_REPO_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

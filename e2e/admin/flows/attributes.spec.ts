@@ -272,12 +272,25 @@ test("creates and deletes a dependency between assigned modules", async ({ page 
   await row.getByTitle("Atributos").click();
   const overlay = page.locator("#attr-overlay");
   await expect(overlay).toBeVisible();
+  // loadProductAttributes resolves AFTER the overlay opens, and
+  // #show-dependency-btn is visible by default until it resolves — so button
+  // visibility alone does not prove the assigned-modules data arrived (the
+  // dep form populates once, synchronously, on click). Wait for a rendered
+  // assigned-module card first: it only renders from loaded productAttributes.
+  await expect(overlay.locator(".attr-module-card", { hasText: modAName })).toBeVisible();
   await expect(overlay.locator("#show-dependency-btn")).toBeVisible();
   await overlay.locator("#show-dependency-btn").click();
 
   // POST /api/admin/attributes/dependencies (parent value A → child module B).
   const depForm = page.locator("#dep-overlay");
   await expect(depForm).toBeVisible();
+  // The dep form populates its selects ONCE from in-memory data when it opens
+  // (AttributeManager openDependencyForm), while #show-dependency-btn is
+  // visible by default until loadProductAttributes resolves — so "overlay
+  // visible" alone does not prove the options arrived. Wait for the assigned
+  // modules first (same data-wait pattern as assignModule() above); both
+  // selects populate in the same synchronous block, so one wait covers both.
+  await expect(depForm.locator("#parent-module-select")).toContainText(modAName);
   await depForm.locator("#parent-module-select").selectOption(modAId);
   await expect(depForm.locator("#parent-value-select")).toContainText(valueALabel);
   await depForm.locator("#parent-value-select").selectOption({ label: valueALabel });

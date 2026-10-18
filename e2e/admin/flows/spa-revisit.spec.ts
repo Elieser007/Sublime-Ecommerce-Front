@@ -29,6 +29,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 import { ADMIN_URLS } from "../helpers";
+import { clickAdminSidebarLink } from "../../device-gate";
 
 test.describe.configure({ mode: "serial" });
 
@@ -146,15 +147,17 @@ test.describe("SPA revisit — admin wiring re-arms after navigation", () => {
     await closeAttributes();
 
     // SPA away through a sidebar link, then SPA back to /admin/products.
+    // Below 768px the sidebar is an off-canvas drawer: open it the way a
+    // real mobile user does before clicking the link (no-op on desktop).
     await spaGo(
       page,
-      () => page.click('.sidebar-link[data-section="dashboard"]'),
+      () => clickAdminSidebarLink(page, "dashboard"),
       "/dashboard",
       spaTag
     );
     await spaGo(
       page,
-      () => page.click('.sidebar-link[data-section="products"]'),
+      () => clickAdminSidebarLink(page, "products"),
       ADMIN_URLS.products,
       spaTag
     );
@@ -196,7 +199,7 @@ test.describe("SPA revisit — admin wiring re-arms after navigation", () => {
     const goToNewViaDashboard = async () => {
       await spaGo(
         page,
-        () => page.click('.sidebar-link[data-section="dashboard"]'),
+        () => clickAdminSidebarLink(page, "dashboard"),
         "/dashboard",
         spaTag
       );

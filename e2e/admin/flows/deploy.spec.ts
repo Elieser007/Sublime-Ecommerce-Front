@@ -13,6 +13,7 @@
  */
 import { test, expect } from "@playwright/test";
 import { ADMIN_URLS } from "../helpers";
+import { ensureAdminSidebarOpen } from "../../device-gate";
 
 test.describe.configure({ mode: "serial" });
 
@@ -34,8 +35,17 @@ test("deploys via the sidebar button with the request intercepted", async ({ pag
 
   await page.goto(ADMIN_URLS.products);
 
+  // Below 768px the sidebar (which hosts the deploy button) is an
+  // off-canvas drawer: open it the way a real mobile user does before
+  // asserting the button (no-op on desktop, where it is always visible).
+  await ensureAdminSidebarOpen(page);
+
   // Admin-only deploy group: shown after /api/deploy/config answers 200.
   const deployBtn = page.locator("#deploy-btn");
+  // The open drawer locks body scroll, so scroll the button into view
+  // inside its own drawer before clicking (same real-user gesture as the
+  // sidebar links in clickAdminSidebarLink).
+  await deployBtn.evaluate((el) => el.scrollIntoView({ block: "center" }));
   await expect(deployBtn).toBeVisible();
   await deployBtn.click();
 

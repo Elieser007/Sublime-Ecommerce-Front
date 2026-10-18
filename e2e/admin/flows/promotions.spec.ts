@@ -14,7 +14,7 @@
  * Serial per file (shared seeded D1); storageState from auth.setup.
  */
 import { test, expect, type Page } from "@playwright/test";
-import { ADMIN_URLS, reseedE2E, dispatchPointerDrag } from "../helpers";
+import { ADMIN_URLS, BACKEND_URL, reseedE2E, dispatchPointerDrag } from "../helpers";
 
 test.describe.configure({ mode: "serial" });
 
@@ -370,7 +370,7 @@ test("replacing an image deletes the old R2 object (E2E-1 #6)", async ({ page })
   expect(uploadBody.url).toBeTruthy();
   const oldUrl = uploadBody.url!;
   const oldFilename = oldUrl.split("/").pop()!;
-  const oldUpload = await page.request.get(`http://localhost:8787/api/upload/${oldFilename}`);
+  const oldUpload = await page.request.get(`${BACKEND_URL}/api/upload/${oldFilename}`);
   expect(oldUpload.status()).toBe(200);
 
   // Replace the image with a second upload → old R2 object must be deleted.
@@ -389,6 +389,6 @@ test("replacing an image deletes the old R2 object (E2E-1 #6)", async ({ page })
   await expect(page.locator("#editor-status")).toHaveText("Sin cambios");
 
   // Old URL now 404s (R2 object deleted via deleteUploadedFile).
-  const oldAfter = await page.request.get(`http://localhost:8787/api/upload/${oldFilename}`);
+  const oldAfter = await page.request.get(`${BACKEND_URL}/api/upload/${oldFilename}`);
   expect(oldAfter.status()).toBe(404);
 });

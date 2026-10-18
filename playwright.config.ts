@@ -10,8 +10,6 @@ const BACKEND_DIR = "../Sublime-Ecommerce-Back";
 // Runbook (Back repo, once): pnpm run db:migrate && pnpm run seed:e2e
 // (deterministic fixed-ID seed, task 2.2); the webServer boots `wrangler dev`
 // against that seeded local D1.
-const BACKEND_FLAGS = "--var RATE_LIMIT_DISABLED:true --var ENVIRONMENT:test";
-
 // E2E port parametrization (odd/tasks/e2e-device-matrix.md, S3): ports
 // 4321/8787 are the defaults, so a plain `pnpm exec playwright test` behaves
 // exactly as before — but when those ports are held by another project the
@@ -23,10 +21,36 @@ const BACKEND_FLAGS = "--var RATE_LIMIT_DISABLED:true --var ENVIRONMENT:test";
 // frontend webServer below injects PUBLIC_API_URL into astro dev's
 // environment (astro.config.mjs spreads process.env over .env, so the
 // injected value wins without touching .env).
-const FRONT_PORT = process.env.E2E_FRONT_PORT ?? "4321";
-const BACK_PORT = process.env.E2E_BACK_PORT ?? "8787";
+// Captured once: this repo's tsconfig has no `@types/node`, so every
+// `process` reference is a `tsc --noEmit` error (TS2591). One capture keeps
+// the run's environment in a single, documented place.
+const env = process.env;
+const FRONT_PORT = env.E2E_FRONT_PORT ?? "4321";
+const BACK_PORT = env.E2E_BACK_PORT ?? "8787";
 const FRONT_URL = `http://localhost:${FRONT_PORT}`;
 const BACK_URL = `http://localhost:${BACK_PORT}`;
+
+// The port-parametrized backend URL must also reach the TEST process: the
+// admin helpers resolve it in Node, where `import.meta.env` does not exist and
+// src/lib/api-url.ts would return its hardcoded :8787 dev fallback — the WRONG
+// backend under E2E_BACK_PORT. Playwright loads this config in the main
+// process before it spawns any worker, so every worker inherits the value.
+env.E2E_BACKEND_URL = BACK_URL;
+
+// The backend trusts ONLY the origins listed in CORS_ORIGINS /
+// TRUSTED_ORIGINS, and .dev.vars pins both to http://localhost:4321; better-auth
+// validates the Origin on every POST, and the admin login IS a POST. A run moved
+// to another front port must therefore hand the backend ITS OWN front origin, or
+// the browser login is rejected before credentials are ever checked (the form
+// never leaves /login, showing "Error de conexión"). The public surface never
+// noticed: the SSG catalog is fetched server-side by astro dev, so the admin
+// login is the first browser-to-backend cross-origin request in the suite.
+const BACKEND_FLAGS = [
+  "--var RATE_LIMIT_DISABLED:true",
+  "--var ENVIRONMENT:test",
+  `--var CORS_ORIGINS:${FRONT_URL}`,
+  `--var TRUSTED_ORIGINS:${FRONT_URL}`,
+].join(" ");
 
 // Public-surface spec files owned by the device matrix (S1, S2). Everything
 // else non-admin (responsive.spec.ts with its own internal viewport loop,
@@ -34,10 +58,16 @@ const BACK_URL = `http://localhost:${BACK_PORT}`;
 // project so no spec runs twice at the same viewport.
 const PUBLIC_SPECS = /e2e\/(catalog|cart|wishlist|detail-volume|home)\.spec\.ts$/;
 
+// Admin spec files owned by the authenticated device matrix (S4). The touch
+// spec declares its own input context, so it runs exactly once (admin-touch)
+// and the three admin device projects ignore it.
+const ADMIN_SPECS = /e2e\/admin\/.*\.spec\.ts$/;
+const ADMIN_TOUCH_SPEC = /promo-editor-touch\.spec\.ts$/;
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
-  retries: process.env.CI ? 2 : 0,
+  retries: env.CI ? 2 : 0,
   use: {
     baseURL: FRONT_URL,
     headless: true,
@@ -96,15 +126,56 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts$/,
       use: { browserName: "chromium" },
     },
+    // Authenticated device matrix (odd/tasks/e2e-device-matrix.md, S4): the
+    // admin surface runs once per form factor, with the SAME viewports as the
+    // public matrix above and therefore the same documented breakpoints. The
+    // setup dependency guarantees the storageState exists before any flow
+    // runs, so credentials are submitted exactly once per suite (spec: Single
+    // login via storageState). Cross-file serialization: the `test:e2e:admin`
+    // script forces --workers=1 (shared D1); each flow file additionally opts
+    // into test.describe.configure({ mode: "serial" }).
     {
-      name: "admin",
-      // Specs under e2e/admin (flows land in P7–P9). The setup dependency
-      // guarantees the storageState exists before any flow runs, so
-      // credentials are submitted exactly once per suite (spec: Single login
-      // via storageState). Cross-file serialization: the `test:e2e:admin`
-      // script forces --workers=1 (shared D1); each flow file additionally
-      // opts into test.describe.configure({ mode: "serial" }).
-      testMatch: /e2e\/admin\/.*\.spec\.ts$/,
+      name: "admin-mobile",
+      testMatch: ADMIN_SPECS,
+      testIgnore: ADMIN_TOUCH_SPEC,
+      dependencies: ["admin-setup"],
+      use: {
+        browserName: "chromium",
+        viewport: { width: 375, height: 812 },
+        storageState: "e2e/admin/.auth/admin.json",
+      },
+    },
+    {
+      name: "admin-tablet",
+      testMatch: ADMIN_SPECS,
+      testIgnore: ADMIN_TOUCH_SPEC,
+      dependencies: ["admin-setup"],
+      use: {
+        browserName: "chromium",
+        viewport: { width: 700, height: 800 },
+        storageState: "e2e/admin/.auth/admin.json",
+      },
+    },
+    {
+      name: "admin-pc",
+      testMatch: ADMIN_SPECS,
+      testIgnore: ADMIN_TOUCH_SPEC,
+      dependencies: ["admin-setup"],
+      use: {
+        browserName: "chromium",
+        viewport: { width: 1280, height: 800 },
+        storageState: "e2e/admin/.auth/admin.json",
+      },
+    },
+    {
+      name: "admin-touch",
+      // promo-editor-touch.spec.ts pins its OWN context with
+      // test.use(TOUCH_CONTEXT) — 375x667, hasTouch, isMobile — so the project
+      // viewport is irrelevant and the spec must run exactly ONCE. It stays
+      // out of the device matrix (the three admin device projects ignore it)
+      // for the same reason responsive.spec.ts stays on `chromium`: running a
+      // self-framed spec per device would be pure duplication, not coverage.
+      testMatch: ADMIN_TOUCH_SPEC,
       dependencies: ["admin-setup"],
       use: {
         browserName: "chromium",
@@ -114,7 +185,15 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `cd ${BACKEND_DIR} && pnpm run dev -- --port ${BACK_PORT} ${BACKEND_FLAGS}`,
+      // Invoke wrangler DIRECTLY: `pnpm run dev -- <flags>` reaches wrangler as
+      // `wrangler dev -- --port … --var …`, and wrangler reads everything after
+      // that inserted `--` as passthrough args for the worker, silently dropping
+      // EVERY flag (verified: the resulting server answered a preflight from the
+      // run's front origin with no Access-Control-Allow-Origin while :4321 — the
+      // .dev.vars value — was allowed, so the browser blocked the admin login
+      // POST and the form reported "Error de conexión"). The same drop disabled
+      // RATE_LIMIT_DISABLED/ENVIRONMENT=test, which the suite needs.
+      command: `cd ${BACKEND_DIR} && exec ./node_modules/.bin/wrangler dev --port ${BACK_PORT} ${BACKEND_FLAGS}`,
       url: `${BACK_URL}/`,
       reuseExistingServer: false,
       timeout: 60_000,
@@ -159,5 +238,5 @@ export default defineConfig({
       timeout: 90_000,
     },
   ],
-  reporter: process.env.CI ? [["junit", { outputFile: "test-results/e2e.xml" }]] : "list",
+  reporter: env.CI ? [["junit", { outputFile: "test-results/e2e.xml" }]] : "list",
 });
