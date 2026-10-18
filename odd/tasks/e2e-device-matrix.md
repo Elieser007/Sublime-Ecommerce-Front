@@ -187,8 +187,26 @@ Status: T1–T4 and T6 landed in one slice (ports + matrix + specs are interlock
   an empty form.
 - **L10 (index hygiene, recurring)** — the shared index of this clone keeps receiving staged
   reverts from concurrent writers while this session works: after commit `4188e60` the real index
-  held exactly the inverse of my commit (9 files, 227 deletions staged). Commits here are therefore
-  always built from a private `GIT_INDEX_FILE` + `git write-tree`/`git commit-tree` and the branch
-  moved with a compare-and-swap `git update-ref`, never by `git commit` on the shared index; each
-  time the shared index was resynced with `git reset` (mixed reset: index ← HEAD, worktree
-  untouched).
+  held exactly the inverse of my commit (9 files, 227 deletions staged), and it happened again
+  after `1ec7d1c` (2 files, 41 deletions, index mtime 17:21:52). Commits here are therefore always
+  built from a private `GIT_INDEX_FILE` + `git write-tree`/`git commit-tree` and the branch moved
+  with a compare-and-swap `git update-ref`, never by `git commit` on the shared index; each time
+  the shared index was resynced with `git reset` (mixed reset: index ← HEAD, worktree untouched).
+- **L11 (hardening, C2 closed)** — the seven form-factor gates written as inline
+  `test.skip(test.info().project.name !== "<literal>")` are now `onlyOnDeviceProject("<name>", reason)`
+  in `e2e/device-gate.ts`. Two helpers because the shapes differ: `onlyDeviceProjects(...)` is a
+  `beforeEach` and gates a whole describe, `onlyOnDeviceProject(...)` runs inside one test body.
+  Why it mattered: the inline form compares raw strings, so a mistyped project name kept compiling
+  and then skipped the test in **every** project — a silently missing test, the one failure a green
+  suite cannot show. The name is now the `DeviceProject` union, so a typo fails `tsc --noEmit`.
+  Same conditions, same reason strings: no gate, skip or assertion changed meaning.
+- **L12 (decision, D1 isolation — option C)** — the earlier "the e2e fixtures are missing from D1"
+  reading (`user-admin-e2e`=0, `branch-principal`=0, `prod-*`=0) was measured after the suite had
+  already deleted its own rows, and `reseedE2E()` re-inserts missing rows by email on every admin
+  run — so the suite IS repeatable; the measurement does not show what it was taken to show. What
+  it does show is that the e2e run writes to the **shared dev D1** and leaves rows behind
+  (`user-client-e2e`, `mod-color`, `promo-e2e-1`, `branch-centro` = 1 each): the actual issue is
+  isolation from the human's dev data, not repeatability. Decided: **(C) documented-only** for this
+  branch, because (A) an isolated e2e D1 (`wrangler --persist-to` + migrations + seed against that
+  path) requires editing the separate `Sublime-Ecommerce-Back` repo and its `seed:e2e` script, which
+  is the human's own repo and history; option A stays available on their word.

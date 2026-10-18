@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { onlyDeviceProjects } from "./device-gate";
+import { onlyDeviceProjects, onlyOnDeviceProject } from "./device-gate";
 
 // The desktop sidebar shows ONE tab at a time (sidebar-tabs landed in 2be0321):
 // sort/price controls live in the "Filtros" panel, which is display:none until
@@ -522,8 +522,8 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
   }
 
   test("back closes the category drawer with the URL unchanged", async ({ page }) => {
-    test.skip(
-      test.info().project.name !== "public-mobile",
+    onlyOnDeviceProject(
+      "public-mobile",
       "mobile drawer back-button behavior: runs once on public-mobile"
     );
     await page.goto("/");
@@ -541,8 +541,8 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
   });
 
   test("back closes the filters drawer with the URL unchanged", async ({ page }) => {
-    test.skip(
-      test.info().project.name !== "public-mobile",
+    onlyOnDeviceProject(
+      "public-mobile",
       "mobile drawer back-button behavior: runs once on public-mobile"
     );
     await page.goto("/");
@@ -560,8 +560,8 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
   });
 
   test("back closes the variant modal with the URL unchanged", async ({ page }) => {
-    test.skip(
-      test.info().project.name !== "public-mobile",
+    onlyOnDeviceProject(
+      "public-mobile",
       "mobile modal back-button behavior: runs once on public-mobile"
     );
     await page.goto("/");
@@ -580,8 +580,8 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
   });
 
   test("ESC then back navigates normally with no spurious transition", async ({ page }) => {
-    test.skip(
-      test.info().project.name !== "public-mobile",
+    onlyOnDeviceProject(
+      "public-mobile",
       "mobile drawer back-button behavior: runs once on public-mobile"
     );
     // Two real entries below the drawer's entry: /home then / — so a back
@@ -606,8 +606,8 @@ test.describe("Mobile Back Button (MOD-BACK-1/4/5)", () => {
   });
 
   test("backdrop-closed variant modal leaves no stale entry: back navigates normally", async ({ page }) => {
-    test.skip(
-      test.info().project.name !== "public-pc",
+    onlyOnDeviceProject(
+      "public-pc",
       "desktop modal back-button behavior: runs once on public-pc"
     );
     // Desktop viewport: the variant modal is centered with a clickable
@@ -668,8 +668,8 @@ test.describe("Button Colors", () => {
   // assert foreground differs from the background instead of a hard-coded
   // color.
   test("primary buttons have visible text color", async ({ page }) => {
-    test.skip(
-      test.info().project.name !== "public-pc",
+    onlyOnDeviceProject(
+      "public-pc",
       "desktop sidebar apply button only exists at desktop widths: runs once on public-pc"
     );
     await page.goto("/");

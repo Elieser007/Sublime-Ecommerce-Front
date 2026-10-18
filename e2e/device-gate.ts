@@ -30,6 +30,20 @@ export function onlyDeviceProjects(...names: DeviceProject[]) {
 }
 
 /**
+ * Gate ONE test body to a device project: the per-test counterpart of
+ * `onlyDeviceProjects(...)`, which gates a whole describe through beforeEach.
+ *
+ * Prefer this over an inline `test.skip(test.info().project.name !== "...")`.
+ * The inline form compares raw strings, so a mistyped project name still
+ * compiles and then skips the test in EVERY project — a silently missing
+ * test, which is the one failure a green suite cannot show. Here the name is
+ * part of the `DeviceProject` union, so a typo fails `tsc --noEmit`.
+ */
+export function onlyOnDeviceProject(name: DeviceProject, reason: string) {
+  test.skip(test.info().project.name !== name, reason);
+}
+
+/**
  * Open the admin sidebar drawer the way a real small-viewport user does.
  *
  * Below the 768px breakpoint the admin sidebar is off-canvas

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { onlyDeviceProjects } from "./device-gate";
+import { onlyDeviceProjects, onlyOnDeviceProject } from "./device-gate";
 
 const WISHLIST_ITEMS = [
   {
@@ -89,8 +89,8 @@ test.describe("Wishlist Page", () => {
     // Desktop-only: #wishlist-count lives inside #wishlist-btn, which is
     // display:none below 768px by design (Header.astro). Runs once, on
     // public-pc; the hiding itself is covered by the mobile test below.
-    test.skip(
-      test.info().project.name !== "public-pc",
+    onlyOnDeviceProject(
+      "public-pc",
       "wishlist header badge only exists at desktop widths: runs once on public-pc"
     );
     await page.goto("/wishlist");
