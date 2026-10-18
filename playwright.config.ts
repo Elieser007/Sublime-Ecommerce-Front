@@ -120,26 +120,40 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
-      // Astro 7's `astro dev` DAEMONIZES by default: the CLI process exits as
-      // soon as the background server is up, which breaks Playwright's
-      // webServer keep-alive contract ("Process from config.webServer exited
-      // early"). This wrapper keeps a foreground process alive while the
-      // daemon serves and stops any stale daemon on teardown — so evidence
-      // can never run against a previous compile again (verify F2).
+      // Astro 7 AUTO-DAEMONIZES under agent environments: dev/index.js
+      // computes `wantsBackground = flags.background ||
+      // supportsAgentAutoBackgrounding(platform) && agentDetected &&
+      // !ignoreLock` where agentDetected comes from am-i-vibing's
+      // detectAgenticEnvironment() — true inside this harness, so a bare
+      // `astro dev` spawns a detached daemon and the CLI exits at once.
+      // The previous wrapper worked around that daemon with a curl
+      // keep-alive loop (exited 0 when the daemon died, so Playwright kept
+      // testing a dead server) plus a stop-trap (did not always fire, so a
+      // zombie daemon held the port for the next project).
+      // `--ignore-lock` is the documented foreground opt-out ("Run the dev
+      // server in the foreground to use --ignore-lock"): it forces the
+      // direct `devServer()` path with no lockfile and no spawned daemon
+      // (verified: the CLI process blocks and SIGTERM frees the port with
+      // nothing left behind). Playwright therefore owns the server process:
+      // a crash fails the webServer contract loudly, and teardown kills
+      // exactly this run's server — projects chain with no zombie cleanup.
       //
       // Readiness gate (verify F3): `astro dev` compiles product pages on
       // first request; if the backend isn't up yet, getStaticPaths caches an
       // EMPTY catalog and every /products/:slug 404s for the whole run. The
-      // wrapper waits for the public products API before booting Astro.
+      // shell waits for the public products API before exec'ing Astro
+      // (Playwright's `timeout` below bounds the wait). `exec` replaces the
+      // shell so signals go straight to Astro. Pre-boot `dev stop` clears
+      // daemons left by the old wrapper; this entry never creates one.
       //
       // PUBLIC_API_URL is injected via webServer `env` (see note above):
       // astro.config.mjs merges process.env over .env, so the dev server
       // compiles pages against this run's backend port.
       command:
-        `bash -c 'npx astro dev stop >/dev/null 2>&1; until curl -sf "${BACK_URL}/api/public/products?limit=1" -o /dev/null; do sleep 1; done; trap "npx astro dev stop >/dev/null 2>&1" EXIT TERM INT; npx astro dev --port ${FRONT_PORT} >/dev/null 2>&1; while curl -sf ${FRONT_URL} -o /dev/null; do sleep 2; done'`,
+        `bash -c 'npx astro dev stop >/dev/null 2>&1; until curl -sf "${BACK_URL}/api/public/products?limit=1" -o /dev/null; do sleep 1; done; exec ./node_modules/.bin/astro dev --port ${FRONT_PORT} --ignore-lock'`,
       url: FRONT_URL,
       env: { PUBLIC_API_URL: BACK_URL },
-      // Always boot a fresh Astro daemon: a reused server may serve compiled
+      // Always boot a fresh Astro server: a reused server may serve compiled
       // pages from an earlier session (the invalid 104/104 evidence in P12).
       reuseExistingServer: false,
       timeout: 90_000,

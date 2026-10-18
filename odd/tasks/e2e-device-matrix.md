@@ -104,6 +104,23 @@ Status: T1–T4 and T6 landed in one slice (ports + matrix + specs are interlock
   `dev stop` can race a rapidly chained next boot (stale daemon + reuseExistingServer:false
   refuses to boot), and a single 4-project invocation was aborted mid-way ("49 did not run")
   with its output lost, so per-project runs are the evidence of record.
+- **L8 (evidence, webServer foreground fix, 2026-10-18)** — the daemon keep-alive wrapper in
+  `playwright.config.ts` is replaced by a foreground server: Astro 7 auto-daemonizes only when
+  `am-i-vibing` detects an agent (`wantsBackground = flags.background ||
+  supportsAgentAutoBackgrounding(platform) && agentDetected && !ignoreLock`,
+  `astro/dist/cli/dev/index.js`), and `--ignore-lock` is the documented foreground opt-out
+  ("Run the dev server in the foreground to use --ignore-lock" — verified: CLI blocks, SIGTERM
+  frees the port, no daemon left). The entry is now `exec ./node_modules/.bin/astro dev --port
+  … --ignore-lock` after the backend-products readiness gate; `exec` gives Playwright the astro
+  process directly, so a crash fails loudly and teardown kills exactly this run's server. Chained
+  evidence on `E2E_FRONT_PORT=4322/E2E_BACK_PORT=8788`, no manual cleanup between invocations:
+  public-mobile exit 0, 62 passed/18 skipped; public-tablet first attempt exit 1, 35 passed/41
+  skipped (4 failures, names not captured — evidence-logging gap, suspected 4×30s timeouts from
+  its 2.0m duration vs 59.3s on retry), retry exit 0, 39 passed/41 skipped; public-pc exit 0, 55
+  passed/25 skipped (wrangler "Broken pipe" log noise only); chromium exit 0, 73 passed. After
+  every project `ss -ltn` showed 4322/8788 free and the user's 4321/8787 listeners untouched.
+  AGENTS.md's stale-daemon `dev stop` caveat is retired (pre-boot `dev stop` remains in the entry
+  only to clear daemons left by the old wrapper).
 - **L6 (finding, needs user decision — NOT fixed)** — no responsive/rendering defect found at any
   form factor; all three devices render the public surface green. Deliberate (not defects):
   `#wishlist-btn` hidden <768px, sidebar/search-form hidden <768px (gated tests document this).

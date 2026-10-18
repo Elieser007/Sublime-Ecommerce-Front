@@ -217,9 +217,9 @@ e2e/                          # Playwright E2E tests
   `E2E_FRONT_PORT=4322 E2E_BACK_PORT=8788 pnpm exec playwright test`.
   Astro dev is pointed at the backend via `PUBLIC_API_URL` injection (see `playwright.config.ts`
   runbook). Backend runbook (Back repo, once): `pnpm run db:migrate && pnpm run seed:e2e`.
-  Between separate invocations, run `npx astro dev stop` and verify the ports are free — teardown
-  can race a rapidly chained next run (stale daemon holds the front port and Playwright refuses
-  to boot with `reuseExistingServer: false`).
+  The frontend webServer entry runs astro dev in the FOREGROUND (`--ignore-lock`, which opts out
+  of Astro 7's agent auto-daemonizing): Playwright owns the server process, so per-project runs
+  chain back-to-back on the same ports with no zombie cleanup between invocations.
 - **Device matrix**: the public surface (`catalog`, `cart`, `wishlist`, `detail-volume`, `home` specs)
   runs once per device project — `public-mobile` 375x812 (<640px: 1-col grid, drawers),
   `public-tablet` 700x800 (640-768px: 2-col grid + mobile drawer UI), `public-pc` 1280x800
