@@ -277,3 +277,35 @@ foreground lifecycle fix = `0ff4d08`; T5 = `1ec7d1c`; the typed form-factor gate
   `--workers=1` on ports 4322/8788 — the mode that survives — and multi-project invocations are
   documented as environment-fragile. This is an environment constraint to report, not a defect to
   patch in the specs.
+
+- **L16 (delivery evidence on the frozen tip)** — the eight invocations were run once on the branch
+  tip (`3e8632c`, code identical to `e0f1caf`) with `--workers=1` on ports 4322/8788, machine load
+  8,36 at start and 5,30 at the end:
+
+  | project | result | time | signals |
+  |---|---|---|---|
+  | `chromium` | 73 passed / 0 failed | 110 s | 0 `Failed to fetch`, 0 wrangler exits |
+  | `public-mobile` | 62 passed / 0 failed | 106 s | 0 / 0 |
+  | `public-tablet` | 39 passed / 0 failed | 73 s | 0 / 0 |
+  | `public-pc` | 55 passed / 0 failed | 93 s | 0 / 0 |
+  | `admin-mobile` | 45 passed / 0 failed | 158 s | 0 / 0 |
+  | `admin-tablet` (1st) | 36 passed / **3 failed** / 6 did not run | 254 s | 9 `Failed to fetch`, **1 wrangler exit** |
+  | `admin-tablet` (retry) | 45 passed / 0 failed | 167 s | 0 / 0 |
+  | `admin-pc` | 45 passed / 0 failed | 164 s | 0 / 0 |
+  | `admin-touch` | 6 passed / 0 failed | 29 s | 0 / 0 |
+
+  The first `admin-tablet` attempt is the L14/L15 incident again, caught in the act and killed by the
+  retry: the backend log stops right after `✓ 36 promotions.spec.ts:345` ("replacing an image deletes
+  the old R2 object"), wrangler exits with the empty `✘ [ERROR]`, and everything after is backend-less
+  (`spa-revisit` hits `Failed to fetch` on `products.astro`, `uploads` a 60 s `locator.click` timeout,
+  `users` a 30 s `locator.fill` timeout plus `Failed to fetch` on `users.astro`). **Not deterministic**:
+  the immediate retry passed that same test and all 45, with zero signals — as did job-40 with the
+  whole file alone. Worth noting as an unresolved lead only: two of the three recorded deaths
+  (job-38, this one) land at the same file boundary — right after `promotions.spec.ts:345`, which is
+  also the R2-touching test, i.e. the instant before `spa-revisit.spec.ts`'s `beforeAll` reseed —
+  while the third (job-39) landed inside `promotions.spec.ts` with no file boundary at all; a
+  deterministic cause is refuted by the green retries, so it stays a lead, not a diagnosis.
+
+  Unit and type checks on the frozen tip: `vitest` **1361 passed (73 files)**, `tsc --noEmit` **273
+  errors = the pre-existing baseline** (no new type errors from this branch). `astro check` remains
+  unusable on this repo ("does not currently support TypeScript 7.0"), which is why `tsc` is the A/B.
